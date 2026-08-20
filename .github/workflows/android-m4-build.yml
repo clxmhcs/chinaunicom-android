@@ -1,0 +1,94 @@
+name: Android M4 Network
+
+on:
+  push:
+    branches:
+      - migration/android-m4-network
+  pull_request:
+    paths:
+      - "app/**"
+      - "core/model/**"
+      - "core/parser/**"
+      - "core/network/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/android-m4-build.yml"
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  network-test-and-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+
+      - name: Ensure Android API 37 SDK
+        shell: bash
+        run: |
+          PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && $1 ~ /android-37/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
+          if [ -z "$PLATFORM_PACKAGE" ]; then
+            echo "ERROR: Android API 37 platform package was not found."
+            exit 1
+          fi
+          echo "ANDROID_API_37_PLATFORM_PACKAGE=$PLATFORM_PACKAGE"
+          sdkmanager --channel=3 "$PLATFORM_PACKAGE"
+
+      - name: Test M4 network and assemble app
+        id: verify
+        continue-on-error: true
+        run: gradle :core:network:testDebugUnitTest :core:parser:testDebugUnitTest :app:assembleDebug --stacktrace
+
+      - name: Upload M4-F debug APK
+        id: package
+        if: steps.verify.outcome == 'success'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: chinaunicom-m4-f-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish M4 network status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const verified = '${{ steps.verify.outcome }}' === 'success';
+            const packaged = '${{ steps.package.outcome }}' === 'success';
+            const passed = verified && packaged;
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: passed ? 'success' : 'failure',
+              context: 'android-m4-network',
+              description: passed ? 'M4 tests, assembleDebug and APK artifact passed' : 'M4 verification or APK artifact failed',
+              target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });
+
+      - name: Fail workflow when M4 verification failed
+        if: always() && (steps.verify.outcome != 'success' || steps.package.outcome != 'success')
+        run: exit 1

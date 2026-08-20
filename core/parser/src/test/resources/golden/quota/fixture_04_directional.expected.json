@@ -1,0 +1,1 @@
+{"packageName":"视频套餐","status":"available","flows":[{"id":"F004","name":"视频定向免流包","total":"30720.0000","used":"5120.0000","remaining":"25600.0000","quota":"limited","category":"directed","shared":false,"shareScope":"unshared","carry":"none","rawType":"mlresources","rawCode":"F004"}],"voices":[]}

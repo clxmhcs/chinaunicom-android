@@ -1,0 +1,45 @@
+{
+  "data": {
+    "viceCardLits": [
+      {"number":"138****0001","secretNumber":"S1","numberFlag":"0"},
+      {"number":"139****0002","secretNumber":"S2","numberFlag":"1"}
+    ],
+    "flowSumList": [
+      {"flowtype":"1","xcanusevalue":8192,"xusedvalue":2048},
+      {"flowtype":"2","xcanusevalue":1024,"xusedvalue":512}
+    ],
+    "resources": [
+      {
+        "type":"flow",
+        "details":[
+          {"feePolicyId":"RF1","feePolicyName":"国内通用流量","flowType":"1","resourceType":"01","total":10240,"use":2048,"remain":8192,"viceCardlist":[{"usernumber":"138****0001","viceCardflag":"1","use":1536,"currentLoginFlag":"1"}]}
+        ]
+      },
+      {
+        "type":"voice",
+        "remainResource":120,
+        "userResource":180,
+        "details":[{"feePolicyId":"RV1","feePolicyName":"国内语音","resourceType":"02","total":300,"remain":120,"use":180}]
+      },
+      {
+        "type":"sms",
+        "remainResource":40,
+        "userResource":60,
+        "details":[{"feePolicyId":"RS1","feePolicyName":"国内短信","resourceType":"03","total":100,"remain":40,"use":60}]
+      }
+    ],
+    "shareData": {
+      "viceCardList": [
+        {"usernumber":"138****0001","viceCardflag":"1","use":1536,"currentLoginFlag":"1"},
+        {"usernumber":"139****0002","viceCardflag":"0","use":512,"currentLoginFlag":"0"}
+      ],
+      "details": [
+        {"feePolicyId":"UL1","feePolicyName":"国内不限量流量","flowType":"1","resourceType":"01","total":0,"use":5120,"remain":0,"limited":"1","speedLimitText":"达10GB后限速"}
+      ]
+    },
+    "unshared": [
+      {"type":"voice","details":[{"feePolicyId":"RV2","feePolicyName":"非共享语音","resourceType":"02","total":50,"remain":30,"use":20}]},
+      {"type":"sms","details":[{"feePolicyId":"RS2","feePolicyName":"非共享短信","resourceType":"03","total":20,"remain":10,"use":10}]}
+    ]
+  }
+}

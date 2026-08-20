@@ -1,0 +1,1 @@
+{"packageName":"共享套餐","status":"available","flows":[{"id":"F003","name":"家庭共享流量","total":"20480.0000","used":"5120.0000","remaining":"15360.0000","quota":"limited","category":"general","shared":true,"shareScope":"shared","carry":"included","rawType":"flow","rawCode":"F003"}],"voices":[]}

@@ -1,0 +1,15 @@
+{
+  "code": "success",
+  "productname": "视频套餐",
+  "flowList": [
+    {
+      "feePolicyId": "F004",
+      "feePolicyName": "视频定向免流包",
+      "resourceType": "mlresources",
+      "totalTxt": "30GB",
+      "remainTxt": "25GB",
+      "freeFlow": true,
+      "typemark": "1"
+    }
+  ]
+}

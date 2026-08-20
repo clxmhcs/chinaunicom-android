@@ -1,0 +1,13 @@
+Android-M0 iOS visual asset SHA-256 baseline
+
+d34dd910780aca25f033d7cb16eee64d169779fb4c61ce3b83caa69fac30230f   1205903  ChinaUnicom/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+92d7b8dcddb927f2aac8af9056dd300ea2fdffc48e5203003b44991c1284c9ee     11780  ChinaUnicom/Assets.xcassets/ChinaUnicomKnotWatermark.imageset/ChinaUnicomKnotWatermark.png
+59db502302f692240b72e1dfc2387934c43c136138ed2c2a1c6feb1f63925117     43324  ChinaUnicom/Assets.xcassets/ChinaUnicomLaunchBackground.imageset/ChinaUnicomLaunchBackground.jpg
+c910724879fc7a53732aee40397f48ee5fcd3fb3e2a8c5c3f795e5fe9e2f215a    560542  ChinaUnicom/Assets.xcassets/ChinaUnicomLaunchLogo.imageset/ChinaUnicomLaunchLogo.png
+24f5fd111e58c4bbb3f7a9eecbb6e041fac8f720f3d16802693ccdad416fe92a    535491  ChinaUnicom/Assets.xcassets/InfoWindCampusIcon.imageset/InfoWindCampusIcon.png
+722059dafc229c02a3e68b8dec88c4cd55d36a46ecdd46f81633437ba7415d51      6915  ChinaUnicom/Assets.xcassets/InfoWindCellMap.imageset/InfoWindCellMap.png
+ef70771455b3cabda2613c45613593216c893969c6ec15b19a168ea03ae4cce3     35754  ChinaUnicom/Assets.xcassets/InfoWindDomesticMap.imageset/InfoWindDomesticMap.png
+c86d0dfe5c957dafd35e1e8a3af793a72429a8da6cb5786cbf19ac1f53a74da9    566569  ChinaUnicom/Assets.xcassets/InfoWindFamilyVoice.imageset/InfoWindFamilyVoice.png
+8ea876aac1e7cab1201e24eb124743d9333830d37bfb88b6c891c8b6b37e114e    326343  ChinaUnicom/Assets.xcassets/InfoWindMediumBackground.imageset/InfoWindMediumBackground.png
+7e038867bb9682f3b0137143bf5ca6dacb7c109e54bbcac0942df5492b30c75f      7363  ChinaUnicom/Assets.xcassets/InfoWindProvinceMap.imageset/InfoWindProvinceMap.png
+9fdcc250aabf69a59d2a283d4c403721fe3a33cecac8982f019efa12d37f2b2a    643527  ChinaUnicom/Assets.xcassets/ReceiptSIMCardIcon.imageset/ReceiptSIMCardIcon.png
