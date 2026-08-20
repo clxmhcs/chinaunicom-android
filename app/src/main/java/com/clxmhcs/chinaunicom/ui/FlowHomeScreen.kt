@@ -17,7 +17,7 @@ import com.clxmhcs.chinaunicom.ui.components.UnicomHeader
 import com.clxmhcs.chinaunicom.ui.components.UnicomQuotaCard
 
 /**
- * M4-G2-C3
+ * M4-G2-C4
  * Flow page consumes BusinessOverview quota data.
  */
 @Composable
@@ -27,6 +27,12 @@ fun FlowHomeScreen(
     val overview by flowViewModel.overview.collectAsState()
     val account = overview.accounts.firstOrNull()
     val quota = account?.remainingData?.firstOrNull()
+
+    val progress = if (quota != null && quota.total != null && quota.total > 0) {
+        quota.used.toFloat() / quota.total.toFloat()
+    } else {
+        0f
+    }
 
     Column(
         modifier = Modifier
@@ -41,14 +47,15 @@ fun FlowHomeScreen(
             UnicomQuotaCard(
                 title = account?.maskedNumber ?: "中国联通号码",
                 subtitle = quota?.title ?: "套餐流量",
-                remaining = if (quota?.total != null && quota.used != null) {
-                    "剩余 ${quota.total - quota.used}${quota.unit}"
+                remaining = if (quota != null) {
+                    "剩余 ${(quota.total - quota.used)}${quota.unit}"
                 } else {
                     "剩余流量 --"
                 },
-                detail = if (quota != null && quota.used != null && quota.total != null) {
+                detail = if (quota != null) {
                     "已用 ${quota.used}${quota.unit} / 总量 ${quota.total}${quota.unit}"
-                } else null
+                } else null,
+                progress = progress
             )
         }
 
