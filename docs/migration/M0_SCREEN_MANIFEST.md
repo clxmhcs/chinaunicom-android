@@ -128,6 +128,6 @@ Android may replace the Apple entry mechanism, but the user flow remains query -
 
 `ChinaUnicom/CaptureTool` contains its own UI and state surface for capture, certificate/MITM, filters, export and diagnostics. It remains excluded from daily-use-complete acceptance until M14.
 
-## Exhaustive source view index
+## M0 screen coverage rule
 
-`M0_VIEW_DECLARATION_INDEX.txt` freezes every detected SwiftUI/Widget `View` declaration in the supplied source and is used to prevent pages/components from silently disappearing during migration.
+Every Android feature introduced in later stages must be traceable to a concrete iOS view or source family documented here (or to a later reviewed addition). CaptureTool views remain intentionally deferred to M14 rather than silently dropped.
