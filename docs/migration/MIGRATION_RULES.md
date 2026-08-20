@@ -51,6 +51,20 @@ Widget or automation code must not create an independent China Unicom query/busi
 
 `CaptureTool` and `ChinaUnicomPacketTunnel` are migrated only after the normal app, widget and automation path is complete. They may not block the daily-use Android app.
 
+## R9 — Screenshot requirements must be disclosed before a stage starts
+
+Before entering any migration step that requires iOS or Android real-device/runtime screenshots, the assistant must tell the project owner in the same step-start response exactly which screenshots are required so they can be uploaded in advance or during that stage.
+
+The request must identify, as applicable:
+
+- exact page/screen name;
+- light mode, dark mode, or both;
+- important UI/data state that must be visible;
+- whether the screenshot must be from iOS, Android, or both;
+- whether sensitive account data must be masked before upload/commit.
+
+If a migration step does not require runtime screenshots, state explicitly that no screenshots are required for that step. A stage must not later be blocked by an undisclosed screenshot requirement unless a newly discovered issue creates a genuinely new requirement; if that happens, document the reason immediately.
+
 ## Stage gate
 
 The migration order is fixed unless explicitly changed by a reviewed decision:
