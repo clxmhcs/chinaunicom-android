@@ -17,11 +17,19 @@ Android-native migration of the existing ChinaUnicom iOS application.
 
 `Android-M2 — Core Data Models Migration` is `PASS / CLOSED`.
 
-`Android-M3 — Quota / Remaining Parser Migration + Golden Tests` is `IMPLEMENTED / PENDING_CI` on branch `migration/android-m3-parsers`.
+`Android-M3 — Quota / Remaining Parser Migration + Golden Tests` is `PASS / CLOSED` on branch `migration/android-m3-parsers`.
 
 M3 adds a UI-independent `core:parser` module derived from the frozen iOS `QuotaParser.swift`, `RemainingQueryParser.swift` and pure formatting rules. Five required quota Golden fixtures plus a full Remaining fixture are sanitized and frozen with expected-output projections.
 
-M4 must not begin until parser unit tests, Golden output parity and the integrated Android debug build pass.
+Real M3 verification evidence:
+
+- GitHub Actions run `32330224609`
+- `gradle :core:parser:testDebugUnitTest :app:assembleDebug --stacktrace` = success
+- `BUILD SUCCESSFUL in 2m 50s`
+- commit status `android-m3-parsers` = success
+- verification commit `af2171e03cbc75e94041efc7961af110ef70fc7d`
+
+`NEXT = Android-M4 — HTTP / Cookie / Session Core`
 
 M0 is closed for progression by explicit migration decision; the missing real iOS light/dark screenshot set remains deferred and mandatory before M7 visual-parity acceptance.
 
