@@ -46,6 +46,8 @@ Preserved behavior:
 - expired codes: `9998`, `999998`, `999999`, `0500`;
 - plain response expiry markers include invalid Cookie / not logged in / relogin / login expired text.
 
+A platform parsing difference found by CI is permanently accounted for: Kotlin serialization accepts a top-level numeric JSON primitive such as `999998`, while the frozen iOS `JSONSerialization` path falls through to plain-text handling for this response shape. Android therefore treats JSON objects/arrays as structured responses but allows JSON primitives to continue into the source-equivalent plain-text expiry-code fallback.
+
 ## M4-C — session activation
 
 `onLine.htm` contract is frozen:
@@ -100,11 +102,39 @@ M4 unit tests cover:
 - response success/expiry markers;
 - RFC3986 form encoding and deterministic key ordering;
 - retry once for I/O and 5xx, no retry for 4xx;
-- expired quota -> activation without old Cookie -> retry with mutated Cookie;
+- raw `999998` response -> session activation -> retry path;
+- activation request excludes the old Cookie;
+- Set-Cookie mutation is applied before quota retry;
 - updated token_online propagation;
 - Widget quota path omits Remaining snapshot;
 - balance endpoint/body/detail parsing;
 - strong unlimited-flow summary limit normalization.
+
+## Automated verification evidence
+
+Initial real CI reached all Kotlin compilation stages but exposed one behavioral mismatch in `UnicomAPIClientTest.expiredQuotaActivatesWithoutOldCookieThenRetriesWithMutatedCookie`: raw `999998` was accepted as a Kotlin JSON primitive and did not enter the plain-text expiry fallback, producing `NoPackages`. No Golden expectation or parser behavior was weakened to hide the failure.
+
+The source-equivalent fallback was fixed in commit:
+
+`107a3806cdc0ce7d745fb7ea4f9a3dff5db5d649`
+
+Final GitHub Actions verification:
+
+- run: `32331797633`
+- job: `96313727291` (`network-test-and-build`)
+- Android SDK platform: `platforms;android-37.0`
+- command: `gradle :core:network:testDebugUnitTest :core:parser:testDebugUnitTest :app:assembleDebug --stacktrace`
+- `:core:network:compileDebugKotlin` = success
+- `:core:network:compileDebugUnitTestKotlin` = success
+- `:core:network:testDebugUnitTest` = success
+- `:core:parser:testDebugUnitTest` = success
+- `:app:compileDebugKotlin` = success
+- `:app:assembleDebug` = success
+- Gradle result: `BUILD SUCCESSFUL in 2m 40s`
+- `121 actionable tasks: 121 executed`
+- workflow job conclusion = success
+- commit status `android-m4-network` = success
+- failure guard = skipped as expected
 
 ## Acceptance gates
 
@@ -118,13 +148,13 @@ M4 unit tests cover:
 - [x] balance endpoint and detail parser implemented
 - [x] no real credentials in tests
 - [x] Android 11 / API 30 minimum preserved
-- [ ] `:core:network:testDebugUnitTest` succeeds in GitHub Actions
-- [ ] existing `:core:parser:testDebugUnitTest` still succeeds
-- [ ] `:app:assembleDebug` succeeds with `core:network` integrated
-- [ ] commit status `android-m4-network=success` observed
+- [x] `:core:network:testDebugUnitTest` succeeds in GitHub Actions
+- [x] existing `:core:parser:testDebugUnitTest` still succeeds
+- [x] `:app:assembleDebug` succeeds with `core:network` integrated
+- [x] commit status `android-m4-network=success` observed
 - [ ] M4-F real iOS/Android account-query parity performed
 
-`M4_RESULT = IMPLEMENTED / PENDING_CI_AND_REAL_PARITY`
+`M4_RESULT = AUTOMATED_PASS / REAL_PARITY_PENDING`
 
 ## Screenshot requirement
 
@@ -132,6 +162,19 @@ No real-device UI screenshots are required for M4-A through M4-E. M4-F requires 
 
 ## M4-F real parity gate
 
-After automated CI is green, M4 remains open until a real account can verify the same quota/balance/session behavior on iOS and Android without committing secrets. Required evidence will be defined before the M4-F run and must redact Cookie, appId, token_online, password, SMS codes and identity data.
+Automated CI is green. M4 remains open until a real account verifies the same quota/balance/session behavior on iOS and Android without committing secrets.
 
+The M4-F harness/evidence must obey these constraints:
+
+- use the same China Unicom account on iOS and Android;
+- compare parsed flow packages, voice packages, quota status and balance values;
+- compare session-expiry/reactivation behavior when it occurs naturally or can be tested without exposing credentials;
+- redact subscriber/account identifiers in any saved evidence;
+- never save or upload raw Cookie, appId, token_online, password, SMS code or captcha;
+- no authenticated response body may be committed to Git;
+- Android diagnostic output must report normalized result fields only, not credential/header material.
+
+M4 is not `CLOSED` and M5 remains blocked until this gate passes.
+
+`NEXT = Android-M4-F — Real iOS / Android Same-Account Query Parity`
 `NEXT_AFTER_M4_PASS = Android-M5 — Login + Security Storage`
