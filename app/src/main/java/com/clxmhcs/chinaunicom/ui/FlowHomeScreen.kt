@@ -6,21 +6,27 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.clxmhcs.chinaunicom.ui.components.UnicomBottomNavigationBar
 import com.clxmhcs.chinaunicom.ui.components.UnicomHeader
 import com.clxmhcs.chinaunicom.ui.components.UnicomQuotaCard
 
 /**
- * M4-G2-B3
- *
- * Flow page assembled from reusable iOS-style components.
- * Business data binding remains isolated for the next stage.
+ * M4-G2-C2
+ * Flow page connected to BusinessOverview state.
  */
 @Composable
-fun FlowHomeScreen() {
+fun FlowHomeScreen(
+    flowViewModel: FlowViewModel = viewModel()
+) {
+    val overview by flowViewModel.overview.collectAsState()
+    val account = overview.accounts.firstOrNull()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -32,9 +38,9 @@ fun FlowHomeScreen() {
             UnicomHeader(title = "流量")
 
             UnicomQuotaCard(
-                title = "中国联通号码",
-                subtitle = "套餐流量",
-                remaining = "剩余流量 -- GB"
+                title = account?.maskedNumber ?: "中国联通号码",
+                subtitle = account?.balance ?: "套餐流量",
+                remaining = "剩余流量待接入"
             )
         }
 
