@@ -53,12 +53,23 @@ jobs:
         with:
           packages: ""
 
-      - name: Ensure Android API 37 SDK
+      - name: Discover Android 17 preview SDK package
         shell: bash
         run: |
           echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-}"
           command -v sdkmanager
-          sdkmanager --channel=3 "platforms;android-37" "build-tools;36.0.0"
+          sdkmanager --list --channel=3 | grep -Ei 'cinnamon|android-37|platforms;android|build-tools;37' || true
+
+      - name: Ensure Android API 37 SDK
+        shell: bash
+        run: |
+          PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && (tolower($0) ~ /cinnamon/ || $1 ~ /android-37/) {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
+          if [ -z "$PLATFORM_PACKAGE" ]; then
+            echo "ERROR: Android 17/API 37 preview platform package was not found."
+            exit 1
+          fi
+          echo "ANDROID_17_PLATFORM_PACKAGE=$PLATFORM_PACKAGE"
+          sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
       - name: Assemble M1 debug APK
         id: build
