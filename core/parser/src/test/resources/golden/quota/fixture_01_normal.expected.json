@@ -1,0 +1,1 @@
+{"packageName":"畅享套餐","status":"available","flows":[{"id":"F001","name":"国内通用流量","total":"10240.0000","used":"4096.0000","remaining":"6144.0000","quota":"limited","category":"general","shared":false,"shareScope":"unshared","carry":"none","rawType":"01","rawCode":"F001"}],"voices":[]}

@@ -21,3 +21,4 @@ rootProject.name = "ChinaUnicomAndroid"
 include(":app")
 include(":core:design")
 include(":core:model")
+include(":core:parser")
