@@ -1,6 +1,7 @@
 package com.clxmhcs.chinaunicom.ui.components
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -14,8 +15,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * M4-G2-C4
- * Quota card with usage progress visualization.
+ * M4-G2-D1
+ * First visual refinement stage for iOS style quota card.
  */
 @Composable
 fun UnicomQuotaCard(
@@ -26,29 +27,35 @@ fun UnicomQuotaCard(
     progress: Float = 0f
 ) {
     Card(
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF1C1C1E)
         )
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
+        Column(
+            modifier = Modifier.padding(24.dp)
+        ) {
             Text(
                 text = title,
                 color = Color.White,
                 fontSize = 20.sp
             )
+
             Text(
                 text = subtitle,
                 color = Color.LightGray,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(top = 12.dp)
+                fontSize = 15.sp,
+                modifier = Modifier.padding(top = 8.dp)
             )
+
             Text(
                 text = remaining,
                 color = Color.White,
-                fontSize = 26.sp,
-                modifier = Modifier.padding(top = 10.dp)
+                fontSize = 28.sp,
+                modifier = Modifier.padding(top = 18.dp)
             )
+
             detail?.let {
                 Text(
                     text = it,
@@ -57,10 +64,13 @@ fun UnicomQuotaCard(
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
+
             if (progress > 0f) {
                 LinearProgressIndicator(
                     progress = { progress.coerceIn(0f, 1f) },
-                    modifier = Modifier.padding(top = 14.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 18.dp)
                 )
             }
         }
