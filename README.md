@@ -17,19 +17,13 @@ Android-native migration of the existing ChinaUnicom iOS application.
 
 `Android-M2 — Core Data Models Migration` is `PASS / CLOSED`.
 
-`Android-M3 — Quota / Remaining Parser Migration + Golden Tests` is `PASS / CLOSED` on branch `migration/android-m3-parsers`.
+`Android-M3 — Quota / Remaining Parser Migration + Golden Tests` is `PASS / CLOSED`.
 
-M3 adds a UI-independent `core:parser` module derived from the frozen iOS `QuotaParser.swift`, `RemainingQueryParser.swift` and pure formatting rules. Five required quota Golden fixtures plus a full Remaining fixture are sanitized and frozen with expected-output projections.
+`Android-M4 — HTTP / Cookie / Session Core` is `IMPLEMENTED / PENDING_CI_AND_REAL_PARITY` on branch `migration/android-m4-network`.
 
-Real M3 verification evidence:
+M4 adds the UI-independent `core:network` module for HTTP retry policy, explicit Cookie/Set-Cookie mutation, session-expiry detection, `appId/token_online` reactivation, quota API, balance API and Remaining unlimited-response normalization.
 
-- GitHub Actions run `32330224609`
-- `gradle :core:parser:testDebugUnitTest :app:assembleDebug --stacktrace` = success
-- `BUILD SUCCESSFUL in 2m 50s`
-- commit status `android-m3-parsers` = success
-- verification commit `af2171e03cbc75e94041efc7961af110ef70fc7d`
-
-`NEXT = Android-M4 — HTTP / Cookie / Session Core`
+M4 automated acceptance must pass `:core:network:testDebugUnitTest`, the existing M3 parser tests, integrated `:app:assembleDebug`, and commit status `android-m4-network=success`. M4-F then performs sanitized real iOS/Android same-account query parity before M5 is authorized.
 
 M0 is closed for progression by explicit migration decision; the missing real iOS light/dark screenshot set remains deferred and mandatory before M7 visual-parity acceptance.
 
@@ -39,4 +33,5 @@ See:
 - [`docs/migration/M1_BASELINE.md`](docs/migration/M1_BASELINE.md)
 - [`docs/migration/M2_BASELINE.md`](docs/migration/M2_BASELINE.md)
 - [`docs/migration/M3_BASELINE.md`](docs/migration/M3_BASELINE.md)
+- [`docs/migration/M4_BASELINE.md`](docs/migration/M4_BASELINE.md)
 - [`docs/migration/MIGRATION_RULES.md`](docs/migration/MIGRATION_RULES.md)
