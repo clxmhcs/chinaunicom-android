@@ -76,7 +76,7 @@ Important structures are also declared outside `Models/` and must not be missed:
 - dual-widget snapshots and quota payloads in `WidgetDualSnapshotStore.swift`
 - electronic-receipt cache/index/storage/migration types in electronic-receipt source files
 
-The source declaration inventory is frozen in `M0_MODEL_DECLARATION_INDEX.txt`.
+The model families above plus their concrete source-file references form the M0 model inventory. Every Android M2 type must remain traceable to its source type/file or carry a documented platform-only exception.
 
 ## Android M2 acceptance rule
 
