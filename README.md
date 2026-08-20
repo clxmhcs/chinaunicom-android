@@ -19,11 +19,13 @@ Android-native migration of the existing ChinaUnicom iOS application.
 
 `Android-M3 — Quota / Remaining Parser Migration + Golden Tests` is `PASS / CLOSED`.
 
-`Android-M4 — HTTP / Cookie / Session Core` is `IMPLEMENTED / PENDING_CI_AND_REAL_PARITY` on branch `migration/android-m4-network`.
+`Android-M4 — HTTP / Cookie / Session Core` is `AUTOMATED_PASS / REAL_PARITY_PENDING` on branch `migration/android-m4-network`.
 
 M4 adds the UI-independent `core:network` module for HTTP retry policy, explicit Cookie/Set-Cookie mutation, session-expiry detection, `appId/token_online` reactivation, quota API, balance API and Remaining unlimited-response normalization.
 
-M4 automated acceptance must pass `:core:network:testDebugUnitTest`, the existing M3 parser tests, integrated `:app:assembleDebug`, and commit status `android-m4-network=success`. M4-F then performs sanitized real iOS/Android same-account query parity before M5 is authorized.
+M4 automated acceptance is complete at verification commit `107a3806cdc0ce7d745fb7ea4f9a3dff5db5d649`: `:core:network:testDebugUnitTest`, the existing M3 parser tests, integrated `:app:assembleDebug`, and commit status `android-m4-network=success` all passed in GitHub Actions run `32331797633`.
+
+M4 is not closed yet. M4-F must perform sanitized real iOS/Android same-account quota/balance/session parity before M5 Login + Security Storage is authorized. Raw Cookie, appId, token_online, password, SMS/captcha or authenticated response bodies must never be committed or uploaded as evidence.
 
 M0 is closed for progression by explicit migration decision; the missing real iOS light/dark screenshot set remains deferred and mandatory before M7 visual-parity acceptance.
 
