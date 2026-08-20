@@ -115,6 +115,43 @@ The `app`, `core:design` and new `core:model` modules all use API 30 as the mini
 
 These tests contain no real account credentials or personal data.
 
+## Real CI verification — 2026-08-20
+
+Verification commit:
+
+`17e4e44248544b1254aff360561f84fcc197b484`
+
+GitHub Actions run:
+
+`32328061772`
+
+Job:
+
+`96303242926` (`model-test-and-build`)
+
+The runner discovered and used:
+
+`ANDROID_API_37_PLATFORM_PACKAGE=platforms;android-37.0`
+
+The authoritative verification command was:
+
+`gradle :core:model:testDebugUnitTest :app:assembleDebug --stacktrace`
+
+Observed results:
+
+- `:core:model:compileDebugKotlin` = success
+- `:core:model:compileDebugUnitTestKotlin` = success
+- `:core:model:testDebugUnitTest` = success
+- `:app:compileDebugKotlin` = success
+- `:app:assembleDebug` = success
+- Gradle result = `BUILD SUCCESSFUL in 2m 36s`
+- `78 actionable tasks: 78 executed`
+- workflow job conclusion = `success`
+- commit status `android-m2-models` = `success`
+- failure guard step = skipped, as expected
+
+This closes both the model-unit-test gate and the integrated Android application build gate.
+
 ## Acceptance gates
 
 - [x] `core:model` module exists
@@ -131,11 +168,11 @@ These tests contain no real account credentials or personal data.
 - [x] source-owned computed model semantics ported
 - [x] model parity unit tests added
 - [x] project minimum corrected to Android 11 / API 30
-- [ ] `:core:model:testDebugUnitTest` succeeds in GitHub Actions
-- [ ] `:app:assembleDebug` succeeds with `core:model` integrated
-- [ ] commit status `android-m2-models=success` observed
+- [x] `:core:model:testDebugUnitTest` succeeds in GitHub Actions
+- [x] `:app:assembleDebug` succeeds with `core:model` integrated
+- [x] commit status `android-m2-models=success` observed
 
-`M2_RESULT = IMPLEMENTED / PENDING_CI`
+`M2_RESULT = PASS / CLOSED`
 
 ## Screenshot requirement
 
@@ -143,6 +180,6 @@ No iOS or Android real-device screenshots are required for M2. Visual parity rem
 
 ## Next stage gate
 
-M3 remains blocked until all three CI acceptance checks above pass.
+M2 acceptance is complete. M3 is authorized.
 
-`NEXT_AFTER_PASS = Android-M3 — Quota / Remaining Parser Migration + Golden Tests`
+`NEXT = Android-M3 — Quota / Remaining Parser Migration + Golden Tests`
