@@ -72,7 +72,8 @@ jobs:
               sha: context.sha,
               state: passed ? 'success' : 'failure',
               context: 'android-m4-network',
-              description: passed ? 'M4 network tests and assembleDebug passed' : 'M4 network verification failed'
+              description: passed ? 'M4 network tests and assembleDebug passed' : 'M4 network verification failed',
+              target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
 
       - name: Fail workflow when M4 verification failed
