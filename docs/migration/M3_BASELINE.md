@@ -111,6 +111,46 @@ M3 also tests:
 
 The app depends on `core:parser` only to ensure the parser module participates in the integrated Android build. No M4 networking is introduced.
 
+## Real CI verification — 2026-08-20
+
+The first real M3 build reached Kotlin compilation and exposed one implementation-only type-boundary error in `RemainingQueryParser`: the recursive speed-limit leaf scan could hold `JsonElement?`, while the capacity helper accepted only a non-null element. The expected Golden outputs were not altered to hide this failure. The helper boundary was made nullable-safe without changing parser business semantics.
+
+Final verification commit:
+
+`af2171e03cbc75e94041efc7961af110ef70fc7d`
+
+GitHub Actions run:
+
+`32330224609`
+
+Job:
+
+`96309303999` (`parser-test-and-build`)
+
+The runner discovered and used:
+
+`ANDROID_API_37_PLATFORM_PACKAGE=platforms;android-37.0`
+
+The authoritative verification command was:
+
+`gradle :core:parser:testDebugUnitTest :app:assembleDebug --stacktrace`
+
+Observed results:
+
+- `:core:parser:compileDebugKotlin` = success
+- `:core:parser:compileDebugUnitTestKotlin` = success
+- `:core:parser:testDebugUnitTest` = success
+- all frozen Quota/Remaining Golden projections = success
+- `:app:compileDebugKotlin` = success
+- `:app:assembleDebug` = success
+- Gradle result = `BUILD SUCCESSFUL in 2m 50s`
+- `97 actionable tasks: 97 executed`
+- workflow job conclusion = `success`
+- commit status `android-m3-parsers` = `success`
+- failure guard step = skipped, as expected
+
+This closes the parser compilation, Golden parity and integrated Android application build gates for M3.
+
 ## Acceptance gates
 
 - [x] `core:parser` module exists
@@ -124,18 +164,18 @@ The app depends on `core:parser` only to ensure the parser module participates i
 - [x] no real account secrets in fixtures
 - [x] parser layer has no Compose dependency
 - [x] parser layer has no HTTP/Cookie/login dependency
-- [ ] `:core:parser:testDebugUnitTest` succeeds in GitHub Actions
-- [ ] `:app:assembleDebug` succeeds with `core:parser` integrated
-- [ ] commit status `android-m3-parsers=success` observed
+- [x] `:core:parser:testDebugUnitTest` succeeds in GitHub Actions
+- [x] `:app:assembleDebug` succeeds with `core:parser` integrated
+- [x] commit status `android-m3-parsers=success` observed
 
-`M3_RESULT = IMPLEMENTED / PENDING_CI`
+`M3_RESULT = PASS / CLOSED`
 
 ## Screenshot requirement
 
-No iOS or Android real-device screenshots are required for M3. Golden parser parity is data/behavior based. Real visual screenshots remain mandatory at the M7 visual-parity gate.
+No iOS or Android real-device screenshots were required for M3. Golden parser parity is data/behavior based. Real visual screenshots remain mandatory at the M7 visual-parity gate.
 
 ## Next stage gate
 
-M4 remains blocked until all three CI acceptance checks above pass.
+M3 acceptance is complete. M4 is authorized.
 
-`NEXT_AFTER_PASS = Android-M4 — HTTP / Cookie / Session Core`
+`NEXT = Android-M4 — HTTP / Cookie / Session Core`
