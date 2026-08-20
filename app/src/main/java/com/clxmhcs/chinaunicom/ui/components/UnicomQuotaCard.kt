@@ -13,18 +13,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Reusable iOS-style quota card.
- *
- * subtitle is separated so the same component can represent:
- * - package title
- * - quota category
- * - remaining value
+ * M4-G2-C3
+ * Quota card bound to migrated quota model fields.
  */
 @Composable
 fun UnicomQuotaCard(
     title: String,
     subtitle: String,
-    remaining: String
+    remaining: String,
+    detail: String? = null
 ) {
     Card(
         shape = RoundedCornerShape(28.dp),
@@ -50,6 +47,14 @@ fun UnicomQuotaCard(
                 fontSize = 26.sp,
                 modifier = Modifier.padding(top = 10.dp)
             )
+            detail?.let {
+                Text(
+                    text = it,
+                    color = Color.LightGray,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
         }
     }
 }
