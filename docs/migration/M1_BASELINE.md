@@ -7,22 +7,24 @@ M1 establishes only the Android application shell and source-derived visual foun
 ## Toolchain freeze
 
 - Android Gradle Plugin: `9.3.0`
-- Gradle runtime expected by AGP: `9.5.0`
+- Gradle: `9.5.0`
 - JDK: `17`
 - Kotlin/Compose compiler plugin: `2.3.21`
 - Compose BOM: `2026.06.01`
 - compileSdk: `37`
 - targetSdk: `36`
 - minSdk: `26`
-- Navigation Compose: `2.10.0`
+- Activity Compose: `1.13.0`
+- Lifecycle: `2.10.0`
+- Navigation Compose: `2.9.8`
 
-`targetSdk 36` is intentional for M1. The project compiles against API 37 for current Compose compatibility while Android 17 target-behavior adoption remains a later reviewed migration decision.
+`targetSdk 36` is intentional for M1. The project compiles against API 37 while Android 17 target-behavior adoption remains a later reviewed migration decision.
 
 ## M1 implementation
 
 - `app` application module
 - `core:design` design-system module
-- five root destinations in the iOS order:
+- five root destinations in the frozen iOS order:
   1. 流量
   2. 语音
   3. 综合业务
@@ -31,7 +33,7 @@ M1 establishes only the Android application shell and source-derived visual foun
 - Navigation Compose root navigation
 - source-derived brand color, page spacing, card radii and 36sp major hierarchy
 - light/dark theme with dynamic color intentionally disabled
-- no `INTERNET` permission and no network dependency/client
+- no `INTERNET` permission and no Unicom network dependency/client
 
 ## Visual rule
 
@@ -39,77 +41,72 @@ The M1 shell may use provisional Android mappings for iOS semantic system colors
 
 The root tab icons are temporary local text glyphs in M1. They are not accepted as final icon parity and must be replaced by traceable app-owned vector assets before M7 visual acceptance.
 
-## M1 build-verification attempt — 2026-08-20
+## Build verification — 2026-08-20
 
-Build verification was attempted on branch `migration/android-m1-skeleton` and Draft PR #1.
+Build verification was performed on branch `migration/android-m1-skeleton` through Draft PR #1.
 
-### Initial GitHub Actions verification
+### Runner recovery and isolation
 
-`.github/workflows/android-m1-build.yml` was configured to:
+Early PR runs failed before any workflow step could start. A shell-only `runner-probe` was added to distinguish hosted-runner allocation failures from Android build failures. The same pre-step failure was reproduced on Ubuntu and macOS, and later disappeared when the hosted runner became available again.
 
-- configure JDK 17;
-- install Gradle 9.5.0 with `gradle/actions/setup-gradle`;
-- install Android API 37 and Build Tools 36.0.0;
-- run `gradle :app:assembleDebug --stacktrace`;
-- publish a commit status named `android-m1-build` as success/failure.
+Once runner execution recovered, `runner-probe` completed successfully and the Android build pipeline was allowed to proceed.
 
-The PR-triggered workflow run `32326003597` failed. Its `assemble-debug` job failed before any workflow step was recorded. Re-running that job produced the same zero-step failure. Job log retrieval returned `BlobNotFound`, so there is no Gradle/Kotlin/compiler log for either attempt.
+### Android 17 / API 37 SDK discovery
 
-### Hosted-runner isolation probe — Ubuntu
+The current SDK repository does not expose the required platform as `platforms;android-37`. CI therefore uses `sdkmanager --list --channel=3` to discover the actual API 37 package.
 
-To determine whether Android source/configuration caused the failure, commit `b6f6b88730f90679331367ca6df41b62d513a329` added a `runner-probe` job using explicit `ubuntu-24.04` with one shell-only step:
+The successful verification run observed:
 
-```text
-echo "RUNNER_PROBE=PASS"
-uname -a
-```
+- `platforms;android-37.0`
+- `platforms;android-37.1`
+- later 37.2 preview packages
+- `build-tools;37.0.0`
 
-This probe has no checkout, Java, Gradle, Android SDK or third-party Action dependency.
+M1 selected and installed `platforms;android-37.0`, which satisfied `compileSdk = 37`.
 
-PR workflow run `32326192456` produced:
+### Dependency correction
 
-- `runner-probe`: `failure`
-- recorded steps: none
-- `assemble-debug`: `skipped` because it depends on `runner-probe`
+The first real Gradle run reached dependency resolution and correctly exposed one M1 configuration error:
 
-### Hosted-runner isolation probe — macOS
+`androidx.navigation:navigation-compose:2.10.0`
 
-To rule out an Ubuntu-specific runner-pool/image issue, commit `dfdd231cf0834b0a98d6bab54cc87b68d80adb51` changed the same shell-only probe and build job to explicit `macos-15`.
+was not available as a stable artifact. M1 was corrected to the current stable Navigation release used by this project:
 
-PR workflow run `32326270265` produced the same result:
+`androidx.navigation:navigation-compose:2.9.8`
 
-- `runner-probe`: `failure`
-- recorded steps: none
-- `assemble-debug`: `skipped`
+No business behavior or UI architecture was changed by this correction.
 
-Because both the Ubuntu and macOS hosted-runner pools fail before the first shell command, the current failure is not isolated to an Ubuntu image or to the Android build toolchain.
+### Final real build
 
-Therefore the build gate is blocked **before GitHub assigns/starts a usable hosted runner job**. This evidence rules out the current Android Kotlin/Compose sources as the cause of these specific workflow failures because the isolated shell-only probe never reaches its first command.
+Verification commit:
 
-GitHub's public status page was checked during this investigation and reported **All Systems Operational**, with Actions marked Operational. That does not identify the account/repository-specific cause; it only means there was no declared platform-wide Actions outage at the time of the check.
+`7ce1c771716e4994f611895b79a60540a63af8d7`
 
-### Local fallback path
+GitHub Actions run:
 
-The available local execution environment was also checked:
+`32327051021`
 
-- Java: OpenJDK 21 is present;
-- Gradle: not installed;
-- Android SDK / `sdkmanager`: not installed;
-- outbound DNS/download access is unavailable in that execution environment, so the official Android/Gradle toolchain cannot be provisioned there during this stage.
+Results:
 
-Therefore the local fallback cannot perform a real Android build in the current environment.
+- `runner-probe` = `success`
+- Checkout = `success`
+- JDK 17 setup = `success`
+- Gradle 9.5 setup = `success`
+- Android SDK tools setup = `success`
+- API 37 package discovery = `success`
+- API 37 platform installation = `success`
+- `gradle :app:assembleDebug --stacktrace` = `success`
+- published commit status `android-m1-build` = `success`
+- failure guard step = `skipped`, as expected
+- `assemble-debug` job conclusion = `success`
 
-### Interpretation
+The GitHub commit status for the verification commit is also:
 
-This is **not** evidence that the Android sources fail compilation. It is also **not** acceptable evidence of a successful build.
+`android-m1-build = success`
 
-The verification blocker is now classified as:
+This is the required real Android build evidence for M1 closure.
 
-`BUILD_EXECUTION_BLOCKER = GITHUB_HOSTED_RUNNER_JOB_NOT_STARTING_ACROSS_UBUNTU_AND_MACOS`
-
-The exact repository/account cause (for example Actions account/billing/quota policy, hosted-runner allocation restriction, or another repository/account execution limitation) cannot be determined from the currently exposed GitHub connector because repository Actions billing/runner-allocation settings are not available through it.
-
-No runtime screenshots are required for this verification step.
+No runtime screenshots were required for this build-verification step.
 
 ## M1 acceptance gates
 
@@ -124,17 +121,19 @@ No runtime screenshots are required for this verification step.
 - [x] `ChinaUnicomTypography.kt` exists
 - [x] no Unicom business networking introduced
 - [x] Draft PR #1 exists for real CI verification
-- [x] Ubuntu hosted-runner probe isolates failure before workflow steps begin
-- [x] macOS hosted-runner probe reproduces the same pre-step failure
-- [ ] real `:app:assembleDebug` execution result observed
+- [x] real API 37 SDK package identified and installed
+- [x] invalid Navigation dependency corrected to stable `2.9.8`
+- [x] real `:app:assembleDebug` execution succeeded
+- [x] machine-readable `android-m1-build=success` observed
 
-`M1_RESULT = BLOCKED_BY_GITHUB_HOSTED_RUNNER_EXECUTION`
+`M1_RESULT = PASS / CLOSED`
 
-## Closure rule
+## Deferred visual debt
 
-M1 may be changed to `PASS / CLOSED` only after one of the following produces a real successful `:app:assembleDebug` result:
+The real iOS screenshot set remains deferred to the M7 visual-parity gate by explicit migration decision. M1 closure does not waive R2: iOS remains the visual truth for app-owned UI.
 
-1. GitHub Actions can start a hosted runner and the M1 workflow completes successfully; or
-2. the project is built with a local Android toolchain and the successful build output is recorded.
+## Next stage gate
 
-M2 must not be declared started before this gate closes unless the project owner explicitly changes the stage gate.
+M2 is now authorized.
+
+`NEXT = Android-M2 — Core Data Models Migration`
