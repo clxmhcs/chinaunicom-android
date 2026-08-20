@@ -50,8 +50,9 @@ fun FlowHomeScreen(
 
             quotas.forEach { quota ->
                 val total = quota.total ?: 0L
+                val used = quota.used ?: 0L
                 val progress = if (total > 0) {
-                    quota.used.toFloat() / total.toFloat()
+                    used.toFloat() / total.toFloat()
                 } else {
                     0f
                 }
@@ -59,8 +60,8 @@ fun FlowHomeScreen(
                 UnicomQuotaCard(
                     title = quota.title,
                     subtitle = account?.maskedNumber ?: "中国联通号码",
-                    remaining = "剩余 ${formatQuota(total - quota.used, quota.unit)}",
-                    detail = "已用 ${formatQuota(quota.used, quota.unit)} / 总量 ${formatQuota(total, quota.unit)}",
+                    remaining = "剩余 ${formatQuota(total - used, quota.unit)}",
+                    detail = "已用 ${formatQuota(used, quota.unit)} / 总量 ${formatQuota(total, quota.unit)}",
                     progress = progress
                 )
             }
