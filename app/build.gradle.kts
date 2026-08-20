@@ -9,10 +9,10 @@ android {
 
     defaultConfig {
         applicationId = "com.clxmhcs.chinaunicom"
-        minSdk = 26
+        minSdk = 30
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0-m1"
+        versionName = "0.2.0-m2"
     }
 
     buildTypes {
@@ -43,6 +43,7 @@ android {
 
 dependencies {
     implementation(project(":core:design"))
+    implementation(project(":core:model"))
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
