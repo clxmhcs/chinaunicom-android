@@ -1,0 +1,20 @@
+{
+  "code": "0",
+  "packageName": "冰激凌套餐",
+  "resources": [
+    {
+      "type": "flow",
+      "details": [
+        {
+          "feePolicyId": "F002",
+          "feePolicyName": "国内不限量流量",
+          "resourceType": "01",
+          "total": -1,
+          "useTxt": "12 GB",
+          "remain": -12288,
+          "typemark": "0"
+        }
+      ]
+    }
+  ]
+}

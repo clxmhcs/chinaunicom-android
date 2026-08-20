@@ -1,0 +1,31 @@
+{
+  "code": "0000",
+  "productname": "畅享套餐",
+  "resources": [
+    {
+      "type": "flow",
+      "details": [
+        {
+          "feePolicyId": "F001",
+          "feePolicyName": "国内通用流量",
+          "resourceType": "01",
+          "totalTxt": "10 GB",
+          "remainTxt": "6 GB",
+          "useTxt": "4 GB",
+          "typemark": "1",
+          "endDate": "2099-12-31"
+        },
+        {
+          "feePolicyId": "F001",
+          "feePolicyName": "国内通用流量",
+          "resourceType": "01",
+          "totalTxt": "10 GB",
+          "remainTxt": "6 GB",
+          "useTxt": "4 GB",
+          "typemark": "1",
+          "endDate": "2099-12-31"
+        }
+      ]
+    }
+  ]
+}

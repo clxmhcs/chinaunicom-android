@@ -1,0 +1,19 @@
+{
+  "code": 200,
+  "productname": "共享套餐",
+  "shareData": {
+    "details": [
+      {
+        "feePolicyId": "F003",
+        "feePolicyName": "家庭共享流量",
+        "resourceType": "flow",
+        "total": 20480,
+        "remain": 15360,
+        "unit": "MB",
+        "typemark": "0",
+        "mergeFlag": "1",
+        "beforeTotal": 10240
+      }
+    ]
+  }
+}

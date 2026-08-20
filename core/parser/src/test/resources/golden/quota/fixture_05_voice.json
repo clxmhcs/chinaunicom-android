@@ -1,0 +1,15 @@
+{
+  "code": "0000",
+  "productname": "语音套餐",
+  "voiceList": [
+    {
+      "feePolicyId": "V001",
+      "feePolicyName": "国内语音分钟",
+      "resourceType": "02",
+      "totalTxt": "300分钟",
+      "remainTxt": "120分钟",
+      "unit": "分钟",
+      "typemark": "1"
+    }
+  ]
+}
