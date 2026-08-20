@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   runner-probe:
-    runs-on: ubuntu-24.04
+    runs-on: macos-15
     timeout-minutes: 5
     steps:
       - name: Confirm hosted runner starts
@@ -30,7 +30,7 @@ jobs:
 
   assemble-debug:
     needs: runner-probe
-    runs-on: ubuntu-24.04
+    runs-on: macos-15
     timeout-minutes: 20
 
     steps:
