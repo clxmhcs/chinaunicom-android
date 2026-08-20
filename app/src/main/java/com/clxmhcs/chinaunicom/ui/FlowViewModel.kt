@@ -9,13 +9,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * M4-G2-D5
- * Mock account card data bridge for Flow screen.
+ * M4-G2-C4
+ * Flow screen state holder.
+ *
+ * The UI only observes BusinessOverview. Future real Unicom repository
+ * integration should call updateOverview() without changing Compose layer.
  */
 class FlowViewModel : ViewModel() {
 
-    private val _overview = MutableStateFlow(
-        BusinessOverview(
+    private val _overview = MutableStateFlow(createInitialOverview())
+
+    val overview: StateFlow<BusinessOverview> = _overview.asStateFlow()
+
+    fun updateOverview(overview: BusinessOverview) {
+        _overview.value = overview
+    }
+
+    private fun createInitialOverview(): BusinessOverview {
+        return BusinessOverview(
             accounts = listOf(
                 AccountSummary(
                     accountId = "mock-001",
@@ -41,7 +52,5 @@ class FlowViewModel : ViewModel() {
                 )
             )
         )
-    )
-
-    val overview: StateFlow<BusinessOverview> = _overview.asStateFlow()
+    }
 }
