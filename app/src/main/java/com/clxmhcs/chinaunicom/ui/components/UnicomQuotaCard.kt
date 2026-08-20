@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -13,15 +14,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * M4-G2-C3
- * Quota card bound to migrated quota model fields.
+ * M4-G2-C4
+ * Quota card with usage progress visualization.
  */
 @Composable
 fun UnicomQuotaCard(
     title: String,
     subtitle: String,
     remaining: String,
-    detail: String? = null
+    detail: String? = null,
+    progress: Float = 0f
 ) {
     Card(
         shape = RoundedCornerShape(28.dp),
@@ -53,6 +55,12 @@ fun UnicomQuotaCard(
                     color = Color.LightGray,
                     fontSize = 14.sp,
                     modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            if (progress > 0f) {
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier.padding(top = 14.dp)
                 )
             }
         }
