@@ -18,8 +18,8 @@ import com.clxmhcs.chinaunicom.ui.components.UnicomHeader
 import com.clxmhcs.chinaunicom.ui.components.UnicomQuotaCard
 
 /**
- * M4-G2-D5-2
- * Account information separated into UnicomAccountCard.
+ * M4-G2-C3
+ * FlowHomeScreen nullable model contract fixed.
  */
 @Composable
 fun FlowHomeScreen(
@@ -51,8 +51,9 @@ fun FlowHomeScreen(
             quotas.forEach { quota ->
                 val total = quota.total ?: 0L
                 val used = quota.used ?: 0L
-                val progress = if (total > 0) {
-                    used.toFloat() / total.toFloat()
+                val safeUnit = quota.unit ?: "MB"
+                val progress = if (total > 0L) {
+                    (used.toFloat() / total.toFloat()).coerceIn(0f, 1f)
                 } else {
                     0f
                 }
@@ -60,8 +61,8 @@ fun FlowHomeScreen(
                 UnicomQuotaCard(
                     title = quota.title,
                     subtitle = account?.maskedNumber ?: "中国联通号码",
-                    remaining = "剩余 ${formatQuota(total - used, quota.unit)}",
-                    detail = "已用 ${formatQuota(used, quota.unit)} / 总量 ${formatQuota(total, quota.unit)}",
+                    remaining = "剩余 ${formatQuota(total - used, safeUnit)}",
+                    detail = "已用 ${formatQuota(used, safeUnit)} / 总量 ${formatQuota(total, safeUnit)}",
                     progress = progress
                 )
             }
