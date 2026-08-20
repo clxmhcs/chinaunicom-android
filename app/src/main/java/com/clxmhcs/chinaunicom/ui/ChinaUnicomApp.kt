@@ -69,7 +69,7 @@ fun ChinaUnicomApp() {
             startDestination = RootTab.Flow.route,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable(RootTab.Flow.route) { FlowDashboardPlaceholder() }
+            composable(RootTab.Flow.route) { FlowHomeScreen() }
             composable(RootTab.Voice.route) { VoiceDashboardPlaceholder() }
             composable(RootTab.Comprehensive.route) { ComprehensiveBusinessPlaceholder() }
             composable(RootTab.OtherBusiness.route) { OtherBusinessPlaceholder() }
