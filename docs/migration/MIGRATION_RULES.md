@@ -65,6 +65,16 @@ The request must identify, as applicable:
 
 If a migration step does not require runtime screenshots, state explicitly that no screenshots are required for that step. A stage must not later be blocked by an undisclosed screenshot requirement unless a newly discovered issue creates a genuinely new requirement; if that happens, document the reason immediately.
 
+## R10 — Android 11 is the minimum supported system
+
+The Android migration must support **Android 11 and later**. The project-wide minimum SDK is therefore frozen at:
+
+`minSdk = 30`
+
+All Android application/library modules introduced by the migration must use API 30 or a compatible inherited project floor. Lower `minSdk` values are not part of the supported product contract.
+
+M1 historically compiled once with `minSdk = 26`; this was corrected at the M2 entry gate before business-model migration continued. The historical M1 CI evidence remains valid as build evidence, but API 30 is the authoritative product baseline from M2 onward.
+
 ## Stage gate
 
 The migration order is fixed unless explicitly changed by a reviewed decision:
