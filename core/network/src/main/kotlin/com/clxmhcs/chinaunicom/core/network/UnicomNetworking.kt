@@ -139,13 +139,16 @@ object UnicomResponseStatus {
 
     fun responseLooksExpired(data: ByteArray): Boolean {
         val parsed = runCatching { networkJson.parseToJsonElement(data.toString(Charsets.UTF_8)) }.getOrNull()
-        if (parsed != null) {
-            val objectValue = parsed as? JsonObject ?: return false
-            val code = listOf("code", "rsp_code", "status")
-                .asSequence()
-                .mapNotNull { objectValue[it].stringValue()?.trim() }
-                .firstOrNull { it.isNotEmpty() }
-            return isExpired(code)
+        when (parsed) {
+            is JsonObject -> {
+                val code = listOf("code", "rsp_code", "status")
+                    .asSequence()
+                    .mapNotNull { parsed[it].stringValue()?.trim() }
+                    .firstOrNull { it.isNotEmpty() }
+                return isExpired(code)
+            }
+            is JsonArray -> return false
+            else -> Unit
         }
 
         val trimmed = data.toString(Charsets.UTF_8).trim()
