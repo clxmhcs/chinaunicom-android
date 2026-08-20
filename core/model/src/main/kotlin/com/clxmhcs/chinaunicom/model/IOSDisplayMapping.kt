@@ -13,14 +13,20 @@ object IOSDisplayMapping {
     }
 
     fun quotaTitle(item: QuotaItem): String {
-        return item.name
+        return item.title
     }
 
     fun quotaRemaining(item: QuotaItem): String {
-        return "剩余 ${item.remaining} / 共 ${item.total}"
+        val total = item.total ?: 0L
+        val used = item.used ?: 0L
+        val remaining = (total - used).coerceAtLeast(0L)
+        return "剩余 ${remaining}${item.unit} / 共 ${total}${item.unit}"
     }
 
     fun voiceRemaining(item: VoiceSummary): String {
-        return "剩余 ${item.remainingMinutes} 分钟 / 共 ${item.totalMinutes} 分钟"
+        val total = item.totalMinutes ?: 0L
+        val used = item.usedMinutes ?: 0L
+        val remaining = (total - used).coerceAtLeast(0L)
+        return "剩余 ${remaining} 分钟 / 共 ${total} 分钟"
     }
 }
