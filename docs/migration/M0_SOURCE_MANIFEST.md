@@ -48,7 +48,7 @@ Important bundle identifiers present in the project:
 | `ChinaUnicom/CaptureTool` | 236 | 9,004 | M14 capture/MITM implementation |
 | top-level `CaptureTool` | 5 | 63 | M14 capture bridges |
 
-The complete per-file line-count inventory is frozen in `M0_SOURCE_FILE_INDEX.txt`.
+The archive SHA-256, embedded source commit, module counts and concrete source mappings below define the M0 source identity. Later migration work must remain traceable to the corresponding frozen iOS file; generated DerivedData remains excluded.
 
 ## Primary migration mapping
 
