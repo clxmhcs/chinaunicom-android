@@ -15,19 +15,13 @@ Android-native migration of the existing ChinaUnicom iOS application.
 
 `Android-M1 — Project Skeleton + Design System` is `PASS / CLOSED`.
 
-`Android-M2 — Core Data Models Migration` is `PASS / CLOSED` on branch `migration/android-m2-models`.
+`Android-M2 — Core Data Models Migration` is `PASS / CLOSED`.
 
-M2 adds a UI-independent `core:model` module derived directly from the frozen iOS model sources, preserves source-owned model semantics and adds source-parity unit tests.
+`Android-M3 — Quota / Remaining Parser Migration + Golden Tests` is `IMPLEMENTED / PENDING_CI` on branch `migration/android-m3-parsers`.
 
-Real M2 verification evidence:
+M3 adds a UI-independent `core:parser` module derived from the frozen iOS `QuotaParser.swift`, `RemainingQueryParser.swift` and pure formatting rules. Five required quota Golden fixtures plus a full Remaining fixture are sanitized and frozen with expected-output projections.
 
-- GitHub Actions run `32328061772`
-- `gradle :core:model:testDebugUnitTest :app:assembleDebug --stacktrace` = success
-- commit status `android-m2-models` = success
-- verification commit `17e4e44248544b1254aff360561f84fcc197b484`
-- minimum supported Android version is now frozen at Android 11 / API 30
-
-`NEXT = Android-M3 — Quota / Remaining Parser Migration + Golden Tests`
+M4 must not begin until parser unit tests, Golden output parity and the integrated Android debug build pass.
 
 M0 is closed for progression by explicit migration decision; the missing real iOS light/dark screenshot set remains deferred and mandatory before M7 visual-parity acceptance.
 
@@ -36,4 +30,5 @@ See:
 - [`docs/migration/M0_BASELINE.md`](docs/migration/M0_BASELINE.md)
 - [`docs/migration/M1_BASELINE.md`](docs/migration/M1_BASELINE.md)
 - [`docs/migration/M2_BASELINE.md`](docs/migration/M2_BASELINE.md)
+- [`docs/migration/M3_BASELINE.md`](docs/migration/M3_BASELINE.md)
 - [`docs/migration/MIGRATION_RULES.md`](docs/migration/MIGRATION_RULES.md)
