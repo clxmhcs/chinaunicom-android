@@ -12,6 +12,14 @@ Android-native migration of the existing ChinaUnicom iOS application.
 
 ## Current stage
 
-`Android-M0 — iOS migration baseline freeze`
+`Android-M1 — Project Skeleton + Design System`
 
-See [`docs/migration/M0_BASELINE.md`](docs/migration/M0_BASELINE.md).
+Current status: `IMPLEMENTED_PENDING_BUILD_VERIFICATION`.
+
+M0 is closed for progression by explicit migration decision; the missing real iOS light/dark screenshot set remains deferred and mandatory before M7 visual-parity acceptance.
+
+See:
+
+- [`docs/migration/M0_BASELINE.md`](docs/migration/M0_BASELINE.md)
+- [`docs/migration/M1_BASELINE.md`](docs/migration/M1_BASELINE.md)
+- [`docs/migration/MIGRATION_RULES.md`](docs/migration/MIGRATION_RULES.md)
