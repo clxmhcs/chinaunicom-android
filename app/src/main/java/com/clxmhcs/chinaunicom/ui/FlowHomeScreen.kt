@@ -4,21 +4,25 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.clxmhcs.chinaunicom.ui.components.UnicomBottomNavigationBar
 import com.clxmhcs.chinaunicom.ui.components.UnicomHeader
 import com.clxmhcs.chinaunicom.ui.components.UnicomQuotaCard
 
 /**
- * M4-G2-D2
- * Flow page with multiple quota cards and iOS-like data presentation.
+ * M4-G2-D3
+ * Flow page adds balance header and account summary presentation.
  */
 @Composable
 fun FlowHomeScreen(
@@ -37,6 +41,24 @@ fun FlowHomeScreen(
     ) {
         Column {
             UnicomHeader(title = "流量")
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+            ) {
+                Text(
+                    text = "余额",
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
+                Text(
+                    text = account?.balance ?: "--",
+                    color = Color.White,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             quotas.forEach { quota ->
                 val total = quota.total ?: 0L
