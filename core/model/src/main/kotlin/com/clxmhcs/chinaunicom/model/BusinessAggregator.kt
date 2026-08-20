@@ -1,0 +1,30 @@
+package com.clxmhcs.chinaunicom.model
+
+/**
+ * Aggregates raw migrated business models into the UI-facing overview model.
+ *
+ * The aggregation layer intentionally contains no network/session logic.
+ * It only transforms already parsed business data into a stable presentation contract.
+ */
+object BusinessAggregator {
+
+    fun aggregate(
+        account: AccountSummary,
+        quotas: List<QuotaItem> = emptyList(),
+        voice: VoiceSummary? = null
+    ): BusinessOverview {
+        return BusinessOverview(
+            account = account,
+            quotas = quotas,
+            voice = voice
+        )
+    }
+
+    fun aggregateAccounts(
+        accounts: List<AccountSummary>
+    ): List<BusinessOverview> {
+        return accounts.map { account ->
+            aggregate(account = account)
+        }
+    }
+}
