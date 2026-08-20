@@ -12,9 +12,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+/**
+ * Reusable iOS-style quota card.
+ *
+ * subtitle is separated so the same component can represent:
+ * - package title
+ * - quota category
+ * - remaining value
+ */
 @Composable
 fun UnicomQuotaCard(
     title: String,
+    subtitle: String,
     remaining: String
 ) {
     Card(
@@ -24,12 +33,22 @@ fun UnicomQuotaCard(
         )
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
-            Text(title, color = Color.White, fontSize = 20.sp)
             Text(
-                remaining,
+                text = title,
+                color = Color.White,
+                fontSize = 20.sp
+            )
+            Text(
+                text = subtitle,
                 color = Color.LightGray,
                 fontSize = 16.sp,
                 modifier = Modifier.padding(top = 12.dp)
+            )
+            Text(
+                text = remaining,
+                color = Color.White,
+                fontSize = 26.sp,
+                modifier = Modifier.padding(top = 10.dp)
             )
         }
     }
