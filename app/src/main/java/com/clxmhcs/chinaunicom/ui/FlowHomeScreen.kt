@@ -17,8 +17,8 @@ import com.clxmhcs.chinaunicom.ui.components.UnicomHeader
 import com.clxmhcs.chinaunicom.ui.components.UnicomQuotaCard
 
 /**
- * M4-G2-C4
- * Flow page consumes BusinessOverview quota data.
+ * M4-G2-D2
+ * Flow page with multiple quota cards and iOS-like data presentation.
  */
 @Composable
 fun FlowHomeScreen(
@@ -26,13 +26,7 @@ fun FlowHomeScreen(
 ) {
     val overview by flowViewModel.overview.collectAsState()
     val account = overview.accounts.firstOrNull()
-    val quota = account?.remainingData?.firstOrNull()
-
-    val progress = if (quota != null && quota.total != null && quota.total > 0) {
-        quota.used.toFloat() / quota.total.toFloat()
-    } else {
-        0f
-    }
+    val quotas = account?.remainingData.orEmpty()
 
     Column(
         modifier = Modifier
@@ -44,21 +38,33 @@ fun FlowHomeScreen(
         Column {
             UnicomHeader(title = "流量")
 
-            UnicomQuotaCard(
-                title = account?.maskedNumber ?: "中国联通号码",
-                subtitle = quota?.title ?: "套餐流量",
-                remaining = if (quota != null) {
-                    "剩余 ${(quota.total - quota.used)}${quota.unit}"
+            quotas.forEach { quota ->
+                val total = quota.total ?: 0L
+                val progress = if (total > 0) {
+                    quota.used.toFloat() / total.toFloat()
                 } else {
-                    "剩余流量 --"
-                },
-                detail = if (quota != null) {
-                    "已用 ${quota.used}${quota.unit} / 总量 ${quota.total}${quota.unit}"
-                } else null,
-                progress = progress
-            )
+                    0f
+                }
+
+                UnicomQuotaCard(
+                    title = account?.maskedNumber ?: "中国联通号码",
+                    subtitle = quota.title,
+                    remaining = "剩余 ${formatQuota(total - quota.used, quota.unit)}",
+                    detail = "已用 ${formatQuota(quota.used, quota.unit)} / 总量 ${formatQuota(total, quota.unit)}",
+                    progress = progress
+                )
+            }
         }
 
         UnicomBottomNavigationBar(selected = "流量")
+    }
+}
+
+private fun formatQuota(value: Long, unit: String): String {
+    return if (unit.equals("MB", ignoreCase = true) && value >= 1024) {
+        val gb = value.toDouble() / 1024.0
+        "%.2fGB".format(gb)
+    } else {
+        "${value}${unit}"
     }
 }
