@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -27,7 +28,7 @@ fun ChinaUnicomApp() {
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                tonalElevation = androidx.compose.ui.unit.Dp.Hairline,
+                tonalElevation = 0.dp,
             ) {
                 RootTab.entries.forEach { tab ->
                     val selected = currentRoute == tab.route
