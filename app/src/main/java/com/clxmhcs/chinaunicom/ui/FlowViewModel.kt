@@ -9,8 +9,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * M4-G2-C4
- * Mock business data bridge for Flow screen.
+ * M4-G2-D5
+ * Mock account card data bridge for Flow screen.
  */
 class FlowViewModel : ViewModel() {
 
@@ -21,6 +21,8 @@ class FlowViewModel : ViewModel() {
                     accountId = "mock-001",
                     maskedNumber = "186****9025",
                     balance = "896.87元",
+                    location = "山东济南",
+                    planName = "校园沃派38元套餐",
                     remainingData = listOf(
                         QuotaItem(
                             title = "国内通用流量",
