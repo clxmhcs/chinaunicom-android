@@ -18,8 +18,19 @@ permissions:
   statuses: write
 
 jobs:
+  runner-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Confirm hosted runner starts
+        shell: bash
+        run: |
+          echo "RUNNER_PROBE=PASS"
+          uname -a
+
   assemble-debug:
-    runs-on: ubuntu-latest
+    needs: runner-probe
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
