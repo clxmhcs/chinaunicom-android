@@ -6,8 +6,10 @@ The current iOS app is the visual truth for app-owned UI. Android must not defau
 
 This M0 freeze contains two visual layers:
 
-1. **source-derived visual specification** — frozen now;
-2. **real iOS screenshot set** — required before M0 may be marked fully closed and before M1 is accepted as visually matched.
+1. **source-derived visual specification** — frozen in M0;
+2. **real iOS screenshot set** — not present in the supplied ZIP and explicitly deferred to the M7 visual-parity gate by project-owner instruction on 2026-08-20.
+
+The deferral authorizes M1 engineering only. It does not reduce the R2 requirement that iOS remains the visual truth.
 
 ## Source-derived constants already frozen
 
@@ -79,7 +81,7 @@ Their SHA-256 hashes are frozen in `M0_VISUAL_ASSET_HASHES.txt`. Android may con
 
 ## Required real screenshot set
 
-The following screenshots must be captured from the frozen iOS build before visual M0 is fully closed. Use filenames exactly as listed under `docs/migration/visual-baseline/`.
+The following screenshots must be captured from the frozen iOS build **before M7 visual-parity acceptance**. Use filenames exactly as listed under `docs/migration/visual-baseline/`.
 
 ### Light mode
 
@@ -122,12 +124,14 @@ Widget dark-mode screenshots may be added if the current widget rendering differ
 - preserve original image dimensions;
 - platform-owned status bar differences are not parity failures by themselves.
 
-## M0 visual status
+## Visual-stage status
 
 `SOURCE_VISUAL_SPEC = PASS`
 
 `SOURCE_ASSET_HASH_BASELINE = PASS`
 
-`REAL_IOS_SCREENSHOT_SET = PENDING`
+`REAL_IOS_SCREENSHOT_SET = DEFERRED_TO_M7`
 
-Therefore **M0 must not be reported FINAL/PASS for progression to M1 until the real screenshot set is added or an explicit migration decision waives the screenshot gate.**
+`M1_VISUAL_FOUNDATION = AUTHORIZED_FROM_SOURCE_SPEC`
+
+`M7_VISUAL_PARITY_GATE = BLOCKED_UNTIL_REAL_IOS_SCREENSHOTS_EXIST`
