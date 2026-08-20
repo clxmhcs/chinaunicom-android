@@ -4,25 +4,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.clxmhcs.chinaunicom.ui.components.UnicomAccountCard
 import com.clxmhcs.chinaunicom.ui.components.UnicomBottomNavigationBar
 import com.clxmhcs.chinaunicom.ui.components.UnicomHeader
 import com.clxmhcs.chinaunicom.ui.components.UnicomQuotaCard
 
 /**
- * M4-G2-D3
- * Flow page adds balance header and account summary presentation.
+ * M4-G2-D5-2
+ * Account information separated into UnicomAccountCard.
  */
 @Composable
 fun FlowHomeScreen(
@@ -42,21 +39,12 @@ fun FlowHomeScreen(
         Column {
             UnicomHeader(title = "流量")
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp)
-            ) {
-                Text(
-                    text = "余额",
-                    color = Color.Gray,
-                    fontSize = 14.sp
-                )
-                Text(
-                    text = account?.balance ?: "--",
-                    color = Color.White,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
+            if (account != null) {
+                UnicomAccountCard(
+                    number = account.maskedNumber,
+                    location = account.location,
+                    planName = account.planName,
+                    balance = account.balance
                 )
             }
 
@@ -69,8 +57,8 @@ fun FlowHomeScreen(
                 }
 
                 UnicomQuotaCard(
-                    title = account?.maskedNumber ?: "中国联通号码",
-                    subtitle = quota.title,
+                    title = quota.title,
+                    subtitle = account?.maskedNumber ?: "中国联通号码",
                     remaining = "剩余 ${formatQuota(total - quota.used, quota.unit)}",
                     detail = "已用 ${formatQuota(quota.used, quota.unit)} / 总量 ${formatQuota(total, quota.unit)}",
                     progress = progress
