@@ -55,7 +55,7 @@ Build verification was attempted on branch `migration/android-m1-skeleton` and D
 
 The PR-triggered workflow run `32326003597` failed. Its `assemble-debug` job failed before any workflow step was recorded. Re-running that job produced the same zero-step failure. Job log retrieval returned `BlobNotFound`, so there is no Gradle/Kotlin/compiler log for either attempt.
 
-### Hosted-runner isolation probe
+### Hosted-runner isolation probe — Ubuntu
 
 To determine whether Android source/configuration caused the failure, commit `b6f6b88730f90679331367ca6df41b62d513a329` added a `runner-probe` job using explicit `ubuntu-24.04` with one shell-only step:
 
@@ -72,7 +72,19 @@ PR workflow run `32326192456` produced:
 - recorded steps: none
 - `assemble-debug`: `skipped` because it depends on `runner-probe`
 
-Therefore the build gate is currently blocked **before GitHub assigns/starts a usable hosted runner job**. This evidence rules out the current Android Kotlin/Compose sources as the cause of these specific workflow failures because the isolated shell-only probe never reached its first command.
+### Hosted-runner isolation probe — macOS
+
+To rule out an Ubuntu-specific runner-pool/image issue, commit `dfdd231cf0834b0a98d6bab54cc87b68d80adb51` changed the same shell-only probe and build job to explicit `macos-15`.
+
+PR workflow run `32326270265` produced the same result:
+
+- `runner-probe`: `failure`
+- recorded steps: none
+- `assemble-debug`: `skipped`
+
+Because both the Ubuntu and macOS hosted-runner pools fail before the first shell command, the current failure is not isolated to an Ubuntu image or to the Android build toolchain.
+
+Therefore the build gate is blocked **before GitHub assigns/starts a usable hosted runner job**. This evidence rules out the current Android Kotlin/Compose sources as the cause of these specific workflow failures because the isolated shell-only probe never reaches its first command.
 
 GitHub's public status page was checked during this investigation and reported **All Systems Operational**, with Actions marked Operational. That does not identify the account/repository-specific cause; it only means there was no declared platform-wide Actions outage at the time of the check.
 
@@ -93,9 +105,9 @@ This is **not** evidence that the Android sources fail compilation. It is also *
 
 The verification blocker is now classified as:
 
-`BUILD_EXECUTION_BLOCKER = GITHUB_HOSTED_RUNNER_JOB_NOT_STARTING`
+`BUILD_EXECUTION_BLOCKER = GITHUB_HOSTED_RUNNER_JOB_NOT_STARTING_ACROSS_UBUNTU_AND_MACOS`
 
-The exact repository/account cause (for example hosted-runner availability, Actions account/billing/quota policy, or another runner-allocation restriction) cannot be determined from the currently exposed GitHub connector because repository Actions billing/runner-allocation settings are not available through it.
+The exact repository/account cause (for example Actions account/billing/quota policy, hosted-runner allocation restriction, or another repository/account execution limitation) cannot be determined from the currently exposed GitHub connector because repository Actions billing/runner-allocation settings are not available through it.
 
 No runtime screenshots are required for this verification step.
 
@@ -112,7 +124,8 @@ No runtime screenshots are required for this verification step.
 - [x] `ChinaUnicomTypography.kt` exists
 - [x] no Unicom business networking introduced
 - [x] Draft PR #1 exists for real CI verification
-- [x] hosted-runner probe isolates the current failure before workflow steps begin
+- [x] Ubuntu hosted-runner probe isolates failure before workflow steps begin
+- [x] macOS hosted-runner probe reproduces the same pre-step failure
 - [ ] real `:app:assembleDebug` execution result observed
 
 `M1_RESULT = BLOCKED_BY_GITHUB_HOSTED_RUNNER_EXECUTION`
