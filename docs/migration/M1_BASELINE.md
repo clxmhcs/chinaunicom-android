@@ -6,7 +6,7 @@ M1 establishes only the Android application shell and source-derived visual foun
 
 ## Toolchain freeze
 
-- Android Gradle Plugin: `9.3.0`
+- Android Gradle Plugin: `9.2.1`
 - Gradle: `9.5.0`
 - JDK: `17`
 - Kotlin/Compose compiler plugin: `2.3.21`
@@ -19,6 +19,8 @@ M1 establishes only the Android application shell and source-derived visual foun
 - Navigation Compose: `2.9.8`
 
 `targetSdk 36` is intentional for M1. The project compiles against API 37 while Android 17 target-behavior adoption remains a later reviewed migration decision.
+
+The original M1 CI evidence below was produced with AGP `9.3.0`. On 2026-08-20, the project pin was moved to `9.2.1`, the latest version supported by the current Android Studio installation. Gradle `9.5.0`, Kotlin, SDK levels and application behavior were unchanged; the model/parser/network unit tests and `:app:assembleDebug` were revalidated after the compatibility-only change.
 
 ## M1 implementation
 
