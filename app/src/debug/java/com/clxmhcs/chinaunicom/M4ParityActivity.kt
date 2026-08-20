@@ -109,7 +109,7 @@ class M4ParityActivity : ComponentActivity() {
                 val report = sanitizedReport ?: return@setOnClickListener
                 val clipboard = getSystemService(ClipboardManager::class.java)
                 clipboard.setPrimaryClip(ClipData.newPlainText("M4-F Android parity", report))
-                Toast.makeText(this, "已复制脱敏报告", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@M4ParityActivity, "已复制脱敏报告", Toast.LENGTH_SHORT).show()
             }
         }
         root.addView(copyButton, matchWidth())
