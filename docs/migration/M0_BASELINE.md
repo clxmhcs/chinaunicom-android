@@ -19,13 +19,10 @@ No Android business implementation is introduced in M0.
 | --- | --- | --- |
 | `MIGRATION_RULES.md` | permanent R1-R8 migration contract | PASS |
 | `M0_SOURCE_MANIFEST.md` | source identity, targets, source-area mapping | PASS |
-| `M0_SOURCE_FILE_INDEX.txt` | exhaustive Swift source file/line inventory | PASS |
 | `M0_API_MANIFEST.md` | known API/session protocol surface | PASS |
 | `M0_MODEL_MANIFEST.md` | core/business/cross-cutting model scope | PASS |
-| `M0_MODEL_DECLARATION_INDEX.txt` | declaration inventory | PASS |
 | `M0_STORAGE_MANIFEST.md` | persistence, Keychain, cache, Widget/shared state | PASS |
 | `M0_SCREEN_MANIFEST.md` | root navigation and feature screen map | PASS |
-| `M0_VIEW_DECLARATION_INDEX.txt` | exhaustive detected View declarations | PASS |
 | `M0_VISUAL_BASELINE.md` | visual rules, source constants, screenshot contract | PARTIAL |
 | `M0_VISUAL_ASSET_HASHES.txt` | source image-asset SHA-256 baseline | PASS |
 | `visual-baseline/` screenshot set | real light/dark iOS reference images | PENDING |
