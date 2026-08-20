@@ -13,10 +13,13 @@ object BusinessAggregator {
         quotas: List<QuotaItem> = emptyList(),
         voice: VoiceSummary? = null
     ): BusinessOverview {
-        return BusinessOverview(
-            account = account,
-            quotas = quotas,
+        val mergedAccount = account.copy(
+            remainingData = quotas,
             voice = voice
+        )
+
+        return BusinessOverview(
+            accounts = listOf(mergedAccount)
         )
     }
 
