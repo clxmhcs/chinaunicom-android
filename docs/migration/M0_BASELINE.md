@@ -23,13 +23,21 @@ No Android business implementation is introduced in M0.
 | `M0_MODEL_MANIFEST.md` | core/business/cross-cutting model scope | PASS |
 | `M0_STORAGE_MANIFEST.md` | persistence, Keychain, cache, Widget/shared state | PASS |
 | `M0_SCREEN_MANIFEST.md` | root navigation and feature screen map | PASS |
-| `M0_VISUAL_BASELINE.md` | visual rules, source constants, screenshot contract | PARTIAL |
+| `M0_VISUAL_BASELINE.md` | visual rules, source constants, screenshot contract | PASS (source-derived) |
 | `M0_VISUAL_ASSET_HASHES.txt` | source image-asset SHA-256 baseline | PASS |
-| `visual-baseline/` screenshot set | real light/dark iOS reference images | PENDING |
+| `visual-baseline/` screenshot set | real light/dark iOS reference images | DEFERRED TO M7 |
 
 ## Security boundary
 
 M0 documentation does not copy real Cookie values, `token_online`, passwords, SMS/captcha values or identity data from the source environment. Future fixtures must be sanitized before commit.
+
+## Explicit progression decision — 2026-08-20
+
+After being informed that the supplied ZIP contains no complete real runtime screenshot set, the project owner explicitly instructed the migration to **enter the next step**.
+
+This is recorded as the explicit migration decision permitted by `M0_VISUAL_BASELINE.md` to remove the screenshot set as an M1 entry blocker. It does **not** claim the screenshots exist and does not waive visual parity itself.
+
+The real iOS light/dark screenshot set remains mandatory before Android-M7 visual-parity acceptance. M7 cannot close without the required comparison baseline.
 
 ## Stage decision
 
@@ -45,12 +53,12 @@ M0 documentation does not copy real Cookie values, `token_online`, passwords, SM
 
 `VISUAL_SOURCE_SPEC = PASS`
 
-`VISUAL_REAL_SCREENSHOTS = PENDING`
+`VISUAL_REAL_SCREENSHOTS = DEFERRED_TO_M7`
 
-`M0_RESULT = NOT_CLOSED`
+`M0_RESULT = CLOSED_BY_EXPLICIT_MIGRATION_DECISION`
 
-Reason: the migration plan requires a real iOS light/dark screenshot baseline before M0 can authorize progression to M1. The ZIP contains source/assets/build outputs but no complete real page screenshot set, and such screenshots must not be fabricated from source assumptions.
+`M1_ENTRY = AUTHORIZED`
 
-## M0 closure condition
+## Deferred closure condition
 
-M0 becomes `PASS / CLOSED` when all required screenshot files listed in `M0_VISUAL_BASELINE.md` are committed from the frozen iOS build (or when an explicit reviewed migration decision changes that gate).
+Before M7 may be accepted for UI parity, all required screenshot files listed in `M0_VISUAL_BASELINE.md` must be committed from the frozen iOS build (or replaced by another explicit reviewed visual-baseline decision that preserves R2).
