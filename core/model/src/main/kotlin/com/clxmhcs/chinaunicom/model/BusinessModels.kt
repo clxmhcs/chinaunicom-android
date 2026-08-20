@@ -8,6 +8,10 @@ data class AccountSummary(
     val accountId: String,
     val maskedNumber: String,
     val balance: String? = null,
+    /** Mobile location/area shown on iOS account card. */
+    val location: String? = null,
+    /** Package name shown below the phone number on iOS. */
+    val planName: String? = null,
     val remainingData: List<QuotaItem> = emptyList(),
     val voice: VoiceSummary? = null
 )
