@@ -18,10 +18,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * M4-G2-A
+ * M4-G2-B
  *
- * First Compose implementation of the iOS traffic page layout.
- * This is intentionally presentation-only; data binding will be connected later.
+ * Traffic home visual refinement.
+ * Data remains separated from UI and will be connected through BusinessOverview later.
  */
 @Composable
 fun FlowHomeScreen() {
@@ -29,36 +29,58 @@ fun FlowHomeScreen() {
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .padding(20.dp),
+            .padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
-            Text(
-                text = "流量",
-                color = Color.White,
-                fontSize = 42.sp
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "流量",
+                    color = Color.White,
+                    fontSize = 34.sp
+                )
+                Text(
+                    text = "刷新",
+                    color = Color.Gray,
+                    fontSize = 16.sp
+                )
+            }
 
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 28.dp),
-                shape = RoundedCornerShape(28.dp),
+                    .padding(top = 24.dp),
+                shape = RoundedCornerShape(30.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xFF1C1C1E)
                 )
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text(
-                        text = "当前套餐",
+                        text = "中国联通号码",
                         color = Color.White,
-                        fontSize = 22.sp
+                        fontSize = 20.sp
                     )
                     Text(
-                        text = "剩余流量将在数据层接入",
-                        color = Color.Gray,
+                        text = "套餐流量",
+                        color = Color.LightGray,
                         fontSize = 16.sp,
-                        modifier = Modifier.padding(top = 12.dp)
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                    Text(
+                        text = "剩余流量 -- GB",
+                        color = Color.White,
+                        fontSize = 28.sp,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    Text(
+                        text = "数据接口接入后显示实时余量",
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
                 }
             }
@@ -68,10 +90,10 @@ fun FlowHomeScreen() {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceAround
         ) {
-            listOf("流量", "语音", "综合业务", "其它业务", "设置").forEach {
+            listOf("流量", "语音", "综合业务", "其它业务", "设置").forEachIndexed { index, item ->
                 Text(
-                    text = it,
-                    color = Color.Gray,
+                    text = item,
+                    color = if (index == 0) Color.White else Color.Gray,
                     fontSize = 14.sp
                 )
             }
