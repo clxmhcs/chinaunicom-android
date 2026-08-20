@@ -69,6 +69,24 @@ internal fun recursiveString(element: JsonElement, keys: Set<String>): String? =
     else -> null
 }
 
+internal fun capacityMB(value: JsonElement?, numericFallback: Boolean): Double? {
+    value ?: return null
+    val primitiveNumber = value.doubleValue()
+    val source = value.nonEmptyText()
+    if (source == null) return if (numericFallback) primitiveNumber else null
+    val match = Regex(
+        "([0-9]+(?:\\.[0-9]+)?)\\s*(TB|GB|G|MB|M)(?![A-Za-z])",
+        RegexOption.IGNORE_CASE,
+    ).find(source) ?: return if (numericFallback) primitiveNumber else null
+    val numeric = match.groupValues[1].toDoubleOrNull() ?: return if (numericFallback) primitiveNumber else null
+    return when (match.groupValues[2].uppercase()) {
+        "TB" -> numeric * 1024 * 1024
+        "GB", "G" -> numeric * 1024
+        "MB", "M" -> numeric
+        else -> null
+    }
+}
+
 internal fun fnv1a64(value: String): String {
     var hash = 1469598103934665603uL
     value.encodeToByteArray().forEach { byte ->
