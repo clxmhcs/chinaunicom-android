@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   runner-probe:
-    runs-on: macos-15
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Confirm hosted runner starts
@@ -30,7 +30,7 @@ jobs:
 
   assemble-debug:
     needs: runner-probe
-    runs-on: macos-15
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -51,6 +51,9 @@ jobs:
       - name: Ensure Android API 37 SDK
         shell: bash
         run: |
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-}"
+          command -v sdkmanager
+          yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-37" "build-tools;36.0.0"
 
       - name: Assemble M1 debug APK
