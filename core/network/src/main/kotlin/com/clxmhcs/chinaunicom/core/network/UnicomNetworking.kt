@@ -1,6 +1,11 @@
 package com.clxmhcs.chinaunicom.core.network
 
-import java.io.IOException
+import java.io.EOFException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
@@ -116,7 +121,12 @@ class UnicomHTTPClient(
 
     private fun shouldRetry(error: Exception): Boolean = when (error) {
         is UnicomAPIException.HttpStatus -> error.statusCode in 500..599
-        is IOException -> true
+        is SocketTimeoutException,
+        is UnknownHostException,
+        is ConnectException,
+        is NoRouteToHostException,
+        is EOFException,
+        is SocketException -> true
         else -> false
     }
 }
