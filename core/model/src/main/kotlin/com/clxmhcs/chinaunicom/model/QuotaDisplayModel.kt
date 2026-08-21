@@ -1,38 +1,37 @@
 package com.clxmhcs.chinaunicom.model
 
+import com.clxmhcs.chinaunicom.core.model.FlowPackage
+import com.clxmhcs.chinaunicom.core.model.QuotaType
+
 /**
  * UI display contract for quota cards.
- * Converts business data into values directly consumed by Compose.
+ *
+ * The source stays as the authoritative M2 [FlowPackage]; this type only
+ * carries already-derived presentation values into Compose.
  */
 data class QuotaDisplayModel(
     val title: String,
     val subtitle: String,
     val remainingText: String,
     val progress: Float? = null,
-    val expireText: String? = null
+    val expireText: String? = null,
 )
 
-fun QuotaItem.toDisplayModel(): QuotaDisplayModel {
-    val usedValue = used ?: 0L
-    val totalValue = total ?: 0L
-
-    val remaining = if (totalValue > 0) {
-        totalValue - usedValue
-    } else {
-        0L
-    }
-
-    val progressValue = if (totalValue > 0) {
-        usedValue.toFloat() / totalValue.toFloat()
-    } else {
-        null
+fun FlowPackage.toDisplayModel(): QuotaDisplayModel {
+    val remainingText = when {
+        detectedQuotaType == QuotaType.UNLIMITED -> "不限量"
+        remainingMB != null -> "剩余 ${rawNumber(remainingMB)} MB"
+        else -> "剩余 --"
     }
 
     return QuotaDisplayModel(
-        title = title,
+        title = originalName,
         subtitle = "套餐流量",
-        remainingText = "剩余 $remaining $unit",
-        progress = progressValue,
-        expireText = expiredAt
+        remainingText = remainingText,
+        progress = detailDisplayFraction(detectedQuotaType)?.toFloat(),
+        expireText = endDateText,
     )
 }
+
+private fun rawNumber(value: Double): String =
+    if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()

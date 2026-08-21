@@ -1,33 +1,27 @@
 package com.clxmhcs.chinaunicom.model
 
+import com.clxmhcs.chinaunicom.core.model.UnicomAccount
+
 /**
- * Aggregates raw migrated business models into the UI-facing overview model.
+ * Builds UI envelopes from authoritative M2 domain accounts.
  *
- * The aggregation layer intentionally contains no network/session logic.
- * It only transforms already parsed business data into a stable presentation contract.
+ * No network/session logic and no lossy quota projection belongs here.
  */
 object BusinessAggregator {
 
     fun aggregate(
-        account: AccountSummary,
-        quotas: List<QuotaItem> = emptyList(),
-        voice: VoiceSummary? = null
-    ): BusinessOverview {
-        val mergedAccount = account.copy(
-            remainingData = quotas,
-            voice = voice
-        )
-
-        return BusinessOverview(
-            accounts = listOf(mergedAccount)
-        )
-    }
+        account: UnicomAccount,
+        updatedAt: Long = account.lastUpdatedAt?.toEpochMilli() ?: 0L,
+    ): BusinessOverview = BusinessOverview(
+        accounts = listOf(account),
+        updatedAt = updatedAt,
+    )
 
     fun aggregateAccounts(
-        accounts: List<AccountSummary>
-    ): List<BusinessOverview> {
-        return accounts.map { account ->
-            aggregate(account = account)
-        }
-    }
+        accounts: List<UnicomAccount>,
+        updatedAt: Long = accounts.mapNotNull { it.lastUpdatedAt?.toEpochMilli() }.maxOrNull() ?: 0L,
+    ): BusinessOverview = BusinessOverview(
+        accounts = accounts,
+        updatedAt = updatedAt,
+    )
 }
