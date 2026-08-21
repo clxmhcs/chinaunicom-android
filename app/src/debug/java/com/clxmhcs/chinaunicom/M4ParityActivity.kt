@@ -20,6 +20,7 @@ import com.clxmhcs.chinaunicom.core.model.VoicePackage
 import com.clxmhcs.chinaunicom.core.network.UnicomAPIClient
 import com.clxmhcs.chinaunicom.core.network.UnicomAPIException
 import java.time.Instant
+import java.time.ZoneId
 import java.util.Locale
 import java.util.concurrent.Executors
 import org.json.JSONObject
@@ -179,9 +180,13 @@ class M4ParityActivity : ComponentActivity() {
 
         val client = UnicomAPIClient()
         var allPassed = true
+        val deviceTimeZone = ZoneId.systemDefault()
+        val reportStartedAt = Instant.now()
         val body = StringBuilder()
         body.appendLine("M4_F_ANDROID_PARITY_REPORT_V1")
-        body.appendLine("generatedAt=${Instant.now()}")
+        body.appendLine("reportStartedAtUtc=$reportStartedAt")
+        body.appendLine("reportStartedAtLocal=${reportStartedAt.atZone(deviceTimeZone)}")
+        body.appendLine("deviceTimeZone=${deviceTimeZone.id}")
         body.appendLine("networkVerificationCommit=107a3806cdc0ce7d745fb7ea4f9a3dff5db5d649")
         body.appendLine("archiveVersion=$version")
         body.appendLine("accountCount=${accounts.length()}")
@@ -202,6 +207,7 @@ class M4ParityActivity : ComponentActivity() {
             body.appendLine()
             body.appendLine("[account.${index + 1}]")
             body.appendLine("mobile=${maskMobile(mobile)}")
+            body.appendLine("queryStartedAtUtc=${Instant.now()}")
 
             var activeCredentials = credentials
             var quotaResult: QuotaFetchResult? = null
@@ -242,10 +248,12 @@ class M4ParityActivity : ComponentActivity() {
             val credentialMutationObserved = quotaResult?.updatedCredentials != null ||
                 balanceOutcome.getOrNull()?.updatedCredentials != null
             body.appendLine("session.credentialMutationObserved=$credentialMutationObserved")
+            body.appendLine("queryFinishedAtUtc=${Instant.now()}")
             activeCredentials = AccountCredentials("", null, null)
         }
 
         body.appendLine()
+        body.appendLine("reportFinishedAtUtc=${Instant.now()}")
         body.appendLine("overall=${if (allPassed) "PASS" else "FAIL"}")
         body.appendLine("NEXT=Compare this sanitized Android report with the same-account iOS values; never upload the source credential JSON.")
         return body.toString()

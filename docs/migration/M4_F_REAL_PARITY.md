@@ -50,6 +50,7 @@ Kotlin/Java immutable strings cannot be reliably zeroed in managed memory. The h
 Per account:
 
 - masked mobile only (`138****1234` form);
+- report/device timezone plus report and per-account UTC query timestamps, so the iOS refresh window can be verified without exposing account data;
 - quota result PASS/FAIL and non-sensitive error category;
 - quota resource status;
 - package name;
@@ -69,7 +70,7 @@ Per account:
 4. Open `M4 联网验收` and choose the iOS credential JSON locally.
 5. Let the harness query all exported mobile accounts.
 6. Save `ChinaUnicom-M4-F-Android-Parity.txt`.
-7. Compare Android normalized values with the iOS values from the same refresh window.
+7. Compare Android normalized values with the iOS values from the same refresh window. Use the iOS refresh time shown in the screenshot together with the Android report's `reportStartedAtLocal`, `deviceTimeZone`, `queryStartedAtUtc` and `queryFinishedAtUtc` fields; these fields contain no credential or subscriber information.
 8. Upload/share only the sanitized Android TXT report plus the required sanitized iOS evidence below.
 
 ## iOS screenshots required for M4-F
