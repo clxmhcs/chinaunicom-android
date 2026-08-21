@@ -93,6 +93,17 @@ The shared balance cache/lease gate is not reimplemented here; it belongs to M6 
 - Android Keystore-backed persistence remains M5;
 - third-party phone-attribution services are not part of this authenticated transport.
 
+## Stage-boundary correction
+
+Premature M4-G prototype code was removed from production source before M4-F:
+
+- hard-coded account, balance and quota data;
+- duplicate, lossy UI models outside `com.clxmhcs.chinaunicom.core.model`;
+- repository/ViewModel/UI code that belongs to M6/M7;
+- the duplicate flow-page bottom navigation.
+
+Until M4-F passes, the release app keeps the M1 feature placeholders. M5 may add only login and secure credential storage after M4 closes; repositories/global state start in M6, and flow/voice feature UI starts in M7 using the source-aligned `UnicomAccount`, `QuotaFetchResult`, `FlowPackage`, `VoicePackage` and Remaining-query models.
+
 ## Automated tests
 
 M4 unit tests cover:

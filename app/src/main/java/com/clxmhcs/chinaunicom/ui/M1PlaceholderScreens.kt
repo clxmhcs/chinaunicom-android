@@ -24,7 +24,7 @@ import com.clxmhcs.chinaunicom.core.design.ChinaUnicomShapes
 internal fun FlowDashboardPlaceholder() {
     M1FeaturePlaceholder(
         title = "流量",
-        message = "Android-M1 已建立页面骨架；联通数据模型与查询逻辑将在 M2-M4 接入。",
+        message = "M4 网络核心仅用于本地验收；完成 M4-F、M5 与 M6 后，流量首页将在 M7 接入真实账户状态。",
         useFlowGradient = true,
     )
 }
@@ -33,7 +33,7 @@ internal fun FlowDashboardPlaceholder() {
 internal fun VoiceDashboardPlaceholder() {
     M1FeaturePlaceholder(
         title = "语音",
-        message = "当前仅冻结与 iOS 对应的导航和视觉层级，不发起任何网络请求。",
+        message = "当前仅保留与 iOS 对应的导航和视觉层级；语音首页将在 M7 与流量刷新状态一起接入。",
         useFlowGradient = true,
     )
 }
