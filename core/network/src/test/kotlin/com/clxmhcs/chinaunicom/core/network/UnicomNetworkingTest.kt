@@ -1,9 +1,18 @@
 package com.clxmhcs.chinaunicom.core.network
 
+import java.io.EOFException
 import java.io.IOException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.ProtocolException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLHandshakeException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -44,14 +53,24 @@ class UnicomNetworkingTest {
     }
 
     @Test
-    fun httpRetriesExactlyOnceForIOExceptionAnd5xxButNot4xx() {
-        val ioTransport = QueueTransport(
-            IOException("lost"),
-            UnicomRawResponse(200, "ok".encodeToByteArray()),
+    fun httpRetriesExactlyOnceForIosEquivalentTransientFailuresAnd5xxButNotOthers() {
+        val transientFailures = listOf(
+            SocketTimeoutException("timed out"),
+            UnknownHostException("cannot find host"),
+            ConnectException("cannot connect to host"),
+            NoRouteToHostException("not connected to internet"),
+            SocketException("connection reset"),
+            EOFException("connection lost"),
         )
-        val ioClient = UnicomHTTPClient(ioTransport, retryDelayMillis = 0)
-        assertEquals("ok", ioClient.post("https://example.invalid").data.toString(Charsets.UTF_8))
-        assertEquals(2, ioTransport.requests.size)
+        transientFailures.forEach { failure ->
+            val transport = QueueTransport(
+                failure,
+                UnicomRawResponse(200, "ok".encodeToByteArray()),
+            )
+            val client = UnicomHTTPClient(transport, retryDelayMillis = 0)
+            assertEquals("ok", client.post("https://example.invalid").data.toString(Charsets.UTF_8))
+            assertEquals(2, transport.requests.size)
+        }
 
         val serverTransport = QueueTransport(
             UnicomRawResponse(503, byteArrayOf()),
@@ -59,6 +78,23 @@ class UnicomNetworkingTest {
         )
         UnicomHTTPClient(serverTransport, retryDelayMillis = 0).post("https://example.invalid")
         assertEquals(2, serverTransport.requests.size)
+
+        val nonRetryableFailures = listOf(
+            IOException("generic io failure"),
+            ProtocolException("protocol failure"),
+            SSLHandshakeException("tls failure"),
+        )
+        nonRetryableFailures.forEach { failure ->
+            val transport = QueueTransport(
+                failure,
+                UnicomRawResponse(200, "should-not-be-used".encodeToByteArray()),
+            )
+            val error = runCatching {
+                UnicomHTTPClient(transport, retryDelayMillis = 0).post("https://example.invalid")
+            }.exceptionOrNull()
+            assertSame(failure, error)
+            assertEquals(1, transport.requests.size)
+        }
 
         val badRequest = QueueTransport(UnicomRawResponse(404, byteArrayOf()))
         val error = runCatching { UnicomHTTPClient(badRequest, 0).post("https://example.invalid") }.exceptionOrNull()
