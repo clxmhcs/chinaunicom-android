@@ -2,6 +2,7 @@ package com.clxmhcs.chinaunicom.core.network
 
 import com.clxmhcs.chinaunicom.core.model.AccountCredentials
 import java.nio.charset.StandardCharsets
+import java.net.URI
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.serialization.json.Json
@@ -258,12 +259,23 @@ class UnicomLoginClient(
     private fun cityCode(): String = cityCookie.substringAfter('|', DEFAULT_CITY).ifBlank { DEFAULT_CITY }
 
     private fun JsonElement.captchaChallenge(): UnicomCaptchaChallenge {
-        val url = string("url").trimmedOrNull() ?: throw UnicomLoginException.InvalidCaptcha
+        val url = string("url").trimmedOrNull()?.replace("\\/", "/")
+            ?: throw UnicomLoginException.InvalidCaptcha
+        if (!isTrustedCaptchaUrl(url)) throw UnicomLoginException.InvalidCaptcha
         return UnicomCaptchaChallenge(
-            url = url.replace("\\/", "/"),
+            url = url,
             title = string("mainTitle").trimmedOrNull() ?: "安全验证",
             message = string("mainDesc", "dsc", "desc", "message").trimmedOrNull() ?: "请完成安全验证",
         )
+    }
+
+    private fun isTrustedCaptchaUrl(value: String): Boolean = try {
+        val uri = URI(value)
+        val host = uri.host?.lowercase() ?: return false
+        uri.scheme.equals("https", ignoreCase = true) &&
+            (host == CAPTCHA_ROOT_DOMAIN || host.endsWith(".$CAPTCHA_ROOT_DOMAIN"))
+    } catch (_: Exception) {
+        false
     }
 
     private fun JsonElement.string(vararg keys: String): String? {
@@ -307,6 +319,7 @@ class UnicomLoginClient(
         private const val CAPTCHA_TYPE = "10"
         private const val SMS_CAPTCHA_CODE = "ECS99998"
         private const val PASSWORD_CAPTCHA_CODE = "ECS99999"
+        private const val CAPTCHA_ROOT_DOMAIN = "10010.com"
         private val lock = Any()
         private val loginJson = Json { isLenient = true; ignoreUnknownKeys = true }
         private val requestTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")

@@ -2,6 +2,7 @@ package com.clxmhcs.chinaunicom.core.network
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class UnicomLoginClientTest {
@@ -26,14 +27,31 @@ class UnicomLoginClientTest {
         val transport = ScriptedTransport(
             responses = listOf(
                 response("{}"),
-                response("{\"code\":\"ECS99999\",\"type\":\"10\",\"mobile\":\"encrypted\",\"url\":\"https:\\\\/\\\\/captcha.example\"}"),
+                response("{\"code\":\"ECS99999\",\"type\":\"10\",\"mobile\":\"encrypted\",\"url\":\"https:\\\\/\\\\/captcha.10010.com\"}"),
             ),
         )
 
         val outcome = client(transport).loginWithPassword("18600000000", "password")
 
         val challenge = outcome as UnicomPasswordLoginOutcome.CaptchaRequired
-        assertEquals("https://captcha.example", challenge.challenge.url)
+        assertEquals("https://captcha.10010.com", challenge.challenge.url)
+    }
+
+    @Test
+    fun rejectsCaptchaUrlsOutsideTheOperatorDomain() {
+        val transport = ScriptedTransport(
+            responses = listOf(
+                response("{}"),
+                response("{\"code\":\"ECS99999\",\"type\":\"10\",\"mobile\":\"encrypted\",\"url\":\"https:\\\\/\\\\/captcha.example\"}"),
+            ),
+        )
+
+        try {
+            client(transport).loginWithPassword("18600000000", "password")
+            fail("Expected captcha URL rejection")
+        } catch (_: UnicomLoginException.InvalidCaptcha) {
+            // Expected: a future WebView must never load an untrusted host.
+        }
     }
 
     private fun client(transport: ScriptedTransport): UnicomLoginClient = UnicomLoginClient(
