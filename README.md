@@ -19,15 +19,23 @@ Android-native migration of the existing ChinaUnicom iOS application.
 
 `Android-M3 — Quota / Remaining Parser Migration + Golden Tests` is `PASS / CLOSED`.
 
-`Android-M4 — HTTP / Cookie / Session Core` is `AUTOMATED_PASS / REAL_PARITY_PENDING` on branch `migration/android-m4-network`.
+`Android-M4 — HTTP / Cookie / Session Core` is `PASS / CLOSED`.
 
-M4 adds the UI-independent `core:network` module for HTTP retry policy, explicit Cookie/Set-Cookie mutation, session-expiry detection, `appId/token_online` reactivation, quota API, balance API and Remaining unlimited-response normalization.
+M4 closure includes:
 
-M4 automated acceptance is complete at verification commit `107a3806cdc0ce7d745fb7ea4f9a3dff5db5d649`: `:core:network:testDebugUnitTest`, the existing M3 parser tests, integrated `:app:assembleDebug`, and commit status `android-m4-network=success` all passed in GitHub Actions run `32331797633`.
+- source-derived HTTP/Cookie/session activation and quota/balance clients;
+- iOS-equivalent transient retry classification;
+- authoritative M2 `UnicomAccount` / `FlowPackage` / `VoicePackage` business-model boundary;
+- independent `remainingMB`, unlimited and M3 `FlowFormatter` semantics;
+- debug-only fake repository isolation with no fake fixture data in main/release;
+- accepted sanitized M4-F real iOS/Android same-account parity evidence;
+- final CI gate covering model/parser/network tests plus Debug and Release assembly.
 
-M4 is not closed yet. M4-F must perform sanitized real iOS/Android same-account quota/balance/session parity before M5 Login + Security Storage is authorized. Raw Cookie, appId, token_online, password, SMS/captcha or authenticated response bodies must never be committed or uploaded as evidence.
+The accepted M4-F evidence is sanitized validation evidence only. Raw Cookie, appId, token_online, password, SMS/captcha, credential archives and authenticated response bodies must never be committed or uploaded as evidence.
 
-M0 is closed for progression by explicit migration decision; the missing real iOS light/dark screenshot set remains deferred and mandatory before M7 visual-parity acceptance.
+`NEXT = Android-M5 — Login + Security Storage`.
+
+M0 is closed for progression by explicit migration decision; the deferred real iOS light/dark screenshot set remains mandatory before M7 visual-parity acceptance.
 
 See:
 
@@ -36,4 +44,5 @@ See:
 - [`docs/migration/M2_BASELINE.md`](docs/migration/M2_BASELINE.md)
 - [`docs/migration/M3_BASELINE.md`](docs/migration/M3_BASELINE.md)
 - [`docs/migration/M4_BASELINE.md`](docs/migration/M4_BASELINE.md)
+- [`docs/migration/M4_F_REAL_PARITY.md`](docs/migration/M4_F_REAL_PARITY.md)
 - [`docs/migration/MIGRATION_RULES.md`](docs/migration/MIGRATION_RULES.md)
