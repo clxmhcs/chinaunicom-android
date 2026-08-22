@@ -37,7 +37,20 @@ M5-B SMS Login Core is `PASS / CLOSED`:
 - Keystore-protected persistent login device identity matching the iOS Keychain role;
 - M1/M2/M3/M4/M5 CI and Debug/Release builds green.
 
-`NEXT = Android-M5-C — Password Login + Risk Captcha`.
+M5-C Password Login + Risk Captcha is implemented and pending its branch CI gate:
+
+- source-derived `login.htm` + shared `getSwitch` preflight;
+- M5-B RSA/device identity/Cookie state reused instead of a parallel login stack;
+- password request contract preserves `netWay=wifi`, `isRemberPwd=false`, `keyVersion=2`;
+- strict 192-character lowercase-hex preferred appID validation;
+- `ECS99999 + type=10` password risk-captcha state with mandatory returned risk `mobile`;
+- password-rejected, SMS-verification-required and generic server failures remain distinct;
+- password success applies response city before final credential Cookie snapshot;
+- password and captcha `resultToken` remain transient and are not persisted.
+
+The current iOS source still explicitly disables its password-login UI; M5-C migrates the already-existing underlying protocol implementation only and does not prematurely enable Android UI.
+
+`NEXT_AFTER_M5_C_PASS = Android-M5-D — Login Integration + Persistence Acceptance`.
 
 M0 is closed for progression by explicit migration decision; the deferred real iOS light/dark screenshot set remains mandatory before M7 visual-parity acceptance.
 
