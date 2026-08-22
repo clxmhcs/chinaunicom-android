@@ -7,6 +7,9 @@ import com.clxmhcs.chinaunicom.core.model.PackageCategory
 import com.clxmhcs.chinaunicom.core.model.QuotaFetchResult
 import com.clxmhcs.chinaunicom.core.model.QuotaResourceStatus
 import com.clxmhcs.chinaunicom.core.model.QuotaType
+import com.clxmhcs.chinaunicom.core.model.RemainingQuerySnapshot
+import com.clxmhcs.chinaunicom.core.model.RemainingSMSSnapshot
+import com.clxmhcs.chinaunicom.core.model.RemainingVoiceSnapshot
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.core.model.VoicePackage
 import com.clxmhcs.chinaunicom.core.storage.AccountMetadataStore
@@ -79,7 +82,15 @@ class AccountRepositoryTest {
         voicePackages = listOf(
             VoicePackage("voice-1", "国内语音", 300.0, 10.0, 290.0, false, false),
         ),
-        remainingQuerySnapshot = null,
+        remainingQuerySnapshot = RemainingQuerySnapshot(
+            updatedAt = Instant.parse("2026-08-21T02:00:00Z"),
+            members = emptyList(),
+            flowSummaries = emptyList(),
+            flowPackages = emptyList(),
+            sharedFlowMemberTotals = emptyList(),
+            voice = RemainingVoiceSnapshot(null, null, emptyList(), emptyList()),
+            sms = RemainingSMSSnapshot(null, null, emptyList(), emptyList()),
+        ),
         balanceYuan = 999.0,
         unavailableBalanceDetail = null,
         quotaResourceStatus = QuotaResourceStatus.AVAILABLE,
