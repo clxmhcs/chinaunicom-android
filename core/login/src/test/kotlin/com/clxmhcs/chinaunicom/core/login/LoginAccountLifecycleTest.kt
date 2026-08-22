@@ -3,6 +3,8 @@ package com.clxmhcs.chinaunicom.core.login
 import com.clxmhcs.chinaunicom.core.model.AccountCredentials
 import com.clxmhcs.chinaunicom.core.model.QuotaFetchResult
 import com.clxmhcs.chinaunicom.core.model.QuotaResourceStatus
+import com.clxmhcs.chinaunicom.core.network.UnicomPasswordLoginResult
+import com.clxmhcs.chinaunicom.core.network.UnicomSMSLoginResult
 import com.clxmhcs.chinaunicom.core.security.CredentialStore
 import java.util.UUID
 import org.junit.Assert.assertEquals
@@ -49,6 +51,43 @@ class LoginAccountLifecycleTest {
         assertEquals("校园沃派", seed.quota.packageName)
         assertNull(seed.quota.updatedCredentials)
         assertEquals(renewedCredentials, store.read(accountID))
+    }
+
+    @Test
+    fun smsAndPasswordLoginResultsShareTheSameValidatedLifecycle() {
+        val validatedInputs = mutableListOf<AccountCredentials>()
+        val smsCredentials = originalCredentials.copy(cookie = "session=sms")
+        val passwordCredentials = originalCredentials.copy(cookie = "session=password")
+
+        val smsStore = FakeCredentialStore()
+        val smsLifecycle = lifecycle(
+            validator = QuotaCredentialValidator { credentials ->
+                validatedInputs += credentials
+                quotaResult(null)
+            },
+            store = smsStore,
+        )
+        smsLifecycle.createValidatedSMSAccount(
+            mobile = "13800138000",
+            loginResult = UnicomSMSLoginResult(smsCredentials, invalidAt = "sms-validity"),
+        ) { }
+        assertEquals(smsCredentials, smsStore.read(accountID))
+
+        val passwordStore = FakeCredentialStore()
+        val passwordLifecycle = lifecycle(
+            validator = QuotaCredentialValidator { credentials ->
+                validatedInputs += credentials
+                quotaResult(null)
+            },
+            store = passwordStore,
+        )
+        passwordLifecycle.createValidatedPasswordAccount(
+            mobile = "13800138000",
+            loginResult = UnicomPasswordLoginResult(passwordCredentials, invalidAt = "password-validity"),
+        ) { }
+        assertEquals(passwordCredentials, passwordStore.read(accountID))
+
+        assertEquals(listOf(smsCredentials, passwordCredentials), validatedInputs)
     }
 
     @Test
