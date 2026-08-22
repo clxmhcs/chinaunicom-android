@@ -41,7 +41,7 @@ M5 must not persist service passwords, SMS verification codes or captcha result 
 | `ChinaUnicom/Services/RSAEncryptor.swift` | `8c5b12e7bd2cbc99f008047d9c9008c2822b1438449aa81371e67ed74ed6bd0f` | password login, device identity, RSA encryption |
 | `ChinaUnicom/Views/AccountCredentialViews.swift` | `c4f1836b75cc34c79a533b81f3076cc3a9d2f28f7734cda00768df987d95a012` | login workflow/business state |
 | `ChinaUnicom/Models/AppModels.swift` | `84bdd7c16e37a39b914827a02f11ef1d4e1c58a76335c5cd423247bb053133fa` | `AccountCredentials` model |
-| `ChinaUnicom/Services/AppStore.swift` | source archive truth used by M5-D | validated-account creation, refresh and delete rollback ordering |
+| `ChinaUnicom/Services/AppStore.swift` | `363468df319315f6df986b21e8b1b66219982fb7e9d2b90fc7fb8f40580902b3` | validated-account creation, refresh and delete rollback ordering |
 
 Authoritative credential model:
 
@@ -321,7 +321,7 @@ The M5 job additionally verified:
 - commit status `android-m5-security` = success;
 - failure gate skipped as expected.
 
-Lifecycle unit tests freeze validation-before-save ordering, M4 renewed credential preference, credential stripping from metadata, no persistence on validation failure, rollback on account-metadata creation failure, restart-style credential restore, renewed credential overwrite on refresh, no rewrite without renewal, account deletion, credential restoration on deletion rollback, invalid-mobile rejection and missing-credential fail-closed behavior.
+Lifecycle unit tests freeze validation-before-save ordering, shared SMS/password lifecycle entry, M4 renewed credential preference, credential stripping from metadata, no persistence on validation failure, rollback on account-metadata creation failure, restart-style credential restore, renewed credential overwrite on refresh, no rewrite without renewal, account deletion, credential restoration on deletion rollback, invalid-mobile rejection and missing-credential fail-closed behavior.
 
 `M5-D_RESULT = PASS / CLOSED`
 
