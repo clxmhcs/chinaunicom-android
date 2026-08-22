@@ -27,17 +27,17 @@ M4 closure includes source-derived HTTP/Cookie/session behavior, authoritative M
 
 M5-A is `PASS / CLOSED` and establishes Android Keystore AES-256-GCM account credential persistence for Cookie + optional appID + optional token_online.
 
-M5-B SMS Login Core is implemented and pending its branch CI gate. It adds:
+M5-B SMS Login Core is `PASS / CLOSED`:
 
-- source-derived `getSwitch` preflight, `sendRadomNum.htm` SMS send and `radomLogin.htm` login contracts;
-- the frozen RSA PKCS#1 v1.5 public-key encryption path for mobile and six-digit verification code;
+- source-derived `getSwitch`, `sendRadomNum.htm` and `radomLogin.htm` behavior;
+- frozen RSA PKCS#1 v1.5 encryption for mobile and six-digit verification code;
 - explicit source-equivalent Cookie accumulation and base Cookie seeding;
-- `ECS99998 + type=10` SMS captcha-required state with `channel=smssms`;
+- `ECS99998 + type=10` captcha-required state with `channel=smssms`;
 - Cookie/appID/token_online/invalidat extraction;
 - Keystore-protected persistent login device identity matching the iOS Keychain role;
-- no SMS code/password/Cookie/token_online persistence in the login device-identity store.
+- M1/M2/M3/M4/M5 CI and Debug/Release builds green.
 
-`NEXT_AFTER_M5_B_PASS = Android-M5-C — Password Login + Risk Captcha`.
+`NEXT = Android-M5-C — Password Login + Risk Captcha`.
 
 M0 is closed for progression by explicit migration decision; the deferred real iOS light/dark screenshot set remains mandatory before M7 visual-parity acceptance.
 
