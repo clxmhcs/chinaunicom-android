@@ -1,6 +1,11 @@
 package com.clxmhcs.chinaunicom.data
 
-/** Debug wiring only. */
+import android.content.Context
+
+/** Debug wiring only; fake fixtures remain isolated from release/main production wiring. */
 object UnicomRepositoryProvider {
-    fun create(): UnicomRepository = FakeUnicomRepository()
+    fun create(context: Context): UnicomRepository {
+        context.applicationContext // Keep variant API identical to release without retaining the Activity.
+        return FakeUnicomRepository()
+    }
 }

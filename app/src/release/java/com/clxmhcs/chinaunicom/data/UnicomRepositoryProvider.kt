@@ -1,17 +1,15 @@
 package com.clxmhcs.chinaunicom.data
 
-import com.clxmhcs.chinaunicom.model.BusinessOverview
+import android.content.Context
+import com.clxmhcs.chinaunicom.core.storage.AndroidAccountMetadataStores
+import com.clxmhcs.chinaunicom.data.account.DefaultAccountRepository
 
-/**
- * Release wiring deliberately contains no fake data.
- * M6 will replace this placeholder with the production repository graph.
- */
+/** Release wiring for the M6 production metadata repository graph. */
 object UnicomRepositoryProvider {
-    fun create(): UnicomRepository = PendingProductionUnicomRepository
-}
-
-private object PendingProductionUnicomRepository : UnicomRepository {
-    override fun loadOverview(): BusinessOverview {
-        error("Production China Unicom repository is not wired until M6")
+    fun create(context: Context): UnicomRepository {
+        val accountRepository = DefaultAccountRepository(
+            store = AndroidAccountMetadataStores.accounts(context),
+        )
+        return ProductionUnicomRepository(accountRepository)
     }
 }
