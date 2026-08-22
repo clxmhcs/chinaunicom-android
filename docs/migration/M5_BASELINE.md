@@ -8,6 +8,10 @@ Completed substage:
 
 `M5-A_RESULT = PASS / CLOSED`
 
+Current substage:
+
+`M5-B_RESULT = SMS_LOGIN_IMPLEMENTED / CI_PENDING`
+
 Minimum supported Android version remains **Android 11 / API 30**.
 
 ## Scope
@@ -88,33 +92,89 @@ Verified gates:
 - commit status `android-m5-security` = success;
 - failure gate skipped as expected.
 
-Credential unit tests freeze:
-
-- exact round-trip of Cookie/appID/token_online;
-- nullable appID/token_online preservation;
-- multi-account isolation;
-- overwrite affects only the selected account;
-- stored blob does not contain known plaintext Cookie/token sentinels;
-- blob copied to another account ID fails AES-GCM authentication;
-- corrupt envelope fails closed;
-- delete and delete-all remove stored credentials.
+Credential unit tests freeze exact credential round-trip, nullable appID/token_online preservation, multi-account isolation, overwrite, plaintext sentinel absence, account-bound AAD, corruption failure and delete/delete-all behavior.
 
 `M5-A_RESULT = PASS / CLOSED`
 
+## M5-B — SMS login core
+
+The Android implementation is source-derived from `UnicomSMSLoginSession` and `RSAEncryptor` rather than re-discovered from live traffic.
+
+### Frozen endpoints and constants
+
+- preflight: `https://loginxx.10010.com/login-web/v1/switch/getSwitch`;
+- send SMS: `https://loginxx.10010.com/mobileService/sendRadomNum.htm`;
+- SMS login: `https://loginxx.10010.com/mobileService/radomLogin.htm`;
+- client version: `iphone_c@12.1400`;
+- key version: `2`;
+- channel: `GGPD`;
+- switch version: `237`;
+- base city seed: `017|170`;
+- source-defined login User-Agent/header contract is preserved.
+
+### Request/session behavior
+
+- mobile input is reduced to digits; a leading `86` is removed only from a 13-digit value;
+- mobile must then be exactly 11 digits;
+- SMS login code is reduced to digits and must be exactly 6 digits;
+- mobile and verification code are encrypted with the frozen 1024-bit RSA public key using PKCS#1 v1.5 and then Base64 encoded;
+- first send/login prepares the source-defined `getSwitch` session with JSON body fields `mobile/seq/sign/provinceCode/timestamp/appVersion/version/deviceCode`;
+- `getSwitch` failure is non-fatal, matching the iOS preflight behavior;
+- base cookies are `PvSessionId`, `c_version`, `channel`, `devicedId`, `city`;
+- all `Set-Cookie` mutations from preflight/send/login are accumulated explicitly through the M4 Cookie codec;
+- `sendRadomNum.htm` uses the source-defined form body, including `loginCodeLen=6`, device identity, province/city, `appId`, request time and optional `resultToken`;
+- `radomLogin.htm` uses `loginStyle=0`, `voiceoff_flag=1`, `keyVersion=2`, encrypted mobile and encrypted six-digit code;
+- success requires response code `0` or `0000`;
+- SMS send response `ECS99998` with `type=10` becomes a captcha-required outcome;
+- SMS captcha bridge payload carries the source-defined keys and adds `channel=smssms`;
+- successful login requires both a non-empty normalized Cookie and `token_online`;
+- response `appId/appID` replaces the requested appID when present;
+- `invalidat/invalidAt` is retained as the login result validity text;
+- list-derived `proCode|cityCode` updates the city seed only after the returned credential Cookie has been snapshotted, preserving iOS ordering.
+
+### Device identity persistence
+
+The iOS source stores `deviceCode`, `uniqueIdentifier`, `deviceID` and generated default `appID` in Keychain. Android now mirrors that security boundary with a dedicated Android Keystore AES-GCM identity key and isolated encrypted blob namespace.
+
+Generation/validation rules are preserved:
+
+- `deviceCode`: UUID, generated uppercase;
+- `uniqueIdentifier`: `iosa` + 32 lowercase hex characters;
+- `deviceID`: lowercase SHA-256 hex of `deviceCode`;
+- default `appID`: 192 lowercase hex characters;
+- city seed remains app-private non-secret state and defaults to `017|170`;
+- Android hardware model/system version are supplied as platform-native device values while the source-owned China Unicom protocol profile/constants remain unchanged.
+
+No mobile number, SMS code, password, Cookie or token_online is persisted by this device-identity store.
+
+### M5-B regression requirements
+
+- exact preflight URL/body/header/base-Cookie shape;
+- RSA mobile ciphertext decodes to a 128-byte RSA block;
+- preflight Set-Cookie reaches the following send/login request;
+- send-code field set and preferred appID behavior;
+- `ECS99998 + type=10` maps to captcha-required with `channel=smssms`;
+- `resultToken` continuation skips a new preflight, matching source behavior;
+- preflight network failure does not block SMS send;
+- login form encrypts both mobile and six-digit code;
+- success extracts Cookie/appID/token_online/invalidat;
+- city seed update ordering matches iOS;
+- missing token_online fails closed;
+- RSA public key/padding and oversize plaintext rejection are frozen by test;
+- M1/M2/M3/M4/M5 CI and Debug/Release assembly remain green.
+
+`M5-B_RESULT = SMS_LOGIN_IMPLEMENTED / CI_PENDING`
+
 ## Remaining M5 work
-
-### M5-B — SMS login
-
-Port the source-defined `sendRadomNum.htm` + `radomLogin.htm` flow, including request preparation, RSA mobile/code encryption, Cookie accumulation, appID/token_online extraction and SMS risk-captcha continuation.
 
 ### M5-C — password login + risk captcha
 
-Port `login.htm`, RSA password encryption, success/error classification and official risk-captcha continuation contract.
+Port `login.htm`, RSA password encryption, success/error classification and official risk-captcha continuation contract. Reuse the M5-B RSA, device identity, explicit Cookie accumulation and captcha data contracts rather than creating a parallel login stack.
 
 ### M5-D — login integration / persistence acceptance
 
 - successful login validates credentials through the M4 quota path before account creation;
-- only Cookie/appID/token_online are persisted;
+- only Cookie/appID/token_online are persisted as account credentials;
 - M4 renewed credentials are securely overwritten;
 - process/app restart can read credentials without re-login;
 - logout/account deletion removes the corresponding encrypted credentials;
@@ -122,8 +182,8 @@ Port `login.htm`, RSA password encryption, success/error classification and offi
 
 ## Screenshot requirement
 
-M5-A requires no real-device screenshots. M5-B/M5-C implementation can also proceed from the frozen iOS source without visual screenshots. If a later runtime acceptance step requires real-device login/captcha evidence, the exact screens will be requested before that step begins.
+M5-A and M5-B require no real-device screenshots. M5-C implementation can also proceed from the frozen iOS source without visual screenshots. If a later runtime acceptance step requires real-device login/captcha evidence, the exact screens will be requested before that step begins.
 
 ## Next
 
-`NEXT = Android-M5-B — SMS Login Core`
+`NEXT_AFTER_M5_B_PASS = Android-M5-C — Password Login + Risk Captcha`
