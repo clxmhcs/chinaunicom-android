@@ -8,10 +8,7 @@ Completed substages:
 
 - `M5-A_RESULT = PASS / CLOSED`
 - `M5-B_RESULT = PASS / CLOSED`
-
-Current substage:
-
-`M5-C_RESULT = PASSWORD_LOGIN_IMPLEMENTED / CI_PENDING`
+- `M5-C_RESULT = PASS / CLOSED`
 
 Minimum supported Android version remains **Android 11 / API 30**.
 
@@ -134,22 +131,7 @@ Implementation head `7fe422e13e5627c19f6b1c29bb37c11c473dd3bd` passed all PR wor
 - Android M4 Network run `32542898741` = success;
 - Android M5 Login Security run `32542898737` = success.
 
-The M5 job additionally verified:
-
-- Keystore + SMS protocol static boundary = PASS;
-- exact three SMS login endpoints present;
-- frozen RSA public key and `RSA/ECB/PKCS1Padding` present;
-- direct plaintext secret-field persistence guard = PASS;
-- `:core:security:testDebugUnitTest` = PASS;
-- `:core:model:testDebugUnitTest` = PASS;
-- `:core:parser:testDebugUnitTest` = PASS;
-- `:core:network:testDebugUnitTest` = PASS;
-- `:app:assembleDebug` = PASS;
-- `:app:assembleRelease` = PASS;
-- commit status `android-m5-security` = success;
-- failure gate skipped as expected.
-
-Regression tests freeze preflight ordering/failure tolerance, request fields, RSA block size/randomization, Cookie propagation, captcha continuation, success extraction, city update ordering, missing-token failure and oversized RSA input rejection.
+The M5 job additionally verified Keystore + SMS static protocol guards, the frozen RSA key/padding, direct plaintext-secret persistence protection, security/model/parser/network tests, Debug/Release assembly and `android-m5-security` status.
 
 `M5-B_RESULT = PASS / CLOSED`
 
@@ -186,6 +168,16 @@ App composition entry point: `PasswordLoginSessionProvider`, reusing the M5-B `A
 - password form preserves source fields including `netWay=wifi`, `isRemberPwd=false`, `keyVersion=2`, empty latitude/longitude, device identity, request time and optional `resultToken`;
 - `preferredAppID` is accepted only when it is exactly 192 lowercase hexadecimal characters; invalid preferred values fall back to the stable Keystore-protected installation appID.
 
+### RSA failure semantics
+
+The password session preserves iOS password-specific encryption failure categories rather than collapsing them into network failure:
+
+- invalid public key -> `InvalidPublicKey`;
+- RSA plaintext over the PKCS#1 block limit -> `PlaintextTooLong`;
+- provider/cipher failure -> `EncryptionFailed`.
+
+The 1024-bit frozen key accepts at most 117 plaintext bytes with PKCS#1 v1.5. Regression includes a 118-byte password case and requires `PlaintextTooLong` before any transport request is made.
+
 ### Risk captcha behavior
 
 Password login must not reuse the SMS captcha response code:
@@ -212,8 +204,8 @@ Success uses the shared source truth `UnicomResponseStatus.successCodes`:
 
 Non-success behavior mirrors iOS:
 
-- message containing `ECS11721` or `密码错误` -> password rejected;
-- message containing `短信验证码` -> SMS verification required;
+- message containing `ECS11721` or `密码错误` -> password rejected, preserving the iOS guidance that traditional service-password login may no longer be supported for the account;
+- message containing `短信验证码` -> SMS verification required, preserving the iOS recommendation to use verification-code login;
 - otherwise -> generic server error.
 
 Successful password login then:
@@ -227,25 +219,37 @@ Successful password login then:
 
 This ordering intentionally differs from M5-B SMS login, where the credential Cookie is snapshotted before the response-derived city update.
 
-### M5-C regression requirements
+### M5-C regression evidence
 
-- exact `login.htm` endpoint and `getSwitch` preflight present;
-- password-specific `netWay=wifi`, `isRemberPwd=false`, `keyVersion=2` frozen;
-- mobile/password RSA ciphertexts each decode to the expected 128-byte RSA block;
-- password plaintext never appears in the encoded request field;
-- only strict 192-character lowercase-hex preferred appID is accepted;
-- preflight cookies propagate to login;
-- preflight network failure remains non-fatal;
-- `resultToken` continuation skips preflight;
-- `ECS99999 + type=10` yields password captcha-required;
-- missing risk-mobile parameter fails closed;
-- password challenge does not add the SMS-only `channel=smssms` field;
-- password-rejected / SMS-verification-required / generic server failures remain separately classified;
-- response city is present in the final password credential Cookie;
-- Cookie and token_online remain mandatory;
-- M1/M2/M3/M4/M5 CI and Debug/Release assembly remain green.
+Implementation head `f47380583bd31fdc7fa3d5fa2a7277984e0e7ea6` passed all PR workflows:
 
-`M5-C_RESULT = PASSWORD_LOGIN_IMPLEMENTED / CI_PENDING`
+- Android M1 Build run `32543701346` = success;
+- Android M2 Models run `32543701356` = success;
+- Android M3 Parsers run `32543701336` = success;
+- Android M4 Network run `32543701323` = success;
+- Android M5 Login Security run `32543701322` = success.
+
+The M5 job on that head additionally verified:
+
+- `Verify M5 security and login protocol boundary` = PASS;
+- M5-A Keystore/security guards remain PASS;
+- original SMS endpoints + SMS `getSwitch` + `ECS99998` guards remain PASS;
+- password `login.htm` + password `getSwitch` + `ECS99999` guards = PASS;
+- password `netWay=wifi`, `isRemberPwd`, error-classification and `PlaintextTooLong` guards = PASS;
+- frozen RSA public key and `RSA/ECB/PKCS1Padding` guard = PASS;
+- plaintext secret persistence guard including password/resultToken = PASS;
+- `:core:security:testDebugUnitTest` = PASS;
+- `:core:model:testDebugUnitTest` = PASS;
+- `:core:parser:testDebugUnitTest` = PASS;
+- `:core:network:testDebugUnitTest` = PASS;
+- `:app:assembleDebug` = PASS;
+- `:app:assembleRelease` = PASS;
+- commit status `android-m5-security` = success;
+- failure gate skipped as expected.
+
+Regression tests freeze password request shape, RSA block behavior, strict preferred appID validation, non-fatal preflight, resultToken continuation, ECS99999 risk captcha, mandatory risk mobile, separate error classification, password-specific RSA errors, city-before-cookie ordering, final Cookie/token requirements and input validation.
+
+`M5-C_RESULT = PASS / CLOSED`
 
 ## Remaining M5 work
 
@@ -265,4 +269,4 @@ M5-A, M5-B and M5-C implementation require no real-device screenshots. If M5-D r
 
 ## Next
 
-`NEXT_AFTER_M5_C_PASS = Android-M5-D — Login Integration + Persistence Acceptance`
+`NEXT = Android-M5-D — Login Integration + Persistence Acceptance`
