@@ -10,6 +10,9 @@ on:
       - "core/model/**"
       - "core/parser/**"
       - "core/network/**"
+      - "docs/migration/M4_BASELINE.md"
+      - "docs/migration/M4_F_REAL_PARITY.md"
+      - "README.md"
       - "gradle/**"
       - "*.gradle.kts"
       - "gradle.properties"
@@ -22,7 +25,7 @@ permissions:
 jobs:
   network-test-and-build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -55,23 +58,40 @@ jobs:
           echo "ANDROID_API_37_PLATFORM_PACKAGE=$PLATFORM_PACKAGE"
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Test M4 network and assemble app
+      - name: Verify fake repository is debug-only
+        shell: bash
+        run: |
+          if grep -RInE 'FakeUnicomRepository|mock-flow-|18600009025|896\.87|测试号码' app/src/main app/src/release; then
+            echo "ERROR: fake repository fixture leaked into main/release sources."
+            exit 1
+          fi
+          test -f app/src/debug/java/com/clxmhcs/chinaunicom/data/FakeUnicomRepository.kt
+          echo "FAKE_REPOSITORY_ISOLATION=PASS"
+
+      - name: Run M4 closure regression
         id: verify
         continue-on-error: true
-        run: gradle :core:network:testDebugUnitTest :core:parser:testDebugUnitTest :app:assembleDebug --stacktrace
+        run: >-
+          gradle
+          :core:model:testDebugUnitTest
+          :core:parser:testDebugUnitTest
+          :core:network:testDebugUnitTest
+          :app:assembleDebug
+          :app:assembleRelease
+          --stacktrace
 
-      - name: Upload M4-F debug APK
+      - name: Upload M4 debug APK
         id: package
         if: steps.verify.outcome == 'success'
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: chinaunicom-m4-f-debug
+          name: chinaunicom-m4-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
 
-      - name: Publish M4 network status
+      - name: Publish M4 closure status
         if: always()
         uses: actions/github-script@v7
         with:
@@ -85,7 +105,7 @@ jobs:
               sha: context.sha,
               state: passed ? 'success' : 'failure',
               context: 'android-m4-network',
-              description: passed ? 'M4 tests, assembleDebug and APK artifact passed' : 'M4 verification or APK artifact failed',
+              description: passed ? 'M4 model/parser/network tests + debug/release assemble passed' : 'M4 closure regression or APK artifact failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
 
