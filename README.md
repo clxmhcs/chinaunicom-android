@@ -21,19 +21,21 @@ Android-native migration of the existing ChinaUnicom iOS application.
 
 `Android-M4 — HTTP / Cookie / Session Core` is `PASS / CLOSED`.
 
-M4 closure includes:
+M4 closure includes source-derived HTTP/Cookie/session behavior, authoritative M2 business models, remaining/unlimited/formatting parity, debug-only Fake Repository isolation, accepted sanitized M4-F real-account evidence, and the final model/parser/network + Debug/Release CI gate.
 
-- source-derived HTTP/Cookie/session activation and quota/balance clients;
-- iOS-equivalent transient retry classification;
-- authoritative M2 `UnicomAccount` / `FlowPackage` / `VoicePackage` business-model boundary;
-- independent `remainingMB`, unlimited and M3 `FlowFormatter` semantics;
-- debug-only fake repository isolation with no fake fixture data in main/release;
-- accepted sanitized M4-F real iOS/Android same-account parity evidence;
-- final CI gate covering model/parser/network tests plus Debug and Release assembly.
+`Android-M5 — Login + Security Storage` is `IN_PROGRESS`.
 
-The accepted M4-F evidence is sanitized validation evidence only. Raw Cookie, appId, token_online, password, SMS/captcha, credential archives and authenticated response bodies must never be committed or uploaded as evidence.
+M5-A establishes the Android secure credential boundary before login protocols are connected:
 
-`NEXT = Android-M5 — Login + Security Storage`.
+- authoritative credential payload remains only Cookie + optional appID + optional token_online;
+- account credential blobs are encrypted with AES-256-GCM;
+- the AES key is generated and protected by Android Keystore;
+- account UUID is authenticated as GCM associated data;
+- only encrypted blobs are stored in app-private SharedPreferences;
+- plaintext credentials are not written directly to files/preferences;
+- multi-account save/read/overwrite/delete/delete-all semantics are covered by regression tests.
+
+`NEXT = Android-M5-B — SMS Login Core`.
 
 M0 is closed for progression by explicit migration decision; the deferred real iOS light/dark screenshot set remains mandatory before M7 visual-parity acceptance.
 
@@ -45,4 +47,5 @@ See:
 - [`docs/migration/M3_BASELINE.md`](docs/migration/M3_BASELINE.md)
 - [`docs/migration/M4_BASELINE.md`](docs/migration/M4_BASELINE.md)
 - [`docs/migration/M4_F_REAL_PARITY.md`](docs/migration/M4_F_REAL_PARITY.md)
+- [`docs/migration/M5_BASELINE.md`](docs/migration/M5_BASELINE.md)
 - [`docs/migration/MIGRATION_RULES.md`](docs/migration/MIGRATION_RULES.md)
