@@ -4,9 +4,9 @@
 
 `M5_RESULT = IN_PROGRESS`
 
-Current completed substage:
+Completed substage:
 
-`M5-A_RESULT = SECURITY_STORAGE_IMPLEMENTED / CI_PENDING`
+`M5-A_RESULT = PASS / CLOSED`
 
 Minimum supported Android version remains **Android 11 / API 30**.
 
@@ -65,22 +65,41 @@ Implemented module:
 - Cookie, appID and token_online are never written directly to SharedPreferences/files;
 - plaintext credential byte buffers are overwritten after encrypt/decrypt processing where the JVM representation allows it;
 - corrupt envelopes/authentication failures fail closed instead of returning partial credentials;
-- save/read/delete/delete-all and independent multi-account storage are supported.
+- save/read/delete/delete-all and independent multi-account storage are supported;
+- the application manifest keeps `android:allowBackup="false"`, preventing encrypted credential blobs from entering Android Auto Backup without their device-bound Keystore key.
 
 The Android app exposes `CredentialStoreProvider` as the app-layer entry point. Future M5 login code and M6 repository code must use this boundary rather than creating another credential persistence mechanism.
 
-### M5-A regression requirements
+### M5-A regression evidence
+
+GitHub Actions run `32541541070` (`Android M5 Login Security`) completed successfully on the implementation head.
+
+Verified gates:
+
+- secure-storage source guard = PASS;
+- `AndroidKeyStore` + `AES/GCM/NoPadding` guard = PASS;
+- `android:allowBackup="false"` guard = PASS;
+- direct credential-field SharedPreferences write guard = PASS;
+- `:core:security:testDebugUnitTest` = PASS;
+- `:core:model:testDebugUnitTest` = PASS;
+- `:core:network:testDebugUnitTest` = PASS;
+- `:app:assembleDebug` = PASS;
+- `:app:assembleRelease` = PASS;
+- commit status `android-m5-security` = success;
+- failure gate skipped as expected.
+
+Credential unit tests freeze:
 
 - exact round-trip of Cookie/appID/token_online;
-- nullable appID/token_online preserved;
-- multiple accounts remain isolated;
+- nullable appID/token_online preservation;
+- multi-account isolation;
 - overwrite affects only the selected account;
 - stored blob does not contain known plaintext Cookie/token sentinels;
 - blob copied to another account ID fails AES-GCM authentication;
 - corrupt envelope fails closed;
-- delete and delete-all remove stored credentials;
-- Android Keystore implementation compiles for API 30;
-- Debug and Release app variants compile with `core:security` linked.
+- delete and delete-all remove stored credentials.
+
+`M5-A_RESULT = PASS / CLOSED`
 
 ## Remaining M5 work
 
