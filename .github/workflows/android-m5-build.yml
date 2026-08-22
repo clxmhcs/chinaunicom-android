@@ -67,13 +67,15 @@ jobs:
           fi
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M5 security and SMS protocol boundary
+      - name: Verify M5 security and login protocol boundary
         shell: bash
         run: |
           test -f core/security/src/main/kotlin/com/clxmhcs/chinaunicom/core/security/AndroidCredentialStore.kt
           test -f core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
+          test -f core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
           test -f core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomLoginRSAEncryptor.kt
           test -f app/src/main/java/com/clxmhcs/chinaunicom/data/AndroidLoginDeviceIdentityStore.kt
+          test -f app/src/main/java/com/clxmhcs/chinaunicom/data/PasswordLoginSessionProvider.kt
 
           grep -q 'AndroidKeyStore' core/security/src/main/kotlin/com/clxmhcs/chinaunicom/core/security/AndroidCredentialStore.kt
           grep -q 'AES/GCM/NoPadding' core/security/src/main/kotlin/com/clxmhcs/chinaunicom/core/security/AndroidCredentialStore.kt
@@ -84,14 +86,24 @@ jobs:
           grep -q 'https://loginxx.10010.com/mobileService/radomLogin.htm' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
           grep -q 'https://loginxx.10010.com/login-web/v1/switch/getSwitch' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
           grep -q 'ECS99998' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
+
+          grep -q 'https://loginxx.10010.com/mobileService/login.htm' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
+          grep -q 'https://loginxx.10010.com/login-web/v1/switch/getSwitch' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
+          grep -q 'ECS99999' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
+          grep -q 'isRemberPwd' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
+          grep -q 'netWay.*wifi' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
+          grep -q 'message.contains("ECS11721")' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
+          grep -q 'message.contains("短信验证码")' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
+          grep -q 'PlaintextTooLong' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
+
           grep -q 'RSA/ECB/PKCS1Padding' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomLoginRSAEncryptor.kt
           grep -q 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDc+CZK9bBA9IU+gZUO' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomLoginRSAEncryptor.kt
 
-          if grep -RInE 'putString\([^\n]*(cookie|tokenOnline|token_online|password|smsCode|verificationCode)' app/src/main core/security/src/main; then
+          if grep -RInE 'putString\([^\n]*(cookie|tokenOnline|token_online|password|smsCode|verificationCode|resultToken)' app/src/main core/security/src/main; then
             echo "ERROR: secret login/account field appears to be written directly to SharedPreferences."
             exit 1
           fi
-          echo "M5_SECURITY_SMS_BOUNDARY=PASS"
+          echo "M5_SECURITY_LOGIN_BOUNDARY=PASS"
 
       - name: Run M5 regression
         id: verify
