@@ -4,9 +4,10 @@
 
 `M5_RESULT = IN_PROGRESS`
 
-Completed substage:
+Completed substages:
 
-`M5-A_RESULT = PASS / CLOSED`
+- `M5-A_RESULT = PASS / CLOSED`
+- `M5-B_RESULT = PASS / CLOSED`
 
 Minimum supported Android version remains **Android 11 / API 30**.
 
@@ -43,87 +44,130 @@ Authoritative credential model:
 - `appID: String?`
 - `tokenOnline: String?`
 
-The iOS account-creation flow validates the credentials by performing a quota request before saving the new account credentials. If M4 session activation returns renewed credentials, those renewed credentials replace the original values before persistence.
+The iOS account-creation flow validates credentials with a quota request before persistence. If M4 session activation returns renewed credentials, those values replace the original values before persistence.
 
 ## M5-A — Android secure credential storage
 
-Android cannot copy Apple Keychain APIs. The platform-equivalent boundary is:
+Android platform equivalent:
 
 `AccountCredentials -> binary payload -> AES-256-GCM -> Android Keystore protected key -> encrypted app-private blob`
 
-Implemented module:
+Implemented module: `core:security`.
 
-`core:security`
+Security properties:
 
-### Security properties
+- AES key is generated/stored by `AndroidKeyStore`;
+- key alias `chinaunicom.account.credentials.aes.v1`;
+- `AES/GCM/NoPadding` with randomized IV;
+- account UUID authenticated as GCM associated data;
+- only ciphertext/IV envelopes written to app-private SharedPreferences;
+- Cookie/appID/token_online never directly persisted in plaintext;
+- corrupt/authentication-failed blobs fail closed;
+- multi-account save/read/overwrite/delete/delete-all supported;
+- application remains `android:allowBackup="false"`.
 
-- AES key is generated/stored by the `AndroidKeyStore` provider;
-- key alias is versioned: `chinaunicom.account.credentials.aes.v1`;
-- encryption is `AES/GCM/NoPadding` with a fresh randomized IV;
-- the account UUID is authenticated as AES-GCM associated data, so encrypted blobs cannot be swapped between accounts;
-- only ciphertext/IV envelopes are written to app-private SharedPreferences;
-- Cookie, appID and token_online are never written directly to SharedPreferences/files;
-- plaintext credential byte buffers are overwritten after encrypt/decrypt processing where the JVM representation allows it;
-- corrupt envelopes/authentication failures fail closed instead of returning partial credentials;
-- save/read/delete/delete-all and independent multi-account storage are supported;
-- the application manifest keeps `android:allowBackup="false"`, preventing encrypted credential blobs from entering Android Auto Backup without their device-bound Keystore key.
+App entry point: `CredentialStoreProvider`.
 
-The Android app exposes `CredentialStoreProvider` as the app-layer entry point. Future M5 login code and M6 repository code must use this boundary rather than creating another credential persistence mechanism.
+M5-A accepted regression run: `32541541070` (`Android M5 Login Security`) = success.
 
-### M5-A regression evidence
+`M5-A_RESULT = PASS / CLOSED`
 
-GitHub Actions run `32541541070` (`Android M5 Login Security`) completed successfully on the implementation head.
+## M5-B — SMS login core
 
-Verified gates:
+Android implementation is source-derived from the frozen iOS `UnicomSMSLoginSession` and `RSAEncryptor`, not rediscovered from live traffic.
 
-- secure-storage source guard = PASS;
-- `AndroidKeyStore` + `AES/GCM/NoPadding` guard = PASS;
-- `android:allowBackup="false"` guard = PASS;
-- direct credential-field SharedPreferences write guard = PASS;
+### Frozen endpoints/constants
+
+- preflight: `https://loginxx.10010.com/login-web/v1/switch/getSwitch`;
+- send SMS: `https://loginxx.10010.com/mobileService/sendRadomNum.htm`;
+- SMS login: `https://loginxx.10010.com/mobileService/radomLogin.htm`;
+- client version: `iphone_c@12.1400`;
+- key version: `2`;
+- channel: `GGPD`;
+- switch version: `237`;
+- default city seed: `017|170`.
+
+### Request/session behavior
+
+- mobile is normalized to digits; only a 13-digit value beginning `86` loses that prefix; resulting length must be 11;
+- SMS code is digits-only and must be exactly 6 digits;
+- mobile/code use the frozen 1024-bit RSA public key with PKCS#1 v1.5 and Base64 output;
+- first send/login performs source-defined `getSwitch` preflight;
+- preflight failure is non-fatal;
+- base cookies are `PvSessionId`, `c_version`, `channel`, `devicedId`, `city`;
+- Set-Cookie mutations are explicitly accumulated through the authoritative M4 Cookie codec;
+- `sendRadomNum.htm` preserves source form fields and optional `resultToken`;
+- `radomLogin.htm` preserves `loginStyle=0`, `voiceoff_flag=1`, `keyVersion=2` and encrypted mobile/code;
+- success accepts response code `0` / `0000`;
+- `ECS99998 + type=10` maps to captcha-required and adds `channel=smssms` to the bridge payload;
+- successful login requires normalized Cookie and nonempty `token_online`;
+- returned `appId/appID` supersedes requested appID when present;
+- `invalidat/invalidAt` is retained;
+- list-derived `proCode|cityCode` updates the city seed only after credential Cookie snapshot, preserving iOS ordering.
+
+### Device identity security
+
+The iOS source stores `deviceCode`, `uniqueIdentifier`, `deviceID` and generated default `appID` in Keychain. Android mirrors this with a separate Android Keystore AES-GCM identity key and isolated encrypted blob namespace.
+
+Generation rules:
+
+- `deviceCode`: UUID, generated uppercase;
+- `uniqueIdentifier`: `iosa` + 32 lowercase hex characters;
+- `deviceID`: lowercase SHA-256 of `deviceCode`;
+- default `appID`: 192 lowercase hex characters;
+- city seed remains non-secret app-private state;
+- Android device model/system version are platform-native while source-owned protocol constants remain frozen.
+
+No mobile number, SMS code, password, Cookie or token_online is persisted by the device-identity store.
+
+### M5-B regression evidence
+
+Implementation head `7fe422e13e5627c19f6b1c29bb37c11c473dd3bd` passed all PR workflows:
+
+- Android M1 Build run `32542898754` = success;
+- Android M2 Models run `32542898782` = success;
+- Android M3 Parsers run `32542898682` = success;
+- Android M4 Network run `32542898741` = success;
+- Android M5 Login Security run `32542898737` = success.
+
+The M5 job additionally verified:
+
+- Keystore + SMS protocol static boundary = PASS;
+- exact three SMS login endpoints present;
+- frozen RSA public key and `RSA/ECB/PKCS1Padding` present;
+- direct plaintext secret-field persistence guard = PASS;
 - `:core:security:testDebugUnitTest` = PASS;
 - `:core:model:testDebugUnitTest` = PASS;
+- `:core:parser:testDebugUnitTest` = PASS;
 - `:core:network:testDebugUnitTest` = PASS;
 - `:app:assembleDebug` = PASS;
 - `:app:assembleRelease` = PASS;
 - commit status `android-m5-security` = success;
 - failure gate skipped as expected.
 
-Credential unit tests freeze:
+Regression tests freeze preflight ordering/failure tolerance, request fields, RSA block size/randomization, Cookie propagation, captcha continuation, success extraction, city update ordering, missing-token failure and oversized RSA input rejection.
 
-- exact round-trip of Cookie/appID/token_online;
-- nullable appID/token_online preservation;
-- multi-account isolation;
-- overwrite affects only the selected account;
-- stored blob does not contain known plaintext Cookie/token sentinels;
-- blob copied to another account ID fails AES-GCM authentication;
-- corrupt envelope fails closed;
-- delete and delete-all remove stored credentials.
-
-`M5-A_RESULT = PASS / CLOSED`
+`M5-B_RESULT = PASS / CLOSED`
 
 ## Remaining M5 work
 
-### M5-B — SMS login
-
-Port the source-defined `sendRadomNum.htm` + `radomLogin.htm` flow, including request preparation, RSA mobile/code encryption, Cookie accumulation, appID/token_online extraction and SMS risk-captcha continuation.
-
 ### M5-C — password login + risk captcha
 
-Port `login.htm`, RSA password encryption, success/error classification and official risk-captcha continuation contract.
+Port `login.htm`, RSA password encryption, success/error classification and official risk-captcha continuation contract. Reuse the M5-B RSA, device identity, explicit Cookie accumulation and captcha contracts instead of creating a parallel login stack.
 
 ### M5-D — login integration / persistence acceptance
 
 - successful login validates credentials through the M4 quota path before account creation;
-- only Cookie/appID/token_online are persisted;
-- M4 renewed credentials are securely overwritten;
-- process/app restart can read credentials without re-login;
-- logout/account deletion removes the corresponding encrypted credentials;
+- only Cookie/appID/token_online persist as account credentials;
+- M4 renewed credentials securely overwrite prior credentials;
+- process/app restart reads credentials without re-login;
+- logout/account deletion removes corresponding encrypted credentials;
 - final M5 security/static/regression gates pass.
 
 ## Screenshot requirement
 
-M5-A requires no real-device screenshots. M5-B/M5-C implementation can also proceed from the frozen iOS source without visual screenshots. If a later runtime acceptance step requires real-device login/captcha evidence, the exact screens will be requested before that step begins.
+M5-A and M5-B require no real-device screenshots. M5-C implementation can also proceed from the frozen iOS source without visual screenshots. If a later runtime acceptance step requires real-device login/captcha evidence, the exact screens will be requested before that step begins.
 
 ## Next
 
-`NEXT = Android-M5-B — SMS Login Core`
+`NEXT = Android-M5-C — Password Login + Risk Captcha`

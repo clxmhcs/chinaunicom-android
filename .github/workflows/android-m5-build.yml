@@ -67,26 +67,40 @@ jobs:
           fi
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M5 secure-storage boundary
+      - name: Verify M5 security and SMS protocol boundary
         shell: bash
         run: |
           test -f core/security/src/main/kotlin/com/clxmhcs/chinaunicom/core/security/AndroidCredentialStore.kt
+          test -f core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
+          test -f core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomLoginRSAEncryptor.kt
+          test -f app/src/main/java/com/clxmhcs/chinaunicom/data/AndroidLoginDeviceIdentityStore.kt
+
           grep -q 'AndroidKeyStore' core/security/src/main/kotlin/com/clxmhcs/chinaunicom/core/security/AndroidCredentialStore.kt
           grep -q 'AES/GCM/NoPadding' core/security/src/main/kotlin/com/clxmhcs/chinaunicom/core/security/AndroidCredentialStore.kt
+          grep -q 'AndroidKeystoreCredentialCipher' app/src/main/java/com/clxmhcs/chinaunicom/data/AndroidLoginDeviceIdentityStore.kt
           grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
-          if grep -RInE 'putString\([^\n]*(cookie|tokenOnline|token_online|appID)' app/src/main core/security/src/main; then
-            echo "ERROR: credential field appears to be written directly to SharedPreferences."
+
+          grep -q 'https://loginxx.10010.com/mobileService/sendRadomNum.htm' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
+          grep -q 'https://loginxx.10010.com/mobileService/radomLogin.htm' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
+          grep -q 'https://loginxx.10010.com/login-web/v1/switch/getSwitch' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
+          grep -q 'ECS99998' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
+          grep -q 'RSA/ECB/PKCS1Padding' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomLoginRSAEncryptor.kt
+          grep -q 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDc+CZK9bBA9IU+gZUO' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomLoginRSAEncryptor.kt
+
+          if grep -RInE 'putString\([^\n]*(cookie|tokenOnline|token_online|password|smsCode|verificationCode)' app/src/main core/security/src/main; then
+            echo "ERROR: secret login/account field appears to be written directly to SharedPreferences."
             exit 1
           fi
-          echo "M5_SECURE_STORAGE_BOUNDARY=PASS"
+          echo "M5_SECURITY_SMS_BOUNDARY=PASS"
 
-      - name: Run M5-A regression
+      - name: Run M5 regression
         id: verify
         continue-on-error: true
         run: >-
           gradle
           :core:security:testDebugUnitTest
           :core:model:testDebugUnitTest
+          :core:parser:testDebugUnitTest
           :core:network:testDebugUnitTest
           :app:assembleDebug
           :app:assembleRelease
@@ -104,10 +118,10 @@ jobs:
               sha: context.sha,
               state: passed ? 'success' : 'failure',
               context: 'android-m5-security',
-              description: passed ? 'M5 security tests + debug/release assemble passed' : 'M5 security regression failed',
+              description: passed ? 'M5 security/login tests + debug/release assemble passed' : 'M5 security/login regression failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
 
-      - name: Fail workflow when M5-A verification failed
+      - name: Fail workflow when M5 verification failed
         if: always() && steps.verify.outcome != 'success'
         run: exit 1

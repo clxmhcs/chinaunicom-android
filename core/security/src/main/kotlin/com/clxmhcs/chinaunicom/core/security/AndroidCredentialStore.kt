@@ -74,9 +74,12 @@ class AndroidKeystoreCredentialCipher(
     }
 }
 
-class SharedPreferencesCredentialBlobStorage(context: Context) : CredentialBlobStorage {
+class SharedPreferencesCredentialBlobStorage(
+    context: Context,
+    preferencesName: String = PREFERENCES_NAME,
+) : CredentialBlobStorage {
     private val preferences = context.applicationContext.getSharedPreferences(
-        PREFERENCES_NAME,
+        preferencesName,
         Context.MODE_PRIVATE,
     )
 
