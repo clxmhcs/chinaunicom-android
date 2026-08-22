@@ -84,6 +84,7 @@ jobs:
 
           grep -q 'https://loginxx.10010.com/mobileService/sendRadomNum.htm' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
           grep -q 'https://loginxx.10010.com/mobileService/radomLogin.htm' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
+          grep -q 'https://loginxx.10010.com/login-web/v1/switch/getSwitch' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
           grep -q 'ECS99998' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
 
           grep -q 'https://loginxx.10010.com/mobileService/login.htm' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
@@ -93,6 +94,7 @@ jobs:
           grep -q 'netWay.*wifi' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
           grep -q 'message.contains("ECS11721")' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
           grep -q 'message.contains("短信验证码")' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
+          grep -q 'PlaintextTooLong' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
 
           grep -q 'RSA/ECB/PKCS1Padding' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomLoginRSAEncryptor.kt
           grep -q 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDc+CZK9bBA9IU+gZUO' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomLoginRSAEncryptor.kt
