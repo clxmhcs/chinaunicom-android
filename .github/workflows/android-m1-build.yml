@@ -71,10 +71,20 @@ jobs:
           echo "ANDROID_17_PLATFORM_PACKAGE=$PLATFORM_PACKAGE"
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Assemble M1 debug APK
+      - name: Verify fake repository is debug-only
+        shell: bash
+        run: |
+          if grep -RInE 'FakeUnicomRepository|mock-flow-|18600009025|896\.87|测试号码' app/src/main app/src/release; then
+            echo "ERROR: fake repository fixture leaked into main/release sources."
+            exit 1
+          fi
+          test -f app/src/debug/java/com/clxmhcs/chinaunicom/data/FakeUnicomRepository.kt
+          echo "FAKE_REPOSITORY_ISOLATION=PASS"
+
+      - name: Assemble M1 debug and release APKs
         id: build
         continue-on-error: true
-        run: gradle :app:assembleDebug --stacktrace
+        run: gradle :app:assembleDebug :app:assembleRelease --stacktrace
 
       - name: Publish M1 build status
         if: always()
@@ -88,7 +98,7 @@ jobs:
               sha: context.sha,
               state: passed ? 'success' : 'failure',
               context: 'android-m1-build',
-              description: passed ? 'M1 assembleDebug passed' : 'M1 assembleDebug failed or did not run'
+              description: passed ? 'M1 debug/release assemble passed' : 'M1 debug/release assemble failed or did not run'
             });
 
       - name: Fail workflow when build failed
