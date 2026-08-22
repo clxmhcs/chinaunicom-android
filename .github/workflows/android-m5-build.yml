@@ -73,6 +73,7 @@ jobs:
           test -f core/security/src/main/kotlin/com/clxmhcs/chinaunicom/core/security/AndroidCredentialStore.kt
           grep -q 'AndroidKeyStore' core/security/src/main/kotlin/com/clxmhcs/chinaunicom/core/security/AndroidCredentialStore.kt
           grep -q 'AES/GCM/NoPadding' core/security/src/main/kotlin/com/clxmhcs/chinaunicom/core/security/AndroidCredentialStore.kt
+          grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
           if grep -RInE 'putString\([^\n]*(cookie|tokenOnline|token_online|appID)' app/src/main core/security/src/main; then
             echo "ERROR: credential field appears to be written directly to SharedPreferences."
             exit 1
