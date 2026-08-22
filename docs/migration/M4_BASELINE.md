@@ -45,11 +45,11 @@ Preserved behavior:
 - Cookie attributes excluded from normalized Cookie header;
 - Set-Cookie additions/replacements/deletions returned as explicit mutations;
 - `Max-Age <= 0` and epoch-1970 expiry delete a Cookie;
-- combined Set-Cookie records preserve commas inside Expires values;
-- form encoding sorts map keys and uses RFC3986 unreserved characters;
+- combined Set-Cookie records split only on commas that begin a new cookie pair, preserving Expires commas;
+- form encoding sorts map keys and uses RFC3986 unreserved characters (`A-Z a-z 0-9 - . _ ~`);
 - success codes: `0`, `0000`, `200`, `success`;
 - expired codes: `9998`, `999998`, `999999`, `0500`;
-- plain-text expiry markers remain supported.
+- plain response expiry markers include invalid Cookie / not logged in / relogin / login-expired text.
 
 The Kotlin top-level JSON primitive difference remains explicitly normalized so raw `999998` follows the source-equivalent expiry path instead of being treated as a successful structured quota container.
 
@@ -59,7 +59,7 @@ The Kotlin top-level JSON primitive difference remains explicitly normalized so 
 
 - URL: `https://m.client.10010.com/mobileService/onLine.htm`;
 - body: `appId`, `token_online`, `version=iphone_c@9.0100`;
-- form Content-Type;
+- Content-Type: `application/x-www-form-urlencoded`;
 - old Cookie is not attached to activation;
 - successful Set-Cookie mutations are applied to the normalized original Cookie;
 - returned `token_online` / `tokenOnline` replaces the old token when non-empty;
@@ -70,25 +70,38 @@ Production secure persistence is M5, not M4.
 
 ## M4-D — quota API
 
-- quota endpoint remains source-derived;
+- URL: `https://m.client.10010.com/servicequerybusiness/operationservice/queryOcsPackageFlowLeftContentRevisedInJune`;
 - original normalized Cookie is tried first;
-- session expiry may activate via appId/token_online when available;
-- activated Cookie is used for retry;
-- `QuotaParser` remains parser authority;
-- full query may reuse the response for `RemainingQueryParser`;
-- Widget-light query may skip Remaining detail parsing;
-- package-name fallback is source-controlled;
-- unlimited-flow response normalization preserves the iOS summary semantics.
+- session-expired response triggers token-online activation only when appId/token_online exist;
+- quota is retried with the activated Cookie;
+- `QuotaParser` remains the M3 parser authority;
+- full app query reuses the same response for `RemainingQueryParser`;
+- Widget-light query skips Remaining detail parsing;
+- package-name fallback uses `/servicequerybusiness/query/myInformation` only when allowed and needed;
+- strong unlimited-flow response normalization from the iOS API client remains preserved, including `summary.limitValue` pure-number-as-GB semantics.
 
 ## M4-E — balance API
 
-- balance endpoint and exact source-defined form fields remain preserved;
-- Cookie/form headers remain explicit;
-- session expiry uses the same activation path;
-- numeric/string wire values remain accepted where the iOS client does so;
-- commas are removed before balance Double conversion.
+- URL: `https://m.client.10010.com/servicequerybusiness/balancenew/accountBalancenew.htm`;
+- exact iOS form fields are preserved;
+- Cookie and form Content-Type headers are preserved;
+- session expiry triggers the same token-online activation path;
+- `curntbalancecust`, unavailable-limit details and frozen-balance details accept string/numeric wire values;
+- balance strings remove commas before Double conversion.
 
 The shared-balance cache/lease gate remains intentionally deferred to M6. It must later port the iOS representative-account/lease/refresh-window/failure-release behavior rather than being reduced to a simple non-null cache check.
+
+## Historical automated evidence
+
+The original M4 CI exposed a source-relevant mismatch: Kotlin serialization accepted raw `999998` as a JSON primitive instead of allowing it to fall through to the source-equivalent plain-text session-expiry path. The parser contract was not weakened to hide the failure.
+
+That compatibility fix was closed in commit:
+
+`107a3806cdc0ce7d745fb7ea4f9a3dff5db5d649`
+
+Original M4 automated verification then passed in GitHub Actions run `32331797633`, including `:core:network:testDebugUnitTest`, `:core:parser:testDebugUnitTest`, integrated `:app:assembleDebug`, and `android-m4-network=success`.
+
+R1-R5 later strengthened the same baseline; the historical run is retained as implementation evidence, not as the final closure gate.
 
 ## M4-F — real same-account parity
 
