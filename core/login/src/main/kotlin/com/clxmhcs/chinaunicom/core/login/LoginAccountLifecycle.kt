@@ -3,6 +3,8 @@ package com.clxmhcs.chinaunicom.core.login
 import com.clxmhcs.chinaunicom.core.model.AccountCredentials
 import com.clxmhcs.chinaunicom.core.model.QuotaFetchResult
 import com.clxmhcs.chinaunicom.core.network.UnicomAPIClient
+import com.clxmhcs.chinaunicom.core.network.UnicomPasswordLoginResult
+import com.clxmhcs.chinaunicom.core.network.UnicomSMSLoginResult
 import com.clxmhcs.chinaunicom.core.security.CredentialStore
 import java.util.UUID
 
@@ -48,6 +50,26 @@ class LoginAccountLifecycle(
     private val credentialStore: CredentialStore,
     private val accountIDProvider: () -> UUID = UUID::randomUUID,
 ) {
+    fun createValidatedSMSAccount(
+        mobile: String,
+        loginResult: UnicomSMSLoginResult,
+        commitAccountMetadata: (ValidatedLoginAccountSeed) -> Unit,
+    ): ValidatedLoginAccountSeed = createValidatedAccount(
+        mobile = mobile,
+        credentials = loginResult.credentials,
+        commitAccountMetadata = commitAccountMetadata,
+    )
+
+    fun createValidatedPasswordAccount(
+        mobile: String,
+        loginResult: UnicomPasswordLoginResult,
+        commitAccountMetadata: (ValidatedLoginAccountSeed) -> Unit,
+    ): ValidatedLoginAccountSeed = createValidatedAccount(
+        mobile = mobile,
+        credentials = loginResult.credentials,
+        commitAccountMetadata = commitAccountMetadata,
+    )
+
     fun createValidatedAccount(
         mobile: String,
         credentials: AccountCredentials,
