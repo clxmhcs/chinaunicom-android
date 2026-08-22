@@ -65,8 +65,8 @@ class UnicomSMSLoginSessionTest {
         assertEquals("237", switchJSON.getValue("version").jsonPrimitive.content)
         assertEquals("iphone_c@12.1400", switchJSON.getValue("appVersion").jsonPrimitive.content)
         assertEquals("017", switchJSON.getValue("provinceCode").jsonPrimitive.content)
-        assertEquals("1726477200000", switchJSON.getValue("timestamp").jsonPrimitive.content)
-        assertTrue(switchJSON.getValue("seq").jsonPrimitive.content.startsWith("__NSDictionaryM_1726477200000_"))
+        assertEquals("1787360400000", switchJSON.getValue("timestamp").jsonPrimitive.content)
+        assertTrue(switchJSON.getValue("seq").jsonPrimitive.content.startsWith("__NSDictionaryM_1787360400000_"))
         assertTrue(switchJSON.getValue("mobile").jsonPrimitive.content.endsWith("%3D"))
 
         val sendRequest = transport.requests[1]
