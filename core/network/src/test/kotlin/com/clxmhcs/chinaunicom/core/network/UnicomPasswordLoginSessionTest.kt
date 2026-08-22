@@ -46,9 +46,9 @@ class UnicomPasswordLoginSessionTest {
                 ),
             )
         }
-        val session = session(transport, PasswordFakeIdentityStore(identity))
+        val passwordSession = session(transport, PasswordFakeIdentityStore(identity))
 
-        val outcome = session.login(
+        val outcome = passwordSession.login(
             mobile = "+86 138-0013-8000",
             password = "  service-pass-123  ",
             preferredAppID = validPreferredAppID,
@@ -100,9 +100,9 @@ class UnicomPasswordLoginSessionTest {
             enqueue(passwordResponse("{}"))
             enqueue(passwordResponse("{\"code\":\"200\",\"token_online\":\"token\"}"))
         }
-        val session = session(transport, PasswordFakeIdentityStore(identity))
+        val passwordSession = session(transport, PasswordFakeIdentityStore(identity))
 
-        val outcome = session.login("13800138000", "password", preferredAppID = invalidPreferred)
+        val outcome = passwordSession.login("13800138000", "password", preferredAppID = invalidPreferred)
 
         assertEquals(identity.appID, passwordFormFields(transport.requests.last().body)["appId"])
         val result = (outcome as UnicomPasswordLoginOutcome.Success).result
@@ -127,9 +127,9 @@ class UnicomPasswordLoginSessionTest {
                 ),
             )
         }
-        val session = session(transport, PasswordFakeIdentityStore(identity))
+        val passwordSession = session(transport, PasswordFakeIdentityStore(identity))
 
-        val outcome = session.login(
+        val outcome = passwordSession.login(
             mobile = "13800138000",
             password = "password",
             resultToken = "captcha-result-token",
@@ -180,9 +180,9 @@ class UnicomPasswordLoginSessionTest {
             )
         }
         val cityStore = PasswordFakeIdentityStore(identity)
-        val session = session(transport, cityStore)
+        val passwordSession = session(transport, cityStore)
 
-        val outcome = session.login("13800138000", "password")
+        val outcome = passwordSession.login("13800138000", "password")
         val result = (outcome as UnicomPasswordLoginOutcome.Success).result
 
         assertEquals("011|110", cityStore.cityCookie())
@@ -253,12 +253,12 @@ class UnicomPasswordLoginSessionTest {
 
     @Test
     fun inputValidationRejectsInvalidMobileAndBlankPassword() {
-        val session = session(PasswordRecordingTransport(), PasswordFakeIdentityStore(identity))
+        val passwordSession = session(PasswordRecordingTransport(), PasswordFakeIdentityStore(identity))
         assertThrows(UnicomPasswordLoginException.InvalidMobile::class.java) {
-            session.login("10086", "password")
+            passwordSession.login("10086", "password")
         }
         assertThrows(UnicomPasswordLoginException.MissingPassword::class.java) {
-            session.login("13800138000", "   ")
+            passwordSession.login("13800138000", "   ")
         }
     }
 
