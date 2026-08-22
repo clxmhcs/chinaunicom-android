@@ -3,10 +3,10 @@ name: Android M2 Models
 on:
   push:
     branches:
-      - migration/android-m2-models
+      - main
   pull_request:
     branches:
-      - migration/android-m1-skeleton
+      - main
     paths:
       - "app/**"
       - "core/design/**"
