@@ -25,17 +25,19 @@ M4 closure includes source-derived HTTP/Cookie/session behavior, authoritative M
 
 `Android-M5 — Login + Security Storage` is `IN_PROGRESS`.
 
-M5-A establishes the Android secure credential boundary before login protocols are connected:
+M5-A is `PASS / CLOSED` and establishes Android Keystore AES-256-GCM account credential persistence for Cookie + optional appID + optional token_online.
 
-- authoritative credential payload remains only Cookie + optional appID + optional token_online;
-- account credential blobs are encrypted with AES-256-GCM;
-- the AES key is generated and protected by Android Keystore;
-- account UUID is authenticated as GCM associated data;
-- only encrypted blobs are stored in app-private SharedPreferences;
-- plaintext credentials are not written directly to files/preferences;
-- multi-account save/read/overwrite/delete/delete-all semantics are covered by regression tests.
+M5-B SMS Login Core is implemented and pending its branch CI gate. It adds:
 
-`NEXT = Android-M5-B — SMS Login Core`.
+- source-derived `getSwitch` preflight, `sendRadomNum.htm` SMS send and `radomLogin.htm` login contracts;
+- the frozen RSA PKCS#1 v1.5 public-key encryption path for mobile and six-digit verification code;
+- explicit source-equivalent Cookie accumulation and base Cookie seeding;
+- `ECS99998 + type=10` SMS captcha-required state with `channel=smssms`;
+- Cookie/appID/token_online/invalidat extraction;
+- Keystore-protected persistent login device identity matching the iOS Keychain role;
+- no SMS code/password/Cookie/token_online persistence in the login device-identity store.
+
+`NEXT_AFTER_M5_B_PASS = Android-M5-C — Password Login + Risk Captcha`.
 
 M0 is closed for progression by explicit migration decision; the deferred real iOS light/dark screenshot set remains mandatory before M7 visual-parity acceptance.
 
