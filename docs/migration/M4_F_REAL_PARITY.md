@@ -29,31 +29,31 @@ The frozen iOS app provides a protected export path:
 
 `设置 → 账户凭据 → 导出全部凭据`
 
-The original export can contain:
+The original export can contain account identifiers and credentials including Cookie, appID and tokenOnline.
 
-- account identifiers;
-- Cookie;
-- appID;
-- tokenOnline.
-
-That source archive is secret-bearing and MUST NOT be uploaded to GitHub, committed to the repository, attached to CI, copied into logs, or retained as parity evidence.
+That source archive is secret-bearing and MUST NOT be uploaded to ChatGPT or GitHub, committed to the repository, attached to CI, copied into logs/screenshots, or retained as parity evidence.
 
 ## Android debug-only harness
 
 `M4ParityActivity` remains under `app/src/debug/` only.
 
-Its security boundary is:
+Its frozen security/behavior contract is:
 
-- absent from release sources;
-- reads the local credential archive through the Android file picker;
-- keeps credential material process-local;
+- absent from release source set / release APK;
+- exposed only as the debug `M4 联网验收` entry;
+- opens the local iOS credential JSON through Android Storage Access Framework;
+- requests no broad file-system access;
+- reads archive bytes locally;
+- uses credential values only in process memory;
+- zeroes the source ByteArray after parsing/query setup where practical;
 - never renders raw Cookie/appId/token_online;
 - never logs authenticated headers or response bodies;
 - never persists imported credentials;
 - queries quota and balance through the M4 production network clients;
-- emits only sanitized normalized result fields.
+- outputs only masked account identity and sanitized normalized result fields;
+- can save/copy only the sanitized TXT report.
 
-M5 remains responsible for production Android Keystore-backed credential persistence.
+Kotlin/Java immutable strings cannot be reliably zeroed in managed memory. The harness therefore minimizes credential lifetime and keeps no production persistent credential reference. M5 remains responsible for Android Keystore-backed credential persistence.
 
 ## Sanitized report contract
 
@@ -66,9 +66,9 @@ Permitted report fields include:
 - normalized flow total/used/remaining values;
 - quota type/category/share/carry-forward classification;
 - normalized voice values;
-- Remaining-query non-identity summaries;
+- Remaining-query package/count/limit summaries without member identities;
 - balance and unavailable/frozen normalized totals;
-- unavailable/frozen item counts;
+- unavailable/frozen item counts, not serial numbers;
 - whether a credential mutation occurred, never the mutated value.
 
 Forbidden evidence includes:
@@ -85,9 +85,9 @@ Forbidden evidence includes:
 
 The project owner supplied the sanitized Android parity report and corresponding sanitized iOS business-value evidence during the M4-F validation flow. The comparison was accepted as PASS.
 
-This acceptance closes the earlier pending requirements that Android real quota/balance output match the iOS source-defined business values and formatting/classification semantics for the validated accounts.
+The accepted evidence covered the required business truth: quota/flow values and classification, voice values, balance, and the relevant Remaining-query presentation used for comparison. This closes the earlier pending real-account parity requirement.
 
-No naturally encountered session-expiry credential mutation was observed in the accepted run (`session.credentialMutationObserved=false`). This does not weaken the automated session-reactivation contract: activation, Cookie mutation, token propagation and retry behavior remain covered by M4 automated tests derived from the frozen iOS networking source.
+No naturally encountered session-expiry credential mutation was observed in the accepted run (`session.credentialMutationObserved=false`). This does not weaken the automated session-reactivation contract: activation request isolation, Cookie mutation, token propagation and retry behavior remain covered by M4 automated tests derived from the frozen iOS networking source.
 
 ## Relationship to visual parity
 
