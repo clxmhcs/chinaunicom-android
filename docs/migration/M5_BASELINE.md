@@ -2,13 +2,14 @@
 
 ## Status
 
-`M5_RESULT = IN_PROGRESS`
+`M5_RESULT = PASS / CLOSED`
 
 Completed substages:
 
 - `M5-A_RESULT = PASS / CLOSED`
 - `M5-B_RESULT = PASS / CLOSED`
 - `M5-C_RESULT = PASS / CLOSED`
+- `M5-D_RESULT = PASS / CLOSED`
 
 Minimum supported Android version remains **Android 11 / API 30**.
 
@@ -25,7 +26,9 @@ Frozen migration scope from the iOS app:
 - Cookie acquisition;
 - appID / token_online acquisition;
 - multi-account credential storage;
-- secure persistence across app restarts.
+- secure persistence across app restarts;
+- quota validation before account credential binding;
+- credential renewal/rollback semantics around account lifecycle changes.
 
 M5 must not persist service passwords, SMS verification codes or captcha result tokens as account credentials.
 
@@ -38,6 +41,7 @@ M5 must not persist service passwords, SMS verification codes or captcha result 
 | `ChinaUnicom/Services/RSAEncryptor.swift` | `8c5b12e7bd2cbc99f008047d9c9008c2822b1438449aa81371e67ed74ed6bd0f` | password login, device identity, RSA encryption |
 | `ChinaUnicom/Views/AccountCredentialViews.swift` | `c4f1836b75cc34c79a533b81f3076cc3a9d2f28f7734cda00768df987d95a012` | login workflow/business state |
 | `ChinaUnicom/Models/AppModels.swift` | `84bdd7c16e37a39b914827a02f11ef1d4e1c58a76335c5cd423247bb053133fa` | `AccountCredentials` model |
+| `ChinaUnicom/Services/AppStore.swift` | `363468df319315f6df986b21e8b1b66219982fb7e9d2b90fc7fb8f40580902b3` | validated-account creation, refresh and delete rollback ordering |
 
 Authoritative credential model:
 
@@ -251,22 +255,107 @@ Regression tests freeze password request shape, RSA block behavior, strict prefe
 
 `M5-C_RESULT = PASS / CLOSED`
 
-## Remaining M5 work
+## M5-D — login integration + persistence acceptance
 
-### M5-D — login integration / persistence acceptance
+M5-D closes the credential lifecycle without stealing M6's ownership of account-list persistence, production Repository construction, refresh scheduling or shared-balance behavior.
 
-- successful SMS/password login validates credentials through the M4 quota path before account creation;
-- only Cookie/appID/token_online persist as account credentials;
-- passwords/SMS codes/captcha result tokens never persist as account credentials;
-- M4 renewed credentials securely overwrite prior credentials;
-- process/app restart reads credentials without re-login;
-- logout/account deletion removes corresponding encrypted credentials;
-- final M5 security/static/regression gates pass.
+Android implementation:
+
+- module: `core:login`;
+- transaction boundary: `LoginAccountLifecycle`;
+- production quota adapter: `UnicomQuotaCredentialValidator` -> authoritative M4 `UnicomAPIClient.fetchQuota`;
+- app composition root: `LoginAccountLifecycleProvider` -> M5-A `CredentialStoreProvider`.
+
+### Frozen lifecycle ordering
+
+Creation mirrors iOS `AppStore.createValidatedAccount`:
+
+1. normalize/validate the mobile number;
+2. validate login credentials by performing the real quota request;
+3. if M4 session activation returns `updatedCredentials`, use those renewed values; otherwise retain login-returned credentials;
+4. allocate the account UUID only after quota validation succeeds;
+5. save credentials under that account UUID through the M5-A Keystore-backed store;
+6. invoke the future M6 account-metadata persistence callback;
+7. if that metadata commit fails, delete the newly bound credentials before rethrowing.
+
+Both `UnicomSMSLoginResult` and `UnicomPasswordLoginResult` enter the same lifecycle; neither owns a second persistence path.
+
+The metadata seed returned to M6 intentionally uses `result.copy(updatedCredentials = null)`. Cookie/appID/token_online therefore cannot leak through `QuotaFetchResult.updatedCredentials` into ordinary account JSON/Preferences. Future M6 code must obtain credentials only from the secure lifecycle/store boundary.
+
+### Refresh/restart/delete semantics
+
+- `restoreCredentials(accountID)` reads the existing Keystore-backed credentials without performing a new login request;
+- `refreshValidatedQuota(accountID)` reads stored credentials, runs the M4 quota path, securely overwrites only when M4 returns renewed credentials, and strips renewed credentials from the returned quota metadata;
+- missing credentials fail closed before any refresh network request;
+- `deleteAccount(accountID, ...)` removes credentials before metadata deletion commit;
+- if metadata deletion fails, previously stored credentials are restored, matching the rollback intent of iOS `AppStore.removeAccount`;
+- stable account UUID remains the association key across process/app recreation; persistence of the account metadata/UUID itself remains M6 responsibility.
+
+### M5-D regression evidence
+
+Implementation head `50808fdefe30a9e4cd3b9fdd3698c32db7718d4e` passed all PR workflows:
+
+- Android M1 Build run `32544396269` = success;
+- Android M2 Models run `32544396273` = success;
+- Android M3 Parsers run `32544396215` = success;
+- Android M4 Network run `32544396229` = success;
+- Android M5 Login Security run `32544396167` = success.
+
+The M5 job additionally verified:
+
+- M5 security + login lifecycle static boundary = PASS;
+- SMS/password protocol guards from M5-B/C remain PASS;
+- quota validation occurs before credential binding;
+- `result.updatedCredentials ?: credentials` renewal preference is frozen;
+- quota metadata returned to ordinary persistence strips `updatedCredentials`;
+- credential rollback deletion is present;
+- App composition uses `CredentialStoreProvider` instead of ordinary persistence;
+- plaintext Cookie/token/password/SMS/resultToken SharedPreferences guard remains PASS;
+- `:core:security:testDebugUnitTest` = PASS;
+- `:core:model:testDebugUnitTest` = PASS;
+- `:core:parser:testDebugUnitTest` = PASS;
+- `:core:network:testDebugUnitTest` = PASS;
+- `:core:login:testDebugUnitTest` = PASS;
+- `:app:assembleDebug` = PASS;
+- `:app:assembleRelease` = PASS;
+- commit status `android-m5-security` = success;
+- failure gate skipped as expected.
+
+Lifecycle unit tests freeze validation-before-save ordering, shared SMS/password lifecycle entry, M4 renewed credential preference, credential stripping from metadata, no persistence on validation failure, rollback on account-metadata creation failure, restart-style credential restore, renewed credential overwrite on refresh, no rewrite without renewal, account deletion, credential restoration on deletion rollback, invalid-mobile rejection and missing-credential fail-closed behavior.
+
+`M5-D_RESULT = PASS / CLOSED`
+
+## M5 closure
+
+`Android-M5 — Login + Security Storage = PASS / CLOSED`.
+
+M5 now supplies the complete login/security substrate required by M6:
+
+- SMS login;
+- password protocol core while preserving iOS UI-disabled status;
+- risk captcha continuation contracts;
+- RSA encryption;
+- persistent Keystore-protected login device identity;
+- persistent Keystore-protected per-account credentials;
+- quota-before-account-creation validation;
+- M4 credential renewal propagation;
+- restart credential restore;
+- create/delete rollback hooks.
+
+Not claimed by M5:
+
+- production account metadata file/database persistence;
+- production Repository graph;
+- refresh scheduling/gates beyond the credential/quota transaction primitive;
+- shared balance cache/representative-account selection;
+- UI parity.
+
+Those begin in M6 or later.
 
 ## Screenshot requirement
 
-M5-A, M5-B and M5-C implementation require no real-device screenshots. If M5-D runtime acceptance later requires real-device login/captcha evidence, the exact screens will be requested before that step begins.
+M5-A through M5-D require no new real-device screenshots for implementation acceptance. Any later M6/M7 runtime or visual step that requires real-device evidence must request the exact pages before that step begins.
 
 ## Next
 
-`NEXT = Android-M5-D — Login Integration + Persistence Acceptance`
+`NEXT = Android-M6 — Persistence / Production Repository / Refresh / Shared Balance Gate`
