@@ -34,13 +34,21 @@ sealed interface UnicomPasswordLoginOutcome {
 sealed class UnicomPasswordLoginException(message: String, cause: Throwable? = null) : Exception(message, cause) {
     data object InvalidMobile : UnicomPasswordLoginException("请输入正确的 11 位联通手机号")
     data object MissingPassword : UnicomPasswordLoginException("请输入联通 App 登录密码或登录专用密码")
+    data object InvalidPublicKey : UnicomPasswordLoginException("联通登录公钥格式无效")
+    data object PlaintextTooLong : UnicomPasswordLoginException("登录密码内容过长，无法完成 RSA 加密")
+    class EncryptionFailed(detail: String, cause: Throwable? = null) :
+        UnicomPasswordLoginException("登录信息加密失败：$detail", cause)
     data object InvalidResponse : UnicomPasswordLoginException("联通密码登录接口返回了无法识别的数据")
     data object InvalidCaptchaURL : UnicomPasswordLoginException("联通返回的安全验证地址无效")
     data object MissingCaptchaMobile : UnicomPasswordLoginException("联通未返回图片验证所需的账号参数")
     data object MissingCookie : UnicomPasswordLoginException("密码验证成功，但联通未返回可用 Cookie")
     data object MissingTokenOnline : UnicomPasswordLoginException("密码验证成功，但联通未返回 token_online")
-    class PasswordRejected(val serverMessage: String) : UnicomPasswordLoginException(serverMessage)
-    class SmsVerificationRequired(val serverMessage: String) : UnicomPasswordLoginException(serverMessage)
+    class PasswordRejected(val serverMessage: String) : UnicomPasswordLoginException(
+        "$serverMessage\n\n请确认输入的是中国联通 App 登录密码/登录专用密码；如果仍失败，说明当前账号可能不再支持传统服务密码直接登录。",
+    )
+    class SmsVerificationRequired(val serverMessage: String) : UnicomPasswordLoginException(
+        "$serverMessage\n\n当前账号本次登录需要短信验证码验证，请优先使用验证码登录。",
+    )
     class Server(val serverMessage: String) : UnicomPasswordLoginException(serverMessage)
     class Network(cause: Throwable) : UnicomPasswordLoginException("passwordLoginNetworkFailed", cause)
 }
@@ -314,8 +322,13 @@ class UnicomPasswordLoginSession(
 
     private fun encryptLoginValue(value: String): String = try {
         UnicomLoginRSAEncryptor.encrypt(value)
-    } catch (error: UnicomLoginEncryptionException) {
-        throw UnicomPasswordLoginException.Network(error)
+    } catch (_: UnicomLoginEncryptionException.InvalidPublicKey) {
+        throw UnicomPasswordLoginException.InvalidPublicKey
+    } catch (_: UnicomLoginEncryptionException.PlaintextTooLong) {
+        throw UnicomPasswordLoginException.PlaintextTooLong
+    } catch (error: UnicomLoginEncryptionException.EncryptionFailed) {
+        val detail = error.cause?.message?.trimmedOrNull() ?: "设备不支持 RSA PKCS#1 加密"
+        throw UnicomPasswordLoginException.EncryptionFailed(detail, error)
     }
 
     private fun officialUserAgent(): String =
