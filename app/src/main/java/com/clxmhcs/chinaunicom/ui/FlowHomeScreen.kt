@@ -13,16 +13,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.clxmhcs.chinaunicom.core.model.QuotaType
+import com.clxmhcs.chinaunicom.core.model.DisplayUnit
+import com.clxmhcs.chinaunicom.core.parser.flowPackageDisplayText
 import com.clxmhcs.chinaunicom.ui.components.UnicomAccountCard
 import com.clxmhcs.chinaunicom.ui.components.UnicomBottomNavigationBar
 import com.clxmhcs.chinaunicom.ui.components.UnicomHeader
 import com.clxmhcs.chinaunicom.ui.components.UnicomQuotaCard
-import java.util.Locale
 
 /**
- * M4-G2-C7
- * FlowHomeScreen consumes FlowUiState.
+ * M4-G2-C7 rough flow shell.
+ *
+ * Quota formatting/business semantics are owned by core parser/model code;
+ * this screen only renders already-prepared presentation text.
  */
 @Composable
 fun FlowHomeScreen(
@@ -51,8 +53,6 @@ fun FlowHomeScreen(
 
                 is FlowUiState.Content -> {
                     val account = state.overview.accounts.firstOrNull()
-                    val quotas = account?.packages.orEmpty()
-
                     if (account != null) {
                         UnicomAccountCard(
                             number = account.mobile,
@@ -60,41 +60,27 @@ fun FlowHomeScreen(
                             planName = account.packageName.takeIf { it.isNotBlank() },
                             balance = account.balanceYuan?.let { "${it}元" },
                         )
-                    }
 
-                    quotas.forEach { quota ->
-                        val resolvedQuotaType = account?.quotaType(quota) ?: quota.detectedQuotaType
-                        val progress = quota.detailDisplayFraction(resolvedQuotaType)?.toFloat() ?: 0f
-                        val remainingText = if (resolvedQuotaType == QuotaType.UNLIMITED) {
-                            "不限量"
-                        } else {
-                            "剩余 ${formatQuota(quota.remainingMB, "MB")}"
+                        account.packages.forEach { quota ->
+                            val display = flowPackageDisplayText(
+                                account = account,
+                                packageValue = quota,
+                                unit = DisplayUnit.AUTOMATIC,
+                            )
+
+                            UnicomQuotaCard(
+                                title = display.title,
+                                subtitle = account.mobile,
+                                remaining = display.remainingText,
+                                detail = display.detailText,
+                                progress = display.progress?.toFloat() ?: 0f,
+                            )
                         }
-
-                        UnicomQuotaCard(
-                            title = quota.originalName,
-                            subtitle = account?.mobile ?: "中国联通号码",
-                            remaining = remainingText,
-                            detail = "已用 ${formatQuota(quota.usedMB, "MB")} / 总量 ${formatQuota(quota.totalMB, "MB")}",
-                            progress = progress,
-                        )
                     }
                 }
             }
         }
 
         UnicomBottomNavigationBar(selected = "流量")
-    }
-}
-
-private fun formatQuota(value: Double?, unit: String): String {
-    if (value == null) return "--"
-    return if (unit.equals("MB", ignoreCase = true) && value >= 1024.0) {
-        val gb = value / 1024.0
-        String.format(Locale.US, "%.2fGB", gb)
-    } else if (value % 1.0 == 0.0) {
-        "${value.toLong()}$unit"
-    } else {
-        "$value$unit"
     }
 }
