@@ -3,18 +3,22 @@ package com.clxmhcs.chinaunicom.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.clxmhcs.chinaunicom.data.UnicomRepository
+import com.clxmhcs.chinaunicom.data.UnicomRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * M4-G2-C6
- * Flow screen state holder with Loading/Content/Error state.
+ * M4-G2-C6 rough flow state holder.
+ *
+ * Repository implementation is supplied by the active build variant. Debug
+ * uses an isolated fake fixture; release intentionally has no fake data until
+ * M6 wires the production repository graph.
  */
-class FlowViewModel : ViewModel() {
-
-    private val repository = UnicomRepository()
+class FlowViewModel(
+    private val repository: UnicomRepository = UnicomRepositoryProvider.create(),
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<FlowUiState>(FlowUiState.Loading)
 
