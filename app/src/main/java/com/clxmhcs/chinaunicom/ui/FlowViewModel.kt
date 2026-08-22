@@ -3,7 +3,6 @@ package com.clxmhcs.chinaunicom.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.clxmhcs.chinaunicom.data.UnicomRepository
 import com.clxmhcs.chinaunicom.data.UnicomRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,9 +17,9 @@ import kotlinx.coroutines.launch
  */
 class FlowViewModel(
     application: Application,
-    private val repository: UnicomRepository = UnicomRepositoryProvider.create(application),
 ) : AndroidViewModel(application) {
 
+    private val repository = UnicomRepositoryProvider.create(application)
     private val _uiState = MutableStateFlow<FlowUiState>(FlowUiState.Loading)
 
     val uiState: StateFlow<FlowUiState> = _uiState.asStateFlow()
