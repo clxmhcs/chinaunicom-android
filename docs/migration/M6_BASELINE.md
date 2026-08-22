@@ -4,9 +4,9 @@
 
 `M6_RESULT = IN_PROGRESS`
 
-Current substage:
+Completed substages:
 
-`M6-A_RESULT = IMPLEMENTED / CI_PENDING`
+- `M6-A_RESULT = PASS / CLOSED`
 
 Minimum supported Android version remains **Android 11 / API 30**.
 
@@ -64,7 +64,7 @@ Release app wiring:
 
 The former Release `PendingProductionUnicomRepository` placeholder is removed. Debug continues to use `FakeUnicomRepository`; fake fixtures remain absent from main/release production sources.
 
-`FlowViewModel` now receives application context through `AndroidViewModel`, allowing production app-private storage without retaining an Activity. This is dependency plumbing only; M7 still owns visual/UI parity.
+`FlowViewModel` receives application context through a factory-compatible single-`Application` `AndroidViewModel` constructor, allowing production app-private storage without retaining an Activity. This is dependency plumbing only; M7 still owns visual/UI parity.
 
 ### Security boundary
 
@@ -75,6 +75,41 @@ M6-A ordinary metadata persistence must never become a second credential store:
 - account UUID is the only association key between ordinary metadata and secure credentials;
 - `android:allowBackup="false"` remains required;
 - malformed account metadata never triggers credential fallback or plaintext recovery.
+
+### M6-A regression evidence
+
+Implementation head `f4e821451849476ef4ad2213f2850988e3b854d7` passed all PR workflows:
+
+- Android M1 Build run `32545493612` = success;
+- Android M2 Models run `32545493582` = success;
+- Android M3 Parsers run `32545493539` = success;
+- Android M4 Network run `32545493535` = success;
+- Android M5 Login Security run `32545493532` = success;
+- Android M6 Persistence Repository run `32545493586` = success.
+
+The M6 job additionally verified:
+
+- `Verify M6-A persistence and production repository boundary` = PASS;
+- `AtomicFile` app-private `persistence/accounts.json` boundary = PASS;
+- ISO-8601 `Instant` and UUID codec guards = PASS;
+- complete metadata codec tests, including RemainingQuerySnapshot/balance/display/summary data, = PASS;
+- ordinary metadata credential-field/`AccountCredentials` exclusion = PASS;
+- Release `PendingProductionUnicomRepository` absence = PASS;
+- Debug fake isolation = PASS;
+- `android:allowBackup="false"` = PASS;
+- `core:storage` and `data:account` minSdk 30 = PASS;
+- `:core:model:testDebugUnitTest` = PASS;
+- `:core:parser:testDebugUnitTest` = PASS;
+- `:core:network:testDebugUnitTest` = PASS;
+- `:core:security:testDebugUnitTest` = PASS;
+- `:core:login:testDebugUnitTest` = PASS;
+- `:core:storage:testDebugUnitTest` = PASS;
+- `:data:account:testDebugUnitTest` = PASS;
+- `:app:assembleDebug` = PASS;
+- `:app:assembleRelease` = PASS;
+- commit status `android-m6-persistence` = success.
+
+`M6-A_RESULT = PASS / CLOSED`
 
 ### Explicitly not claimed by M6-A
 
@@ -93,6 +128,6 @@ These remain subsequent M6 substages.
 
 M6-A requires no real-device screenshots. If a later M6 runtime step requires real-account evidence, the exact pages/states will be requested before that step begins.
 
-## Next after M6-A
+## Next
 
 `NEXT = Android-M6-B — Production quota refresh orchestration + AppState`
