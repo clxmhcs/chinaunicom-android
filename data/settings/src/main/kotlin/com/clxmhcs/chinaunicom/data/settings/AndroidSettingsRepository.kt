@@ -22,7 +22,11 @@ class SharedPreferencesRefreshLogicPolicyStorage(
 }
 
 object AndroidSettingsRepositories {
-    fun refreshLogic(context: Context): SettingsRepository = DefaultSettingsRepository(
+    fun refreshLogic(
+        context: Context,
+        balanceIntervalSynchronizer: BalanceRefreshIntervalSynchronizer = BalanceRefreshIntervalSynchronizer { true },
+    ): SettingsRepository = DefaultSettingsRepository(
         storage = SharedPreferencesRefreshLogicPolicyStorage(context),
+        balanceIntervalSynchronizer = balanceIntervalSynchronizer,
     )
 }
