@@ -18,7 +18,7 @@ class BalanceAccountCredentialLifecycleTest {
     fun refreshUsesSecureCredentialsPersistsRenewalAndStripsItFromResult() {
         val original = AccountCredentials("cookie-old", "app", "token-old")
         val renewed = AccountCredentials("cookie-new", "app", "token-new")
-        val store = FakeCredentialStore(mutableMapOf(accountID to original))
+        val store = BalanceLifecycleCredentialStore(mutableMapOf(accountID to original))
         var seen: AccountCredentials? = null
         val lifecycle = BalanceAccountCredentialLifecycle(
             validator = BalanceCredentialValidator { credentials ->
@@ -43,7 +43,7 @@ class BalanceAccountCredentialLifecycleTest {
 
     @Test
     fun missingCredentialIsReportedBeforeNetwork() {
-        val store = FakeCredentialStore()
+        val store = BalanceLifecycleCredentialStore()
         var calls = 0
         val lifecycle = BalanceAccountCredentialLifecycle(
             validator = BalanceCredentialValidator {
@@ -69,7 +69,7 @@ class BalanceAccountCredentialLifecycleTest {
     )
 }
 
-private class FakeCredentialStore(
+private class BalanceLifecycleCredentialStore(
     val values: MutableMap<UUID, AccountCredentials> = mutableMapOf(),
 ) : CredentialStore {
     override fun save(accountID: UUID, credentials: AccountCredentials) {
