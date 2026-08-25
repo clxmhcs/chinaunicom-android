@@ -3,7 +3,6 @@ package com.clxmhcs.chinaunicom.data.balance
 import com.clxmhcs.chinaunicom.core.login.ValidatedLoginAccountSeed
 import com.clxmhcs.chinaunicom.core.model.BalanceFetchResult
 import com.clxmhcs.chinaunicom.core.model.QuotaFetchResult
-import com.clxmhcs.chinaunicom.core.model.QuotaResourceStatus
 import com.clxmhcs.chinaunicom.core.model.UnavailableBalanceDetail
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.data.account.AccountRepository
@@ -24,7 +23,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -36,9 +34,7 @@ class BalanceRepositoryTest {
 
     @Test
     fun groupedUnitUsesHomeRepresentativeAndPublishesOneResultToAllMembers() = runBlocking {
-        val accounts = mutableListOf(account(first, 0), account(second, 1))
-        val accountRepository = FakeBalanceAccountRepository(accounts)
-        val quotaState = quotaState(accountRepository)
+        val quotaState = quotaState(FakeBalanceAccountRepository(mutableListOf(account(first, 0), account(second, 1))))
         val config = FakeBalanceConfigurationStore(
             groups = listOf(BalanceAccountGroup(name = "合账", memberAccountIDs = listOf(first, second), defaultAccountID = first)),
             home = second,
@@ -57,14 +53,11 @@ class BalanceRepositoryTest {
     @Test
     fun automaticFailurePreservesOldBalanceAndKeepsFailureCooldownAttempt() = runBlocking {
         val oldAt = now.minusSeconds(3600)
-        val accounts = mutableListOf(account(first, 0).copy(balanceYuan = 12.34, balanceUpdatedAt = oldAt))
-        val quotaState = quotaState(FakeBalanceAccountRepository(accounts))
+        val quotaState = quotaState(FakeBalanceAccountRepository(mutableListOf(account(first, 0).copy(balanceYuan = 12.34, balanceUpdatedAt = oldAt))))
         val client = FakeBalanceClient(setOf(first)).apply { fail = true }
-        val config = FakeBalanceConfigurationStore()
-        val repository = balanceRepository(quotaState, client, config)
+        val repository = balanceRepository(quotaState, client, FakeBalanceConfigurationStore())
 
         repository.refreshBalancesIfNeeded()
-
         assertEquals(12.34, quotaState.state.value.accounts.single().balanceYuan!!, 0.0)
         assertEquals(1, client.calls.size)
         assertTrue(repository.state.value.lastAutomaticAttemptAt.containsKey("account:$first"))
@@ -75,10 +68,8 @@ class BalanceRepositoryTest {
 
     @Test
     fun freshSharedCacheIsConsumedWithoutNetworkRequest() = runBlocking {
-        val accounts = mutableListOf(account(first, 0))
-        val quotaState = quotaState(FakeBalanceAccountRepository(accounts))
-        val storage = MemorySharedBalanceStorageForRepository()
-        val shared = SharedBalanceCacheStore(storage, ZoneOffset.UTC)
+        val quotaState = quotaState(FakeBalanceAccountRepository(mutableListOf(account(first, 0))))
+        val shared = SharedBalanceCacheStore(MemorySharedBalanceStorageForRepository(), ZoneOffset.UTC)
         shared.replaceScopes(listOf(SharedBalanceScope.account(first)), now)
         val token = (shared.beginForcedRefresh(first, SharedBalanceRefreshSource.WIDGET_MANUAL, now) as SharedBalanceRefreshClaim.Granted).token
         shared.completeRefresh(token, 66.0, first, now)
@@ -94,15 +85,12 @@ class BalanceRepositoryTest {
 
     @Test
     fun fallbackRepresentativePrefersEnabledAccountWithCredentials() {
-        val accounts = mutableListOf(account(first, 0), account(second, 1))
-        val quotaState = quotaState(FakeBalanceAccountRepository(accounts))
-        val group = BalanceAccountGroup(name = "合账", memberAccountIDs = listOf(first, second))
+        val quotaState = quotaState(FakeBalanceAccountRepository(mutableListOf(account(first, 0), account(second, 1))))
         val repository = balanceRepository(
             quotaState,
             FakeBalanceClient(setOf(second)),
-            FakeBalanceConfigurationStore(groups = listOf(group)),
+            FakeBalanceConfigurationStore(groups = listOf(BalanceAccountGroup(name = "合账", memberAccountIDs = listOf(first, second)))),
         )
-
         assertEquals(second, repository.financialRepresentativeAccountID(first))
     }
 
@@ -123,7 +111,9 @@ class BalanceRepositoryTest {
 
     private fun quotaState(repository: FakeBalanceAccountRepository) = QuotaRefreshCoordinator(
         accountRepository = repository,
-        refreshClient = QuotaRefreshClient { error("quota not used") },
+        refreshClient = object : QuotaRefreshClient {
+            override suspend fun refreshValidatedQuota(accountID: UUID): QuotaFetchResult = error("quota not used")
+        },
         runtimeStore = object : QuotaRefreshRuntimeStore {
             override fun lastRefreshTriggeredAt(): Instant? = null
             override fun recordRefreshTriggeredAt(at: Instant) = Unit
