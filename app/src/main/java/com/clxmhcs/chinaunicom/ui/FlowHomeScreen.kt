@@ -7,11 +7,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.clxmhcs.chinaunicom.core.model.DisplayUnit
 import com.clxmhcs.chinaunicom.core.parser.flowPackageDisplayText
@@ -21,16 +25,24 @@ import com.clxmhcs.chinaunicom.ui.components.UnicomHeader
 import com.clxmhcs.chinaunicom.ui.components.UnicomQuotaCard
 
 /**
- * M4-G2-C7 rough flow shell.
- *
- * Quota formatting/business semantics are owned by core parser/model code;
- * this screen only renders already-prepared presentation text.
+ * Rough flow shell. Visual parity remains deferred; M6-B only adds the foreground refresh trigger.
  */
 @Composable
 fun FlowHomeScreen(
     flowViewModel: FlowViewModel = viewModel()
 ) {
     val uiState by flowViewModel.uiState.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner, flowViewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                flowViewModel.onForeground()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         modifier = Modifier
