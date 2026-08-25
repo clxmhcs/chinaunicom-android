@@ -14,6 +14,7 @@ on:
       - "core/storage/**"
       - "data/account/**"
       - "data/refresh/**"
+      - "data/settings/**"
       - "settings.gradle.kts"
       - "gradle/**"
       - "*.gradle.kts"
@@ -29,6 +30,7 @@ on:
       - "core/storage/**"
       - "data/account/**"
       - "data/refresh/**"
+      - "data/settings/**"
       - "settings.gradle.kts"
       - "docs/migration/M6_BASELINE.md"
       - ".github/workflows/android-m6-build.yml"
@@ -72,13 +74,15 @@ jobs:
           fi
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M6 persistence refresh and AppState boundary
+      - name: Verify M6 persistence refresh settings and AppState boundary
         shell: bash
         run: |
           test -f core/storage/src/main/kotlin/com/clxmhcs/chinaunicom/core/storage/AccountMetadataStore.kt
           test -f core/storage/src/main/kotlin/com/clxmhcs/chinaunicom/core/storage/AccountMetadataCodec.kt
           test -f data/account/src/main/kotlin/com/clxmhcs/chinaunicom/data/account/AccountRepository.kt
           test -f data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
+          test -f data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
+          test -f data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/AndroidSettingsRepository.kt
           test -f app/src/main/java/com/clxmhcs/chinaunicom/data/AndroidQuotaRefreshRuntimeStore.kt
           test -f app/src/main/java/com/clxmhcs/chinaunicom/data/ProductionUnicomRepository.kt
 
@@ -101,9 +105,18 @@ jobs:
           grep -q 'accountRepository.replaceAccounts' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
           grep -q 'lifecycle.refreshValidatedQuota(accountID)' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
 
+          grep -q 'interface SettingsRepository' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
+          grep -q 'chinaunicom.appRefreshLogic.policy.v1' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
+          grep -q 'CURRENT_SCHEMA_VERSION = 3' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
+          grep -q 'preserving unknown top-level JSON fields' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
+          grep -q 'SharedPreferencesRefreshLogicPolicyStorage' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/AndroidSettingsRepository.kt
+          grep -q '\.commit()' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/AndroidSettingsRepository.kt
+
           grep -q 'QuotaRefreshCoordinator' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
           grep -q 'LoginAccountLifecycleProvider.create' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
           grep -q 'AndroidQuotaRefreshRuntimeStore' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
+          grep -q 'AndroidSettingsRepositories.refreshLogic' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
+          grep -q 'settingsRepository.loadQuotaRefreshPolicy' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
           grep -q 'QuotaAutomaticRefreshTrigger.COLD_LAUNCH' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowViewModel.kt
           grep -q 'Lifecycle.Event.ON_RESUME' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowHomeScreen.kt
 
@@ -116,12 +129,12 @@ jobs:
             exit 1
           fi
 
-          if grep -RInE 'val[[:space:]]+(cookie|appID|tokenOnline)[[:space:]]*:' core/storage/src/main data/account/src/main data/refresh/src/main; then
-            echo "ERROR: ordinary M6 persistence/refresh layer declares credential fields."
+          if grep -RInE 'val[[:space:]]+(cookie|appID|tokenOnline)[[:space:]]*:' core/storage/src/main data/account/src/main data/refresh/src/main data/settings/src/main; then
+            echo "ERROR: ordinary M6 persistence/refresh/settings layer declares credential fields."
             exit 1
           fi
-          if grep -RIn 'AccountCredentials' core/storage/src/main data/account/src/main data/refresh/src/main; then
-            echo "ERROR: M6 ordinary state layer depends directly on AccountCredentials."
+          if grep -RIn 'AccountCredentials' core/storage/src/main data/account/src/main data/refresh/src/main data/settings/src/main; then
+            echo "ERROR: M6 ordinary state/settings layer depends directly on AccountCredentials."
             exit 1
           fi
 
@@ -129,9 +142,10 @@ jobs:
           grep -q 'minSdk = 30' core/storage/build.gradle.kts
           grep -q 'minSdk = 30' data/account/build.gradle.kts
           grep -q 'minSdk = 30' data/refresh/build.gradle.kts
-          echo "M6_B_PERSISTENCE_REFRESH_APPSTATE_BOUNDARY=PASS"
+          grep -q 'minSdk = 30' data/settings/build.gradle.kts
+          echo "M6_C_SETTINGS_REFRESH_POLICY_BOUNDARY=PASS"
 
-      - name: Run M6-B regression
+      - name: Run M6-C regression
         id: verify
         continue-on-error: true
         run: >-
@@ -144,11 +158,12 @@ jobs:
           :core:storage:testDebugUnitTest
           :data:account:testDebugUnitTest
           :data:refresh:testDebugUnitTest
+          :data:settings:testDebugUnitTest
           :app:assembleDebug
           :app:assembleRelease
           --stacktrace
 
-      - name: Publish M6-B status
+      - name: Publish M6-C status
         if: always()
         uses: actions/github-script@v7
         with:
@@ -160,10 +175,10 @@ jobs:
               sha: context.sha,
               state: passed ? 'success' : 'failure',
               context: 'android-m6-persistence',
-              description: passed ? 'M6-B persistence/refresh/AppState + debug/release passed' : 'M6-B persistence/refresh regression failed',
+              description: passed ? 'M6-C persistence/refresh/settings + debug/release passed' : 'M6-C persistence/refresh/settings regression failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
 
-      - name: Fail workflow when M6-B verification failed
+      - name: Fail workflow when M6-C verification failed
         if: always() && steps.verify.outcome != 'success'
         run: exit 1
