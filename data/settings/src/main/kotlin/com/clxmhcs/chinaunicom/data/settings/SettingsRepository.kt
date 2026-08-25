@@ -1,5 +1,6 @@
 package com.clxmhcs.chinaunicom.data.settings
 
+import com.clxmhcs.chinaunicom.data.refresh.QuotaRefreshPolicy
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,30 +11,16 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
 
-data class QuotaRefreshPolicy(
-    val automaticRefreshEnabled: Boolean = true,
-    val refreshOnColdLaunch: Boolean = true,
-    val refreshOnForeground: Boolean = true,
-    val minimumIntervalMinutes: Int = 10,
-    val accountGapSeconds: Int = 2,
-)
-
-fun interface QuotaRefreshPolicyProvider {
-    fun load(): QuotaRefreshPolicy
-}
-
-object SourceDefaultQuotaRefreshPolicyProvider : QuotaRefreshPolicyProvider {
-    override fun load(): QuotaRefreshPolicy = QuotaRefreshPolicy()
-}
-
 data class QuotaRefreshPolicySaveResult(
     val persisted: Boolean,
     val changed: Boolean,
     val policy: QuotaRefreshPolicy,
 )
 
-interface SettingsRepository : QuotaRefreshPolicyProvider {
+interface SettingsRepository {
     val quotaRefreshPolicy: StateFlow<QuotaRefreshPolicy>
+
+    fun loadQuotaRefreshPolicy(): QuotaRefreshPolicy
 
     fun saveQuotaRefreshPolicy(policy: QuotaRefreshPolicy): QuotaRefreshPolicySaveResult
 }
@@ -60,7 +47,7 @@ class DefaultSettingsRepository(
 
     override val quotaRefreshPolicy: StateFlow<QuotaRefreshPolicy> = _quotaRefreshPolicy.asStateFlow()
 
-    override fun load(): QuotaRefreshPolicy {
+    override fun loadQuotaRefreshPolicy(): QuotaRefreshPolicy {
         val loaded = loadFromStorage()
         if (_quotaRefreshPolicy.value != loaded) {
             _quotaRefreshPolicy.value = loaded
