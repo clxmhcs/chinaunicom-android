@@ -27,7 +27,7 @@ M4 closure includes source-derived HTTP/Cookie/session behavior, authoritative M
 
 M5 supplies Android Keystore AES-256-GCM account credentials, SMS login, password/risk-captcha protocol core, Keystore-protected login device identity, quota-before-account credential binding, renewed credential propagation, restart restore and transactional create/delete credential rollback. Password UI remains disabled in parity with current iOS source.
 
-`Android-M6 — Persistence / Production Repository / Refresh / Shared Balance Gate` is `IN_PROGRESS`.
+`Android-M6 — Persistence / Production Repository / Refresh / Shared Balance Gate` is `PASS / CLOSED`.
 
 M6-A Account Metadata Persistence + Production Repository Foundation is `PASS / CLOSED`:
 
@@ -65,9 +65,8 @@ M6-C SettingsRepository + Persisted Refresh Policy is `PASS / CLOSED`:
 - malformed policy fallback to source defaults;
 - valid legacy schema upgrade while preserving unknown top-level domains;
 - quota policy StateFlow publishes only successfully persisted values;
-- Release `QuotaRefreshCoordinator` now reads the persisted SettingsRepository policy instead of a fixed default provider;
-- settings persistence contains no credential fields and remains covered by `android:allowBackup="false"`;
-- M1/M2/M3/M4/M5/M6 workflows, `data:settings` / `data:refresh` tests, and Debug/Release builds passed on the accepted implementation head.
+- Release `QuotaRefreshCoordinator` reads persisted SettingsRepository policy instead of a fixed default provider;
+- settings persistence contains no credential fields and remains covered by `android:allowBackup="false"`.
 
 M6-D BalanceRepository + Shared Balance Gate is `PASS / CLOSED`:
 
@@ -78,14 +77,22 @@ M6-D BalanceRepository + Shared Balance Gate is `PASS / CLOSED`:
 - failed refresh releases the matching lease while preserving the last successful balance and the persisted 15-minute failure retry cooldown;
 - financial representative priority matches iOS: home balance account, group default, first enabled credential-bearing account by sortOrder, then first enabled account;
 - M5 Keystore remains the sole Cookie/appID/token_online renewal boundary for balance refresh;
-- quota and balance metadata persistence share the same account-persistence serialization boundary;
-- the accepted implementation head passed M1/M2/M3/M4/M5/M6 workflows, all core/data tests, and Debug/Release builds.
+- quota and balance metadata persistence share the same account-persistence serialization boundary.
 
-M6 overall remains `IN_PROGRESS`: the migration contract still requires a distinct data-layer `QuotaRepository` boundary before M6 can close. Settings UI and visual parity remain later UI work and do not block the completed M6-D bottom layer.
+M6-E QuotaRepository Boundary + Final Closure is `PASS / CLOSED`:
 
-`NEXT = Android-M6-E — QuotaRepository Boundary + M6 Final Closure`.
+- explicit `QuotaRepository` and `DefaultQuotaRepository` are present in `data:refresh`;
+- `DefaultQuotaRepository` delegates to the already accepted `QuotaRefreshCoordinator` and does not duplicate state, locks, policy or persistence;
+- app-facing `ProductionUnicomRepository` depends on the `QuotaRepository` interface rather than the concrete coordinator;
+- Release wiring is `QuotaRefreshCoordinator -> DefaultQuotaRepository -> ProductionUnicomRepository`;
+- BalanceRepository continues to share the same coordinator-backed AppState authority;
+- the accepted implementation head passed M1/M2/M3/M4/M5/M6 workflows, all core/data tests and Debug/Release builds.
 
-M0 is closed for progression by explicit migration decision; the deferred real iOS light/dark screenshot set remains mandatory before M7 visual-parity acceptance.
+M6 now satisfies the migration-plan architecture: `AccountRepository`, `SettingsRepository`, `QuotaRepository`, `BalanceRepository`, `RefreshCoordinator`, `AppState`, `StateFlow`, coroutine refresh orchestration and the complete Shared Balance gate are production-wired and closed.
+
+`NEXT = Android-M7-A — Flow + Voice Dashboard Functional Wiring (visual polish deferred)`.
+
+M0 is closed for progression by explicit migration decision; the deferred real iOS light/dark screenshot set remains mandatory before the visual-parity acceptance part of M7. Per the current project priority, M7-A may first complete functional/data/interaction wiring while the UI remains rough.
 
 See:
 
