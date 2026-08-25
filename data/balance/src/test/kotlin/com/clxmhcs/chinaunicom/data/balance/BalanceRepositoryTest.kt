@@ -91,6 +91,7 @@ class BalanceRepositoryTest {
             FakeBalanceClient(setOf(second)),
             FakeBalanceConfigurationStore(groups = listOf(BalanceAccountGroup(name = "合账", memberAccountIDs = listOf(first, second)))),
         )
+        repository.setHomeBalanceAccountID(null)
         assertEquals(second, repository.financialRepresentativeAccountID(first))
     }
 
