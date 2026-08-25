@@ -1,15 +1,23 @@
 package com.clxmhcs.chinaunicom.data
 
-import com.clxmhcs.chinaunicom.model.BusinessOverview
+import com.clxmhcs.chinaunicom.data.refresh.QuotaAutomaticRefreshTrigger
+import com.clxmhcs.chinaunicom.data.refresh.UnicomAppState
+import java.util.UUID
+import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Repository contract exposed to the app layer.
+ * App-facing repository contract.
  *
- * M4-R4 intentionally keeps this contract free of fake data and free of any
- * premature M5/M6 login, persistence, refresh, or network orchestration.
- * Build variants provide the temporary implementation until M6 installs the
- * production repository graph.
+ * M6-B promotes the production account state to a StateFlow while keeping credentials and direct
+ * network/session details below this boundary. Debug implements the same contract with isolated
+ * fixture state; release delegates refresh work to QuotaRefreshCoordinator.
  */
-fun interface UnicomRepository {
-    fun loadOverview(): BusinessOverview
+interface UnicomRepository {
+    val appState: StateFlow<UnicomAppState>
+
+    suspend fun refreshAll()
+
+    suspend fun refreshAccount(accountID: UUID)
+
+    suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger)
 }
