@@ -2,7 +2,7 @@
 
 ## Status
 
-`M6_RESULT = IN_PROGRESS`
+`M6_RESULT = PASS / CLOSED`
 
 Completed substages:
 
@@ -10,6 +10,7 @@ Completed substages:
 - `M6-B_RESULT = PASS / CLOSED`
 - `M6-C_RESULT = PASS / CLOSED`
 - `M6-D_RESULT = PASS / CLOSED`
+- `M6-E_RESULT = PASS / CLOSED`
 
 Minimum supported Android version remains **Android 11 / API 30**.
 
@@ -26,7 +27,7 @@ Minimum supported Android version remains **Android 11 / API 30**.
 | `ChinaUnicom/Services/AppRefreshLogicPolicyStore.swift` | `f73c1ad1487a09f7e7c7822be6f3495a75e6da9949b06dee933573f0d9aff1fb` | refresh-policy persistence/change-domain behavior |
 | `ChinaUnicom/Views/DashboardView.swift` | `651a183aaedb418e333dbaf624352b4926d915ec8757b5ef404fca215af58810` | cold-launch / foreground / policy-change quota triggers |
 
-M6 follows the migration contract from `迁移总纲.txt`: establish `AccountRepository`, `SettingsRepository`, `QuotaRepository`, `BalanceRepository`, `RefreshCoordinator` and `AppState` before feature UI work. `M6-D` closes the balance/shared-gate requirement, but M6 as a whole is not closed until the remaining explicit `QuotaRepository` boundary is present and the final M6 regression closes.
+M6 follows the migration contract from `迁移总纲.txt`: establish `AccountRepository`, `SettingsRepository`, `QuotaRepository`, `BalanceRepository`, `RefreshCoordinator` and `AppState` before feature UI work. All six named boundaries now exist in the Android production data path, and the shared-balance lease/freshness gate has been migrated without simplifying it to a cache-presence check.
 
 ## M6-A — account metadata persistence + production repository foundation
 
@@ -69,7 +70,7 @@ Modules added:
 
 Release app wiring:
 
-`AndroidAccountMetadataStores.accounts(context)` -> `DefaultAccountRepository` -> `ProductionUnicomRepository`.
+`AndroidAccountMetadataStores.accounts(context)` -> `DefaultAccountRepository` -> production state/repository path.
 
 The former Release `PendingProductionUnicomRepository` placeholder is removed. Debug continues to use `FakeUnicomRepository`; fake fixtures remain absent from main/release production sources.
 
@@ -136,10 +137,6 @@ Module added:
   - automatic cold-launch / foreground / policy-change eligibility checks;
   - source-equivalent refreshed-account merge, resource-kind synchronization and voice-summary stabilization;
   - persistence failure rollback so a network result is not left published when account metadata could not be committed.
-
-App production wiring after M6-B:
-
-`AndroidAccountMetadataStores` -> `DefaultAccountRepository` + `LoginAccountLifecycleProvider` + `AndroidQuotaRefreshRuntimeStore` -> `QuotaRefreshCoordinator` -> `ProductionUnicomRepository` -> `StateFlow<UnicomAppState>`.
 
 `AndroidQuotaRefreshRuntimeStore` persists only the non-secret `lastRefreshTriggeredAt` epoch-millisecond value in private SharedPreferences. It is not a credential path.
 
@@ -286,16 +283,81 @@ During implementation, CI also caught and closed two harness/dependency issues p
 
 `M6-D_RESULT = PASS / CLOSED`
 
-### Explicitly not claimed after M6-D
+## M6-E — QuotaRepository boundary + final closure
 
-The balance/shared-gate bottom layer is closed. M6 itself remains open only because the migration contract explicitly calls for a distinct `QuotaRepository` boundary and that contract is not yet present by name/ownership in the Android data layer. Current quota orchestration remains functional and fully regressed through `QuotaRefreshCoordinator`, but M6 final closure must not silently substitute the App-facing umbrella `UnicomRepository` for the required data-layer `QuotaRepository` contract.
+### Boundary decision
 
-Settings UI, feature UI and visual parity are not M6-D claims and must not be used to block this bottom-layer closure.
+The iOS source has no standalone type named `QuotaRepository`; the source business behavior remains inside `AppStore.refresh(accountID:)`, `refreshAll()` and `shouldAutoRefreshQuota(...)`. M6-E therefore does **not** invent new quota behavior. It adds the Android repository boundary required by the migration architecture while keeping the already accepted M6-B/C coordinator semantics authoritative.
+
+Android `data:refresh` now contains:
+
+- `QuotaRepository` — the app-facing quota-domain data contract;
+- `DefaultQuotaRepository` — a thin production delegate to `QuotaRefreshCoordinator`;
+- `QuotaRefreshCoordinator` — still the sole quota refresh, locking, refresh-policy, persistence and `UnicomAppState` authority.
+
+The repository contract intentionally exposes only:
+
+- `StateFlow<UnicomAppState>`;
+- automatic refresh trigger entry;
+- single-account refresh;
+- refresh-all.
+
+Automatic eligibility calculation remains inside the coordinator. There is no second StateFlow, second account cache, second mutex set, second refresh policy implementation or second persistence path.
+
+Production wiring is now:
+
+`AccountRepository + SettingsRepository + M5 LoginAccountLifecycle -> QuotaRefreshCoordinator -> DefaultQuotaRepository -> ProductionUnicomRepository`.
+
+`ProductionUnicomRepository` depends on the `QuotaRepository` interface rather than the concrete coordinator. `DefaultBalanceRepository` continues to share the same coordinator-backed AppState mutation authority, so quota and balance still operate on one serialized account state rather than parallel copies.
+
+### M6-E regression evidence
+
+Accepted implementation head `447db4244eecb1b48ef86d75c22628ae14a0c1c8` passed all PR workflows:
+
+- Android M1 Build run `32838010350` = success;
+- Android M2 Models run `32838010430` = success;
+- Android M3 Parsers run `32838010299` = success;
+- Android M4 Network run `32838010288` = success;
+- Android M5 Login Security run `32838010315` = success;
+- Android M6 Persistence Refresh run `32838010335` = success.
+
+The M6-E gate verifies:
+
+- explicit `QuotaRepository` and `DefaultQuotaRepository` types exist;
+- the default repository delegates to `QuotaRefreshCoordinator` rather than duplicating orchestration;
+- `ProductionUnicomRepository` no longer references `QuotaRefreshCoordinator` directly;
+- Release provider constructs `DefaultQuotaRepository(refreshCoordinator)`;
+- `QuotaRepositoryTest` proves repository and coordinator share the exact same StateFlow and that manual/refresh-all operations delegate through the accepted coordinator path;
+- all prior M6-D shared-balance/security gates remain active;
+- all core/data unit tests pass;
+- Debug and Release APK assembly pass;
+- minimum Android remains API 30.
+
+`M6-E_RESULT = PASS / CLOSED`
+
+## M6 final closure
+
+The M6 architecture required by `迁移总纲.txt` is now present and production-wired:
+
+- `AccountRepository` — CLOSED;
+- `SettingsRepository` — CLOSED;
+- `QuotaRepository` — CLOSED;
+- `BalanceRepository` — CLOSED;
+- `RefreshCoordinator` — CLOSED;
+- `AppState` / `StateFlow` / coroutine refresh orchestration — CLOSED;
+- Shared Balance scope/interval/lease/forced-vs-automatic/in-flight semantics — CLOSED;
+- ordinary metadata versus M5 secure credential separation — CLOSED.
+
+Feature UI, Settings visual editors and high-fidelity visual parity are not M6 requirements and are not being falsely claimed here.
+
+`M6_RESULT = PASS / CLOSED`
 
 ## Screenshot requirement
 
-M6-A, M6-B, M6-C and M6-D require no real-device screenshots. M6-E bottom-layer/final-closure work is also expected to be source/test driven; if runtime evidence unexpectedly becomes necessary, the exact pages/states must be requested before that acceptance step begins.
+M6-A through M6-E require no real-device screenshots. No real-device screenshot is needed for M6 final closure.
+
+The deferred real iOS light/dark screenshot set remains required before the visual-parity acceptance part of M7. Per the current migration priority, M7 may first proceed with functional/data/interaction wiring while the Android UI remains rough; visual refinement will be handled separately.
 
 ## Next
 
-`NEXT = Android-M6-E — QuotaRepository Boundary + M6 Final Closure`
+`NEXT = Android-M7-A — Flow + Voice Dashboard Functional Wiring (visual polish deferred)`
