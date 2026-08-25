@@ -3,22 +3,22 @@ package com.clxmhcs.chinaunicom.data
 import com.clxmhcs.chinaunicom.data.balance.BalanceRepository
 import com.clxmhcs.chinaunicom.data.balance.BalanceRepositoryState
 import com.clxmhcs.chinaunicom.data.refresh.QuotaAutomaticRefreshTrigger
-import com.clxmhcs.chinaunicom.data.refresh.QuotaRefreshCoordinator
+import com.clxmhcs.chinaunicom.data.refresh.QuotaRepository
 import com.clxmhcs.chinaunicom.data.refresh.UnicomAppState
 import java.util.UUID
 import kotlinx.coroutines.flow.StateFlow
 
-/** Release production repository backed by quota/AppState plus the M6-D balance coordinator. */
+/** Release production repository backed by quota repository/AppState plus the balance repository. */
 class ProductionUnicomRepository(
-    private val coordinator: QuotaRefreshCoordinator,
+    private val quotaRepository: QuotaRepository,
     private val balanceRepository: BalanceRepository,
 ) : UnicomRepository {
-    override val appState: StateFlow<UnicomAppState> = coordinator.state
+    override val appState: StateFlow<UnicomAppState> = quotaRepository.state
     override val balanceState: StateFlow<BalanceRepositoryState> = balanceRepository.state
 
-    override suspend fun refreshAll() = coordinator.refreshAll()
-    override suspend fun refreshAccount(accountID: UUID) = coordinator.refreshAccount(accountID)
-    override suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger) = coordinator.autoRefreshIfNeeded(trigger)
+    override suspend fun refreshAll() = quotaRepository.refreshAll()
+    override suspend fun refreshAccount(accountID: UUID) = quotaRepository.refreshAccount(accountID)
+    override suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger) = quotaRepository.autoRefreshIfNeeded(trigger)
 
     override suspend fun runBalanceAutoRefreshLoop() = balanceRepository.runAutomaticRefreshLoop()
     override suspend fun refreshHomeBalanceManually() = balanceRepository.refreshHomeBalanceManually()
