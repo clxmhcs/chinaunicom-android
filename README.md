@@ -54,7 +54,21 @@ M7-A functional flow/voice wiring is `PASS / CLOSED`:
 
 Per the explicit project priority, **M7 final visual parity is deferred**. M7 closure here means functional/data/interaction migration is complete enough to progress to later business stages; it does not claim final app-owned spacing, card styling, typography, gradients, icons, progress bars or light/dark screenshot parity. Those will be refined page-by-page after the remaining business migration is complete.
 
-`NEXT = Android-M8-A — Comprehensive Business Functional Migration (visual polish deferred)`.
+`Android-M8 — Comprehensive Business` is `IN_PROGRESS`.
+
+`Android-M8-A — Comprehensive Business Foundation` is `PASS / CLOSED`:
+
+- reuses the existing source-aligned ordered-business, phone-bill and integral model files instead of introducing duplicate business types;
+- freezes source-derived endpoints and typed network contracts for ordered business, phone bill and integral;
+- preserves phone-bill parser version 4 and integral parser version 1 semantics;
+- extends the single tolerant `SettingsRepository` document with source-equivalent ordered-business, phone-bill and integral refresh-policy defaults;
+- preserves unknown settings domains and existing quota/balance settings while keeping Android 11 / API 30 support;
+- introduces no additional credential persistence path: M5 Keystore remains the credential authority;
+- passes M2–M8 migration workflows, complete core/data/app tests and Debug/Release assembly on the accepted implementation head.
+
+M8-A contains no new feature UI. Final comprehensive-page visual parity remains deferred until the later page-by-page visual pass.
+
+`NEXT = Android-M8-B — Ordered Business Client + Cache + Store`
 
 M0 is closed for progression by explicit migration decision. Deferred real iOS/Android screenshot evidence remains mandatory when the final page-by-page visual parity pass begins.
 
@@ -69,4 +83,5 @@ See:
 - [`docs/migration/M5_BASELINE.md`](docs/migration/M5_BASELINE.md)
 - [`docs/migration/M6_BASELINE.md`](docs/migration/M6_BASELINE.md)
 - [`docs/migration/M7_BASELINE.md`](docs/migration/M7_BASELINE.md)
+- [`docs/migration/M8_BASELINE.md`](docs/migration/M8_BASELINE.md)
 - [`docs/migration/MIGRATION_RULES.md`](docs/migration/MIGRATION_RULES.md)
