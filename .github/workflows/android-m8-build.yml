@@ -58,18 +58,26 @@ jobs:
       - name: Verify M8-A model policy network foundation
         shell: bash
         run: |
-          MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/ComprehensiveBusinessModels.kt
+          ORDERED_MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/OrderedBusinessModels.kt
+          BILL_MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/PhoneBillModels.kt
+          INTEGRAL_MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/IntegralModels.kt
           NETWORK=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/ComprehensiveBusinessNetworkContracts.kt
           SETTINGS=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
 
-          test -f "$MODEL"
+          test -f "$ORDERED_MODEL"
+          test -f "$BILL_MODEL"
+          test -f "$INTEGRAL_MODEL"
           test -f "$NETWORK"
-          grep -q 'data class OrderedBusinessSnapshot' "$MODEL"
-          grep -q 'data class PhoneBillSnapshot' "$MODEL"
-          grep -q 'CURRENT_PARSER_VERSION = 4' "$MODEL"
-          grep -q 'data class IntegralSnapshot' "$MODEL"
-          grep -q 'CURRENT_PARSER_VERSION = 1' "$MODEL"
-          grep -q '2-.*-.*' core/model/src/test/kotlin/com/clxmhcs/chinaunicom/core/model/ComprehensiveBusinessModelsTest.kt
+          test ! -f core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/ComprehensiveBusinessModels.kt
+
+          grep -q 'data class OrderedBusinessSnapshot' "$ORDERED_MODEL"
+          grep -q 'val totalCount: Int get() = sections.sumOf' "$ORDERED_MODEL"
+          grep -q 'data class PhoneBillSnapshot' "$BILL_MODEL"
+          grep -q 'CURRENT_PARSER_VERSION = 4' "$BILL_MODEL"
+          grep -q 'data class IntegralSnapshot' "$INTEGRAL_MODEL"
+          grep -q 'CURRENT_PARSER_VERSION = 1' "$INTEGRAL_MODEL"
+          grep -q 'scoreType = "2"' "$INTEGRAL_MODEL"
+          grep -q 'yearMonth ?: "all"' "$INTEGRAL_MODEL"
 
           grep -q 'mxx.client.10010.com' "$NETWORK"
           grep -q 'servicebusiness/newOrdered/provincialAlloc' "$NETWORK"
@@ -78,6 +86,9 @@ jobs:
           grep -q 'ZXGS97000017640,003' "$NETWORK"
           grep -q 'interface PhoneBillNetworkClient' "$NETWORK"
           grep -q 'interface IntegralNetworkClient' "$NETWORK"
+          grep -q 'core.model.OrderedBusinessFetchResult' "$NETWORK"
+          grep -q 'core.model.PhoneBillFetchResult' "$NETWORK"
+          grep -q 'core.model.IntegralFetchResult' "$NETWORK"
 
           grep -q 'OrderedBusinessRefreshPolicy' "$SETTINGS"
           grep -q 'CACHE_PREFERRED' "$SETTINGS"
