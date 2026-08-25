@@ -56,23 +56,23 @@ class AndroidOrderedBusinessDiskCache(
     }
 }
 
-internal class OrderedBusinessSnapshotJsonCodec(
+class OrderedBusinessSnapshotJsonCodec(
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
     fun encode(snapshots: Map<UUID, OrderedBusinessSnapshot>): String = JsonObject(
         snapshots.entries.associate { (id, snapshot) -> id.toString() to snapshotElement(snapshot) },
     ).toString()
 
-    fun decode(raw: String): Map<UUID, OrderedBusinessSnapshot>? = runCatching {
-        val root = json.parseToJsonElement(raw) as? JsonObject ?: return@runCatching null
-        buildMap {
-            for ((rawID, element) in root) {
-                val accountID = runCatching { UUID.fromString(rawID) }.getOrNull() ?: continue
-                val snapshot = snapshot(element as? JsonObject) ?: return@runCatching null
-                put(accountID, snapshot)
-            }
+    fun decode(raw: String): Map<UUID, OrderedBusinessSnapshot>? {
+        val root = runCatching { json.parseToJsonElement(raw) as? JsonObject }.getOrNull() ?: return null
+        val decoded = mutableMapOf<UUID, OrderedBusinessSnapshot>()
+        for ((rawID, element) in root) {
+            val accountID = runCatching { UUID.fromString(rawID) }.getOrNull() ?: continue
+            val snapshot = snapshot(element as? JsonObject) ?: return null
+            decoded[accountID] = snapshot
         }
-    }.getOrNull()
+        return decoded
+    }
 
     private fun snapshotElement(value: OrderedBusinessSnapshot) = JsonObject(
         linkedMapOf(
