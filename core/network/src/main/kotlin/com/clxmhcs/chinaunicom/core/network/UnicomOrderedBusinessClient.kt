@@ -13,6 +13,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -265,7 +266,8 @@ class UnicomOrderedBusinessClient(
         values: List<JsonObject>,
         sections: MutableList<OrderedBusinessSection>,
     ) {
-        appendSection(title, icon, values.mapIndexedNotNull(::makeItem), sections)
+        val items = values.mapIndexedNotNull { index, value -> makeItem(value, index) }
+        appendSection(title, icon, items, sections)
     }
 
     private fun appendSection(
@@ -348,9 +350,14 @@ class UnicomOrderedBusinessClient(
 
     private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray(Charsets.UTF_8))
-        .joinToString("") { "%02x".format(it) }
+        .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
 
-    private fun JsonElement?.text(): String? = (this as? JsonPrimitive)?.content
+    private fun JsonElement?.text(): String? = when (this) {
+        null, JsonNull -> null
+        is JsonPrimitive -> content
+        else -> null
+    }
+
     private fun JsonElement?.objects(): List<JsonObject> = objectList()
     private fun String?.cleaned(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 
