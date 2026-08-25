@@ -63,12 +63,21 @@ Per the explicit project priority, **M7 final visual parity is deferred**. M7 cl
 - preserves phone-bill parser version 4 and integral parser version 1 semantics;
 - extends the single tolerant `SettingsRepository` document with source-equivalent ordered-business, phone-bill and integral refresh-policy defaults;
 - preserves unknown settings domains and existing quota/balance settings while keeping Android 11 / API 30 support;
-- introduces no additional credential persistence path: M5 Keystore remains the credential authority;
-- passes M2–M8 migration workflows, complete core/data/app tests and Debug/Release assembly on the accepted implementation head.
+- introduces no additional credential persistence path: M5 Keystore remains the credential authority.
 
-M8-A contains no new feature UI. Final comprehensive-page visual parity remains deferred until the later page-by-page visual pass.
+`Android-M8-B — Ordered Business Client + Cache + Store` is `PASS / CLOSED`:
 
-`NEXT = Android-M8-B — Ordered Business Client + Cache + Store`
+- implements the real `mxx.client.10010.com` allocation/query flow and `loginxx.10010.com/mobileService/onLine.htm` recovery path;
+- preserves source `iphone_c@12.1300` session fields, Cookie mutation propagation, parser section structure and stable item IDs;
+- routes renewed Cookie/appID/token_online through the existing M5 `CredentialStore` and strips them before ordinary M8 state/cache;
+- adds app-private Android `AtomicFile` snapshot persistence at `ordered-business/ordered-business-snapshots.json`;
+- adds a multi-account `OrderedBusinessStore` with cachePreferred / refreshWhenExpired / everyEntry / manualOnly policies, same-account duplicate suppression, serial refresh-all gap, orphan reconciliation, old-cache retention on failure and warning state when local save fails;
+- keeps Android 11 / API 30 and `allowBackup=false` security boundaries unchanged;
+- accepted implementation head passed M1–M8 workflows, M8-B dedicated client/session/cache/store tests and Debug/Release assembly.
+
+M8-A/M8-B contain no visual refinement. Final comprehensive-page visual parity remains deferred until the later page-by-page visual pass.
+
+`NEXT = Android-M8-C — Phone Bill Client + Cache + Store`
 
 M0 is closed for progression by explicit migration decision. Deferred real iOS/Android screenshot evidence remains mandatory when the final page-by-page visual parity pass begins.
 

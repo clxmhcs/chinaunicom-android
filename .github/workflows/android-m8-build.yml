@@ -29,7 +29,7 @@ permissions:
   statuses: write
 
 jobs:
-  comprehensive-business-foundation-test-and-build:
+  comprehensive-business-test-and-build:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -55,59 +55,66 @@ jobs:
           test -n "$PLATFORM_PACKAGE"
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M8-A model policy network foundation
+      - name: Verify M8-B ordered business client cache store boundary
         shell: bash
         run: |
           ORDERED_MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/OrderedBusinessModels.kt
-          BILL_MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/PhoneBillModels.kt
-          INTEGRAL_MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/IntegralModels.kt
-          NETWORK=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/ComprehensiveBusinessNetworkContracts.kt
+          NETWORK_CONTRACT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/ComprehensiveBusinessNetworkContracts.kt
+          CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomOrderedBusinessClient.kt
+          LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/OrderedBusinessAccountCredentialLifecycle.kt
+          STORE=data/orderedbusiness/src/main/kotlin/com/clxmhcs/chinaunicom/data/orderedbusiness/OrderedBusinessStore.kt
+          CACHE=data/orderedbusiness/src/main/kotlin/com/clxmhcs/chinaunicom/data/orderedbusiness/AndroidOrderedBusinessDiskCache.kt
+          FACTORY=data/orderedbusiness/src/main/kotlin/com/clxmhcs/chinaunicom/data/orderedbusiness/AndroidOrderedBusinessStores.kt
           SETTINGS=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
 
           test -f "$ORDERED_MODEL"
-          test -f "$BILL_MODEL"
-          test -f "$INTEGRAL_MODEL"
-          test -f "$NETWORK"
-          test ! -f core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/ComprehensiveBusinessModels.kt
+          test -f "$NETWORK_CONTRACT"
+          test -f "$CLIENT"
+          test -f "$LIFECYCLE"
+          test -f "$STORE"
+          test -f "$CACHE"
+          test -f "$FACTORY"
+          grep -q 'include(":data:orderedbusiness")' settings.gradle.kts
 
-          grep -q 'data class OrderedBusinessSnapshot' "$ORDERED_MODEL"
-          grep -q 'val totalCount: Int get() = sections.sumOf' "$ORDERED_MODEL"
-          grep -q 'data class PhoneBillSnapshot' "$BILL_MODEL"
-          grep -q 'CURRENT_PARSER_VERSION = 4' "$BILL_MODEL"
-          grep -q 'data class IntegralSnapshot' "$INTEGRAL_MODEL"
-          grep -q 'CURRENT_PARSER_VERSION = 1' "$INTEGRAL_MODEL"
-          grep -q 'scoreType = "2"' "$INTEGRAL_MODEL"
-          grep -q 'yearMonth ?: "all"' "$INTEGRAL_MODEL"
+          grep -q 'mxx.client.10010.com' "$NETWORK_CONTRACT"
+          grep -q 'loginxx.10010.com/mobileService/onLine.htm' "$NETWORK_CONTRACT"
+          grep -q 'servicebusiness/newOrdered/provincialAlloc' "$NETWORK_CONTRACT"
+          grep -q 'servicebusiness/newOrdered/queryOrderRelationship' "$NETWORK_CONTRACT"
 
-          grep -q 'mxx.client.10010.com' "$NETWORK"
-          grep -q 'servicebusiness/newOrdered/provincialAlloc' "$NETWORK"
-          grep -q 'serviceimportantbusiness/phoneBillNew/queryMonths' "$NETWORK"
-          grep -q 'activity.10010.com' "$NETWORK"
-          grep -q 'ZXGS97000017640,003' "$NETWORK"
-          grep -q 'interface PhoneBillNetworkClient' "$NETWORK"
-          grep -q 'interface IntegralNetworkClient' "$NETWORK"
-          grep -q 'core.model.OrderedBusinessFetchResult' "$NETWORK"
-          grep -q 'core.model.PhoneBillFetchResult' "$NETWORK"
-          grep -q 'core.model.IntegralFetchResult' "$NETWORK"
+          grep -q 'OkHttpUnicomTransport(20_000L)' "$CLIENT"
+          grep -q 'iphone_c@12.1300' "$CLIENT"
+          grep -q 'Origin.*imgxx.client.10010.com' "$CLIENT"
+          grep -q '已订业务 loginxx 会话恢复成功，但业务会话仍未建立' "$CLIENT"
+          grep -q 'credentialsChanged\|val changed' "$CLIENT"
+          grep -q 'UnicomCookieCodec.applying' "$CLIENT"
 
-          grep -q 'OrderedBusinessRefreshPolicy' "$SETTINGS"
-          grep -q 'CACHE_PREFERRED' "$SETTINGS"
+          grep -q 'credentialStore.read(accountID)' "$LIFECYCLE"
+          grep -q 'credentialStore.save(accountID, it)' "$LIFECYCLE"
+          grep -q 'result.copy(updatedCredentials = null)' "$LIFECYCLE"
+
+          grep -q 'AtomicFile' "$CACHE"
+          grep -q 'ordered-business-snapshots.json' "$CACHE"
+          grep -q 'stream.fd.sync()' "$CACHE"
+          ! grep -Eiq 'cookie|token_online|appid|password|verificationcode|resulttoken' "$CACHE"
+
+          grep -q 'CACHE_PREFERRED' "$STORE"
+          grep -q 'REFRESH_WHEN_EXPIRED' "$STORE"
+          grep -q 'EVERY_ENTRY' "$STORE"
+          grep -q 'MANUAL_ONLY' "$STORE"
+          grep -q 'refreshAllAccountGapSeconds' "$STORE"
+          grep -q '查询成功，但本地保存失败' "$STORE"
+          grep -q 'DefaultOrderedBusinessStore' "$FACTORY"
+
           grep -q 'cacheValidityHours: Int = 12' "$SETTINGS"
           grep -q 'noCacheAutoQuery: Boolean = false' "$SETTINGS"
           grep -q 'refreshAllAccountGapSeconds: Int = 1' "$SETTINGS"
-          grep -q 'currentMonthCacheMinutes: Int = 10' "$SETTINGS"
-          grep -q 'historicalCacheDays: Int = 15' "$SETTINGS"
-          grep -q 'monthlyRecheckDay: Int = 2' "$SETTINGS"
-          grep -q 'monthlyRecheckHour: Int = 8' "$SETTINGS"
-          grep -q 'cycleMode: IntegralRefreshCycleMode = IntegralRefreshCycleMode.MONTHLY' "$SETTINGS"
-          grep -q 'fixedIntervalHours: Int = 24' "$SETTINGS"
-          grep -q 'checkOnEntry: Boolean = true' "$SETTINGS"
 
           grep -q 'minSdk = 30' app/build.gradle.kts
+          grep -q 'minSdk = 30' data/orderedbusiness/build.gradle.kts
           grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
-          echo "M8_A_FOUNDATION_GATE=PASS"
+          echo "M8_B_ORDERED_BUSINESS_GATE=PASS"
 
-      - name: Run M8-A regression
+      - name: Run M8-B regression
         id: verify
         continue-on-error: true
         run: >-
@@ -122,12 +129,13 @@ jobs:
           :data:refresh:testDebugUnitTest
           :data:settings:testDebugUnitTest
           :data:balance:testDebugUnitTest
+          :data:orderedbusiness:testDebugUnitTest
           :app:testDebugUnitTest
           :app:assembleDebug
           :app:assembleRelease
           --stacktrace
 
-      - name: Publish M8-A status
+      - name: Publish M8-B status
         if: always()
         uses: actions/github-script@v7
         with:
@@ -138,10 +146,10 @@ jobs:
               repo: context.repo.repo,
               sha: context.sha,
               state: passed ? 'success' : 'failure',
-              context: 'android-m8-foundation',
-              description: passed ? 'M8-A business foundation gate passed' : 'M8-A business foundation regression failed',
+              context: 'android-m8-ordered-business',
+              description: passed ? 'M8-B ordered business gate passed' : 'M8-B ordered business regression failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
-      - name: Fail workflow when M8-A verification failed
+      - name: Fail workflow when M8-B verification failed
         if: always() && steps.verify.outcome != 'success'
         run: exit 1

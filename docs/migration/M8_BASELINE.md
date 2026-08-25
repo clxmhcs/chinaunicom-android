@@ -4,15 +4,20 @@
 
 `M8_RESULT = IN_PROGRESS`
 
-Current substage:
+Substages:
 
 - `M8-A_RESULT = PASS / CLOSED`
+- `M8-B_RESULT = PASS / CLOSED`
+- `M8-C_RESULT = NOT_STARTED`
+- `M8-D_RESULT = NOT_STARTED`
+- `M8-E_RESULT = NOT_STARTED`
 
 Minimum supported Android version remains **Android 11 / API 30**.
 
-Accepted M8-A implementation head:
+Accepted implementation heads:
 
-- `896c923f8af877c16d73d94b2a620cb6f291f27c`
+- M8-A: `896c923f8af877c16d73d94b2a620cb6f291f27c`
+- M8-B: `f8d74c6de77b57e729f02597c26306d0097d04e1`
 
 ## Source-derived M8 boundary
 
@@ -21,7 +26,7 @@ The iOS comprehensive root is an aggregation page. It does not actively refresh 
 M8 is therefore split as:
 
 1. **M8-A — comprehensive business model / refresh-policy / network-contract foundation — PASS / CLOSED**
-2. **M8-B — ordered business client + cache + store**
+2. **M8-B — ordered business client + cache + store — PASS / CLOSED**
 3. **M8-C — phone bill client + cache + store**
 4. **M8-D — integral client + cache + store**
 5. **M8-E — comprehensive root aggregation / entries / final functional closure**
@@ -36,123 +41,162 @@ Visual refinement remains deferred until the later page-by-page visual pass.
 | `Models/PhoneBillModels.swift` | `6669e13f8f5fd0444922f3b654b9f1c5f504e9c01b0089f7ab221264d155c72c` | bill month/snapshot/summary/user/item models |
 | `Models/IntegralModels.swift` | `c42a2819035525eca03412e222130aac048e73948a538d5f568aca31fa194cb0` | integral overview/month/detail/query models |
 | `Models/AppRefreshLogicPolicyModels.swift` | `ad1ed089d7c3079cabbbe38702d0d51758e5b3c979b4686711603fe408d23f22` | M8 refresh policy defaults and raw enum values |
-| `Services/OrderedBusinessClient.swift` | `176c30e4cc54f69ee3cf4db7dbcc6142a8b435aec31f9a6075bc89e54c42be37` | ordered-business endpoints and session-recovery contract |
+| `Services/OrderedBusinessClient.swift` | `176c30e4cc54f69ee3cf4db7dbcc6142a8b435aec31f9a6075bc89e54c42be37` | ordered-business request/session/parser truth |
+| `Services/OrderedBusinessDiskCache.swift` | `b994d623b119ab7dc765026c9256d75eb1492fca7f9d658676eff0290797e0a0` | ordered-business disk-cache truth |
+| `Stores/OrderedBusinessStore.swift` | `bb3955be81e6689cab1f1584e4ecff4fd8fc6a05644e99dffcbc05435d7f0107` | ordered-business state/refresh/cache policy truth |
 | `Services/PhoneBillClient.swift` | `f86abeaa228aded4c28a52880d3fa848faee1e65253e04c7ddf30114eeaffb0e` | phone-bill endpoints and session-recovery contract |
 | `Services/IntegralClient.swift` | `682c967406a4ca25105d0e7fc14aa1664a9b0cf655a70df275821291ed92a13f` | integral endpoints/source and session-recovery contract |
 | `Stores/ComprehensiveBusinessStore.swift` | `988db5155d634ea895a56f0f1b5e9cd8625385eb9bf9a4da8207b73c56b88fb7` | comprehensive root cached-points aggregation |
 | `Views/ComprehensiveBusinessView.swift` | `008dcb837f41873be60d098c0c66242122e2cd9ee310a1dfaf4f837f0c02cbdf` | root behavior: aggregate cached data, no proactive network refresh |
 
-## M8-A accepted source semantics
+## M8-A accepted foundation
 
-### Ordered business models
+Android reuses the repository's source-aligned ordered-business, phone-bill and integral models instead of introducing duplicate model hierarchies.
 
-Android reuses the pre-existing source-aligned `OrderedBusinessModels.kt`; M8-A does not introduce a second business model hierarchy.
+- ordered business retains snapshot/section/item structure and computed total count;
+- phone bill retains parser version `4` and source monetary-string boundary;
+- integral retains parser version `1`, source section queries and cache-key semantics;
+- the single tolerant schema-version-3 `SettingsRepository` document owns ordered-business, phone-bill and integral refresh policies while preserving unknown top-level domains;
+- M5 Keystore remains the only credential authority.
 
-- `OrderedBusinessSnapshot`: optional title/queryTime, fetchedAt, sections;
-- `totalCount` is the sum of all section item counts;
-- section fields: id/title/icon/items;
-- item fields: id/name/subtitle/fee/startDate/endDate.
+Frozen endpoint roots remain:
 
-### Phone bill models
+- ordered business: `https://mxx.client.10010.com`, recovery via `https://loginxx.10010.com/mobileService/onLine.htm`;
+- phone bill: `https://m.client.10010.com`;
+- integral: `https://activity.10010.com`, source `ZXGS97000017640,003`.
 
-Android reuses the pre-existing source-aligned `PhoneBillModels.kt`.
+## M8-B accepted ordered-business semantics
 
-- `BillMonth.key` defaults to `year + two-digit month`;
-- month title removes a leading zero and appends `月` when numeric;
-- `PhoneBillSnapshot.currentParserVersion = 4`;
-- user bill exposes the flattened list of all section items;
-- monetary fields remain carrier-provided strings at this model boundary.
+### Real client and session recovery
 
-### Integral models
+`UnicomOrderedBusinessClient` implements the source-derived two-step business request:
 
-Android reuses the pre-existing source-aligned `IntegralModels.kt`.
+1. POST `/servicebusiness/newOrdered/provincialAlloc` to `mxx.client.10010.com`;
+2. apply allocation `Set-Cookie` mutations to the business Cookie;
+3. POST `/servicebusiness/newOrdered/queryOrderRelationship` with `type=1`;
+4. parse the ordered-business snapshot.
 
-- `IntegralSnapshot.currentParserVersion = 1`;
-- month `yearMonth` is derived from the first two numeric groups of cycleID and validates month 1...12;
-- detail item identity includes all source fields in stable order;
-- section queries match iOS raw values:
-  - communication: `scoreType=0`, `typeChar=3`;
-  - reward: `scoreType=1`, `typeChar=3`;
-  - expiring: `scoreType=2`, `typeChar=2`;
-- detail cache key is `scoreType-typeChar-yearMonth|all`;
-- monthly detail query uses `scoreType=2`.
+Business requests preserve the source `Origin` / `Referer` against `imgxx.client.10010.com` and use the existing M4 `UnicomHTTPClient`, `UnicomCookieCodec` and response/session classification instead of a second HTTP stack.
 
-### Refresh policies
+When the business session expires:
 
-Exact source defaults now exist in Android `SettingsRepository`:
+- saved `appId` and `token_online` are required;
+- recovery uses `https://loginxx.10010.com/mobileService/onLine.htm`;
+- source version remains `iphone_c@12.1300`;
+- source device/session form fields remain `step=welcom`, `isFirstInstall=1`, `flushkey=1`, source sim-operator and voip-token values;
+- device-code lookup is `d_deviceCode -> deviceCode -> devicedId -> UUID fallback`;
+- `deviceId` is SHA-256 of deviceCode and `uniqueIdentifier` is `ios` plus its first 32 lowercase hex characters;
+- recovery `Set-Cookie`, appId and token_online changes are returned as renewed credentials;
+- a second expired business request after successful loginxx recovery fails closed instead of looping.
 
-- ordered business: `cachePreferred`, 12 hours, no-cache auto query disabled, refresh-all gap 1 second;
-- phone bill: current month 10 minutes, historical 15 days, monthly recheck day 2 at 08:00;
-- integral: automatic enabled, monthly cycle, day 2 at 08:00, fixed interval 24 hours, check on entry enabled.
+### Ordered-business parser
 
-The existing schema-version-3 refresh-policy document remains a single tolerant document. M8 saves preserve unknown top-level domains and existing quota/balance domains. `JsonPrimitiveCompat.kt` keeps nullable string extraction compatible with the repository's kotlinx.serialization version without treating JSON null as the literal string `"null"`.
+The Android parser preserves the source sections:
 
-### Frozen endpoint contract
+- 主套餐
+- 其他已订产品
+- 合约
+- 套餐内业务与优惠
+- 增值业务
+- 宽带/IPTV 产品 · `<number>`
+- 功能服务
+- 异常或失效业务
 
-Ordered business:
+Stable item IDs use the source product identifier plus name/start/end when available. Fallback IDs hash canonical primitive source fields. Duplicate IDs inside a section are removed. Snapshot title uses `commdityName` with `commodityName` fallback, and queryTime/fetchedAt are retained.
 
-- root `https://mxx.client.10010.com`
-- online `https://loginxx.10010.com/mobileService/onLine.htm`
-- `/servicebusiness/newOrdered/provincialAlloc`
-- `/servicebusiness/newOrdered/queryOrderRelationship`
+### M5 credential boundary
 
-Phone bill:
+`OrderedBusinessAccountCredentialLifecycle` is the only M8-B bridge to account credentials:
 
-- root `https://m.client.10010.com`
-- online `https://m.client.10010.com/mobileService/onLine.htm`
-- `/serviceimportantbusiness/phoneBillNew/queryMonths`
-- `/serviceimportantbusiness/phoneBillNew/queryDetail`
+- reads `AccountCredentials` from the existing M5 `CredentialStore` by account UUID;
+- calls the real ordered-business validator/client;
+- immediately persists any renewed credentials back to the same M5 store;
+- strips `updatedCredentials` from the result before it enters ordinary M8 store/cache state;
+- missing credentials fail before any carrier request.
 
-Integral:
+No ordered-business cache or store serializes Cookie, appID, token_online, password, SMS code or captcha result token.
 
-- root `https://activity.10010.com`
-- `/welfare-mall-front/mobile/show/bj2205/v2/1`
-- `/welfare-mall-front/new/integral/queryMonthlyList/v1`
-- `/welfare-mall-front/new/integral/querySummaryList/v1`
-- source `ZXGS97000017640,003`
+### Atomic cache
 
-M8-A defines typed network contracts/results but deliberately does **not** implement the three real clients yet. Those are independent substages so each parser/session/cache path can be tested and reviewed separately.
+`AndroidOrderedBusinessDiskCache` stores only source-derived snapshots under app-private files:
+
+`filesDir/ordered-business/ordered-business-snapshots.json`
+
+The cache:
+
+- is keyed by account UUID string;
+- uses Android `AtomicFile` plus `fd.sync()` before finish-write;
+- skips invalid UUID keys while loading;
+- fails closed to an empty cache when the file/document cannot be decoded;
+- contains no account credential material.
+
+### Store / refresh policy
+
+`DefaultOrderedBusinessStore` owns a single `StateFlow<OrderedBusinessStoreState>` with per-account idle/loading/failed/warning states.
+
+Accepted source behavior:
+
+- cache is loaded once;
+- `cachePreferred`: use existing cache, and only auto-query missing cache when `noCacheAutoQuery` is enabled;
+- `refreshWhenExpired`: source default validity is 12 hours, time rollback forces refresh, and missing cache still respects `noCacheAutoQuery`;
+- `everyEntry`: always query;
+- `manualOnly`: never query automatically;
+- duplicate concurrent refresh for the same account is suppressed;
+- refresh-all is serialized and uses source default `refreshAllAccountGapSeconds=1`;
+- network failure preserves the previous successful snapshot and publishes failed state;
+- successful network response followed by disk-write failure preserves the new in-memory snapshot and publishes warning state;
+- account reconciliation removes orphan cached snapshots and persists the filtered cache;
+- cancellation returns affected state to idle / stops the remaining batch without creating another refresh authority.
+
+`AndroidOrderedBusinessStores.create(...)` composes the production M5 credential lifecycle, atomic disk cache, persisted settings policy and store without introducing UI or a second account/session repository.
 
 ## Security / persistence boundary
 
-- no new credential persistence path is introduced;
 - M5 Keystore remains the only account-credential authority;
-- M8 network result contracts may return renewed `AccountCredentials` for M5-authority persistence by the future stores;
-- ordinary M8 caches must not contain Cookie/appID/token_online/password/SMS code;
-- `android:allowBackup="false"` remains required.
-
-## Regression compatibility fix
-
-Extending `SettingsRepository` with the three M8 refresh-policy domains requires existing test doubles to implement the same interface. `BalanceRepositoryTest`'s `FakeSettingsRepository` was updated only as a test contract adapter; the change does not create another production settings authority or alter balance behavior.
+- ordinary M8 caches contain business snapshots only;
+- no Cookie/appID/token_online/password/SMS code/captcha token storage is introduced;
+- `android:allowBackup="false"` remains required;
+- Android minimum remains API 30.
 
 ## Visual / device boundary
 
-M8-A contains no new app-owned feature UI and requires **no real-device screenshots**.
+M8-A and M8-B contain no visual refinement and require **no real-device screenshots**.
 
-When M8-E later performs functional page acceptance, the exact required screenshots will be requested before that step. Final visual parity remains deferred by the project decision to finish business functionality first.
+When M8-E later performs comprehensive functional-page acceptance, the exact screenshots needed will be stated before that substep. Final visual parity remains deferred until the page-by-page visual pass.
 
 ## CI acceptance
 
-Accepted implementation head `896c923f8af877c16d73d94b2a620cb6f291f27c` passed every triggered migration workflow:
+### M8-A
 
-- M2 Models — run `32847755833` — success;
-- M3 Parsers — run `32847755804` — success;
-- M4 Network — run `32847755892` — success;
-- M5 Login Security — run `32847755798` — success;
-- M6 Persistence Refresh — run `32847755788` — success;
-- M7 Flow Voice Functional — run `32847755812` — success;
-- M8 Comprehensive Business — run `32847755901` — success.
+Accepted M8-A implementation head `896c923f8af877c16d73d94b2a620cb6f291f27c` passed every triggered M2-M8 workflow.
 
-M8's dedicated job passed:
+### M8-B implementation head
 
-- source-derived M8 model / endpoint / policy static gate;
+Accepted implementation head `f8d74c6de77b57e729f02597c26306d0097d04e1` passed every triggered M1-M8 workflow:
+
+- M1 Build — run `32851965395` — success;
+- M2 Models — run `32851965522` — success;
+- M3 Parsers — run `32851965591` — success;
+- M4 Network — run `32851965468` — success;
+- M5 Login Security — run `32851965430` — success;
+- M6 Persistence Refresh — run `32851965405` — success;
+- M7 Flow Voice Functional — run `32851965525` — success;
+- M8 Comprehensive Business — run `32851965465` — success.
+
+M8-B dedicated acceptance includes:
+
+- ordered-business client/session/cache/store static gate;
+- direct allocation/query and Cookie-mutation tests;
+- loginxx session recovery and renewed-credential tests;
+- M5 credential save-and-strip tests;
+- atomic cache codec/store tests;
+- entry-policy, expiry, failure retention, write-warning and reconcile/batch-gap tests;
 - all existing core/data/app unit tests;
-- `data:settings` compatibility tests;
-- `data:balance` regression tests;
 - Debug assembly;
 - Release assembly;
-- `android-m8-foundation` status publication.
+- `android-m8-ordered-business` status publication;
+- failure gate skipped as expected after successful regression.
 
 ## Next
 
-`NEXT = Android-M8-B — Ordered Business Client + Cache + Store`
+`NEXT = Android-M8-C — Phone Bill Client + Cache + Store`
