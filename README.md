@@ -29,70 +29,34 @@ M5 supplies Android Keystore AES-256-GCM account credentials, SMS login, passwor
 
 `Android-M6 — Persistence / Production Repository / Refresh / Shared Balance Gate` is `PASS / CLOSED`.
 
-M6-A Account Metadata Persistence + Production Repository Foundation is `PASS / CLOSED`:
+M6 includes:
 
-- source-equivalent ordinary account metadata persistence separated from M5 Keystore credentials;
-- app-private `persistence/accounts.json` using Android `AtomicFile`;
-- complete `UnicomAccount` metadata JSON round-trip with ISO-8601 Instants and UUIDs;
-- Cookie/appID/token_online/AccountCredentials excluded from ordinary metadata storage;
-- `AccountRepository` / `DefaultAccountRepository` restore accounts ordered by `sortOrder`;
-- M5 validated-login seed maps to default account metadata, display placements and summary groups;
-- Release `PendingProductionUnicomRepository` placeholder removed;
-- Debug Fake Repository remains isolated.
+- ordinary account metadata persistence separated from M5 Keystore credentials;
+- `AccountRepository`, `SettingsRepository`, `QuotaRepository`, `BalanceRepository`, `QuotaRefreshCoordinator` and `StateFlow<UnicomAppState>`;
+- cold-launch/foreground/manual quota refresh orchestration, per-account/global mutual exclusion and persisted quota refresh policy;
+- M5-owned credential renewal for quota and balance;
+- source-equivalent `SharedBalanceCacheStore` freshness, persistent lease/in-flight protection, failure retry cooldown and financial representative selection;
+- one shared account-persistence serialization boundary for quota/balance metadata updates;
+- Debug Fake Repository isolation and complete Debug/Release regression coverage.
 
-M6-B Production Quota Refresh Orchestration + AppState is `PASS / CLOSED`:
+`Android-M7 — Flow / Voice Feature UI` is `PASS / CLOSED` **for migration progression**.
 
-- production `QuotaRefreshCoordinator` and `StateFlow<UnicomAppState>`;
-- immediate account restore followed by independently gated cold-launch refresh;
-- manual single-account and refresh-all account-level mutual exclusion;
-- global refresh-all mutual exclusion;
-- enabled-account-only sequential refresh-all with source-default two-second gap;
-- source-default automatic refresh: enabled, cold launch, foreground, 10-minute minimum interval;
-- non-secret refresh-trigger timestamp persists across process recreation;
-- M5 remains the credential/renewal boundary for every production quota refresh;
-- refreshed quota preserves balance and user display configuration;
-- flow/voice override synchronization and voice summary-group identity stabilization survive refreshed resource IDs;
-- network failure keeps prior quota and persists lastErrorMessage;
-- metadata persistence failure rolls back the network candidate before recording failure;
-- `FlowViewModel` observes production AppState and forwards cold-launch/foreground triggers without visual redesign;
-- Debug Fake StateFlow remains isolated.
+M7-A functional flow/voice wiring is `PASS / CLOSED`:
 
-M6-C SettingsRepository + Persisted Refresh Policy is `PASS / CLOSED`:
+- one root-scoped `FlowViewModel` consumes the production M6 `AppState` and `BalanceState` for both root tabs;
+- flow root renders real persisted accounts, balance, package/quota data, update/error state and supports refresh-all, per-account refresh and manual home-balance refresh;
+- voice root renders the same account state and visible voice packages but intentionally has no independent refresh action;
+- flow remaining detail consumes `RemainingQuerySnapshot`, groups general/exclusive/other flow packages and implements source-derived two-item collapsed disclosure with `查看更多` / `收起`;
+- flow and voice detail can switch persisted accounts without creating another repository or refresh authority;
+- root lifecycle handling prevents duplicate quota/balance automatic work across tab changes;
+- app version is `0.7.0-m7a` and minimum Android remains API 30;
+- accepted implementation head passed M1/M2/M3/M4/M5/M6/M7 workflows, app unit tests and Debug/Release builds.
 
-- new `data:settings` module with `SettingsRepository` / `DefaultSettingsRepository`;
-- source-equivalent quota policy defaults and key `chinaunicom.appRefreshLogic.policy.v1`;
-- schemaVersion 3 and tolerant per-field decode;
-- malformed policy fallback to source defaults;
-- valid legacy schema upgrade while preserving unknown top-level domains;
-- quota policy StateFlow publishes only successfully persisted values;
-- Release `QuotaRefreshCoordinator` reads persisted SettingsRepository policy instead of a fixed default provider;
-- settings persistence contains no credential fields and remains covered by `android:allowBackup="false"`.
+Per the explicit project priority, **M7 final visual parity is deferred**. M7 closure here means functional/data/interaction migration is complete enough to progress to later business stages; it does not claim final app-owned spacing, card styling, typography, gradients, icons, progress bars or light/dark screenshot parity. Those will be refined page-by-page after the remaining business migration is complete.
 
-M6-D BalanceRepository + Shared Balance Gate is `PASS / CLOSED`:
+`NEXT = Android-M8-A — Comprehensive Business Functional Migration (visual polish deferred)`.
 
-- new `data:balance` module with `BalanceRepository` / `DefaultBalanceRepository` and `SharedBalanceCacheStore`;
-- automatic balance freshness requires the same local calendar day and the source-default 60-minute interval;
-- forced/manual refresh bypasses freshness but never bypasses an active lease;
-- shared refresh uses a durable two-minute lease, clamped to 15 seconds through 10 minutes, with Android `AtomicFile` state plus a cross-process file lock;
-- failed refresh releases the matching lease while preserving the last successful balance and the persisted 15-minute failure retry cooldown;
-- financial representative priority matches iOS: home balance account, group default, first enabled credential-bearing account by sortOrder, then first enabled account;
-- M5 Keystore remains the sole Cookie/appID/token_online renewal boundary for balance refresh;
-- quota and balance metadata persistence share the same account-persistence serialization boundary.
-
-M6-E QuotaRepository Boundary + Final Closure is `PASS / CLOSED`:
-
-- explicit `QuotaRepository` and `DefaultQuotaRepository` are present in `data:refresh`;
-- `DefaultQuotaRepository` delegates to the already accepted `QuotaRefreshCoordinator` and does not duplicate state, locks, policy or persistence;
-- app-facing `ProductionUnicomRepository` depends on the `QuotaRepository` interface rather than the concrete coordinator;
-- Release wiring is `QuotaRefreshCoordinator -> DefaultQuotaRepository -> ProductionUnicomRepository`;
-- BalanceRepository continues to share the same coordinator-backed AppState authority;
-- the accepted implementation head passed M1/M2/M3/M4/M5/M6 workflows, all core/data tests and Debug/Release builds.
-
-M6 now satisfies the migration-plan architecture: `AccountRepository`, `SettingsRepository`, `QuotaRepository`, `BalanceRepository`, `RefreshCoordinator`, `AppState`, `StateFlow`, coroutine refresh orchestration and the complete Shared Balance gate are production-wired and closed.
-
-`NEXT = Android-M7-A — Flow + Voice Dashboard Functional Wiring (visual polish deferred)`.
-
-M0 is closed for progression by explicit migration decision; the deferred real iOS light/dark screenshot set remains mandatory before the visual-parity acceptance part of M7. Per the current project priority, M7-A may first complete functional/data/interaction wiring while the UI remains rough.
+M0 is closed for progression by explicit migration decision. Deferred real iOS/Android screenshot evidence remains mandatory when the final page-by-page visual parity pass begins.
 
 See:
 
@@ -104,4 +68,5 @@ See:
 - [`docs/migration/M4_F_REAL_PARITY.md`](docs/migration/M4_F_REAL_PARITY.md)
 - [`docs/migration/M5_BASELINE.md`](docs/migration/M5_BASELINE.md)
 - [`docs/migration/M6_BASELINE.md`](docs/migration/M6_BASELINE.md)
+- [`docs/migration/M7_BASELINE.md`](docs/migration/M7_BASELINE.md)
 - [`docs/migration/MIGRATION_RULES.md`](docs/migration/MIGRATION_RULES.md)
