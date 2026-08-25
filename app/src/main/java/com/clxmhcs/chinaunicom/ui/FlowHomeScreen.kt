@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.clxmhcs.chinaunicom.core.model.BalanceRefreshState
 import com.clxmhcs.chinaunicom.core.model.DisplayUnit
+import com.clxmhcs.chinaunicom.core.model.FlowPackage
 import com.clxmhcs.chinaunicom.core.model.RefreshState
 import com.clxmhcs.chinaunicom.core.model.RemainingFlowCategory
 import com.clxmhcs.chinaunicom.core.model.RemainingFlowPackage
@@ -58,14 +60,16 @@ import java.util.Locale
 fun FlowHomeScreen(
     flowViewModel: FlowViewModel,
 ) {
-    val uiState by flowViewModel.uiState.collectAsStateWithLifecycleCompat()
+    val uiState by flowViewModel.uiState.collectAsState()
     var detailAccountID by rememberSaveable { mutableStateOf<String?>(null) }
 
     when (val state = uiState) {
         FlowUiState.Loading -> DashboardMessage("加载中…")
         is FlowUiState.Error -> DashboardMessage(state.message)
         is FlowUiState.Content -> {
-            val detailAccount = detailAccountID?.let { id -> state.accounts.firstOrNull { it.id.toString() == id } }
+            val detailAccount = detailAccountID?.let { id ->
+                state.accounts.firstOrNull { it.id.toString() == id }
+            }
             if (detailAccount != null) {
                 FlowRemainingDetail(
                     account = detailAccount,
@@ -188,6 +192,7 @@ private fun FlowAccountCard(
     onRefresh: () -> Unit,
     onOpen: () -> Unit,
 ) {
+    val formatter = remember { FlowFormatter(DisplayUnit.AUTOMATIC) }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -218,7 +223,6 @@ private fun FlowAccountCard(
                 Text("套餐分类", style = MaterialTheme.typography.labelMedium)
                 account.visibleSummaryGroups.take(4).forEach { group ->
                     val summary = account.summary(group)
-                    val formatter = remember { FlowFormatter(DisplayUnit.AUTOMATIC) }
                     val value = if (summary.isUnlimited) "不限量" else formatter.string(summary.remainingMB)
                     Text("${summary.name}：剩余 $value（${summary.packageCount} 项）", style = MaterialTheme.typography.bodySmall)
                 }
@@ -242,7 +246,7 @@ private fun FlowAccountCard(
 }
 
 @Composable
-private fun FlowPackageCompactRow(account: UnicomAccount, packageValue: com.clxmhcs.chinaunicom.core.model.FlowPackage) {
+private fun FlowPackageCompactRow(account: UnicomAccount, packageValue: FlowPackage) {
     val display = flowPackageDisplayText(account, packageValue, DisplayUnit.AUTOMATIC)
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -348,15 +352,13 @@ private fun FlowRemainingDetail(
                 }
             }
 
-            item {
-                VoiceSnapshotSummary(account)
-            }
+            item { VoiceSnapshotSummary(account) }
         }
     }
 }
 
 @Composable
-private fun AccountSelector(
+internal fun AccountSelector(
     accounts: List<UnicomAccount>,
     selected: UnicomAccount,
     onSelect: (UnicomAccount) -> Unit,
