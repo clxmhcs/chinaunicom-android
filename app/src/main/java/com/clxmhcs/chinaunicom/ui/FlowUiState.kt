@@ -1,19 +1,26 @@
 package com.clxmhcs.chinaunicom.ui
 
-import com.clxmhcs.chinaunicom.model.BusinessOverview
+import com.clxmhcs.chinaunicom.core.model.UnicomAccount
+import com.clxmhcs.chinaunicom.data.balance.BalanceRepositoryState
+import com.clxmhcs.chinaunicom.data.refresh.UnicomAppState
 
-/**
- * M4-G2-C6
- * UI state contract for flow screen.
- */
+/** Shared dashboard state for the flow and voice roots. */
 sealed interface FlowUiState {
     data object Loading : FlowUiState
 
     data class Content(
-        val overview: BusinessOverview
-    ) : FlowUiState
+        val appState: UnicomAppState,
+        val balanceState: BalanceRepositoryState,
+    ) : FlowUiState {
+        val accounts: List<UnicomAccount> get() = appState.accounts
+
+        val homeBalanceAccount: UnicomAccount?
+            get() = balanceState.homeBalanceAccountID?.let { homeID ->
+                accounts.firstOrNull { it.id == homeID }
+            }
+    }
 
     data class Error(
-        val message: String
+        val message: String,
     ) : FlowUiState
 }
