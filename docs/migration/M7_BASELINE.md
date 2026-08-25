@@ -2,13 +2,19 @@
 
 ## Status
 
-`M7_RESULT = IN_PROGRESS`
+`M7_RESULT = PASS / CLOSED`
 
-Current substage:
+Completed substage:
 
-- `M7-A_RESULT = IMPLEMENTED / CI_PENDING`
+- `M7-A_RESULT = PASS / CLOSED`
+
+Visual parity status:
+
+- `M7_VISUAL_PARITY = DEFERRED_BY_PROJECT_DECISION`
 
 Minimum supported Android version remains **Android 11 / API 30**.
+
+M7 is closed for migration progression because the current project decision is to finish functional/business migration first and polish app-owned UI page-by-page later. This closure therefore means the flow/voice data and interaction contract is functional and regression-closed; it does **not** claim final screenshot/visual parity.
 
 ## Frozen iOS source truth
 
@@ -18,55 +24,70 @@ Minimum supported Android version remains **Android 11 / API 30**.
 | `ChinaUnicom/Views/VoiceDashboardView.swift` | `281c6d6ecf75b914761a688c25de6f3685a77b19fc38a721c8dd697860118528` | voice root using the same quota refresh result |
 | `ChinaUnicom/Views/RemainingQueryView.swift` | `7c6a4b8af91c2e6f75a51b68d809cc903778eedc00fd3b26422c1cd770111425` | remaining snapshot/category/member/package disclosure behavior |
 
-## M7-A functional scope
+## M7-A functional contract
 
-M7-A intentionally wires business data and interactions before visual parity. It must not redesign or duplicate the M4-M6 data authorities.
+The accepted implementation preserves these source-derived behaviors:
 
-Source-derived behavior frozen for this substage:
-
-- flow root lists every restored account and exposes refresh-all;
-- account-level flow refresh uses the existing production quota refresh path;
-- home balance is shown from the M6 balance state and can be manually refreshed;
-- voice data is not independently refreshed; it is consumed from the same quota refresh result as flow;
-- voice root lists the same accounts and their visible voice resources;
-- account package name, balance, update time, error state and visible flow/voice resources are driven by production state;
-- flow remaining detail consumes `RemainingQuerySnapshot` when available;
-- flow remaining packages are grouped as general / exclusive / other;
-- a category displays at most two packages while collapsed and supports `查看更多` / `收起` when more than two packages exist;
-- member masked numbers and voice snapshot summary are available in the functional remaining detail;
-- flow and voice detail views can switch between persisted accounts without creating another repository;
-- one activity-level `FlowViewModel` is shared by the flow and voice root tabs;
-- foreground/cold-launch quota and balance lifecycle tasks remain M6-owned and must not be duplicated per tab.
+- flow root lists all restored accounts and exposes refresh-all;
+- account-level refresh uses the production M6 quota path;
+- home balance comes from M6 balance state and can be manually refreshed;
+- voice data is **not independently refreshed** and consumes the same quota refresh result as flow;
+- voice root lists the same persisted accounts and visible voice resources;
+- package name, balance, update time, error state and visible flow/voice resources come from production state;
+- flow remaining detail consumes `RemainingQuerySnapshot`;
+- remaining flow packages are grouped as general / exclusive / other;
+- collapsed category shows at most two packages and supports `查看更多` / `收起` when more than two exist;
+- masked member numbers and voice snapshot summary are exposed in the functional remaining detail;
+- flow and voice details can switch persisted accounts without creating another repository;
+- one root-scoped `FlowViewModel` is shared by the flow and voice tabs;
+- cold-launch/foreground quota refresh and balance-loop ownership remain with the existing M6 production repository rather than being duplicated per tab.
 
 ## Android implementation
 
-M7-A changes are limited to the app/UI composition layer:
+M7-A changes stay in the app/UI composition layer:
 
-- `FlowUiState.Content` now carries the production `UnicomAppState` and `BalanceRepositoryState` directly;
-- `FlowViewModel` combines the quota/AppState and balance StateFlows from one production `UnicomRepository`;
-- `ChinaUnicomApp` owns one `FlowViewModel` and passes it to both flow and voice root destinations;
-- lifecycle foreground/background handling is lifted to the root so tab changes do not create duplicate automatic balance loops;
+- `FlowUiState.Content` carries production `UnicomAppState` and `BalanceRepositoryState`;
+- `FlowViewModel` combines `repository.appState` and `repository.balanceState` from one `UnicomRepository`;
+- `ChinaUnicomApp` creates one `FlowViewModel` and passes it to both flow and voice destinations;
+- root lifecycle handling starts/stops foreground automatic work without tab-level duplication;
 - `FlowHomeScreen` renders real account/balance/quota data and exposes refresh-all, account refresh, balance refresh, account selection and remaining detail;
-- `VoiceDashboardScreen` renders the same account state and visible voice packages but deliberately exposes no independent refresh action;
-- remaining detail renders source-derived flow categories and collapsed/expanded package lists;
+- `VoiceDashboardScreen` renders the same account state and visible voice packages and intentionally exposes no independent refresh action;
+- remaining detail implements source-derived category disclosure and collapsed/expanded package lists;
 - app version is `0.7.0-m7a`;
-- no new network endpoint, credential store or production repository is introduced.
+- no new network endpoint, credential store or production repository was introduced.
 
-## Visual parity boundary
+## CI evidence
 
-M7-A does **not** claim final spacing, typography, card styling, gradients, symbols, dark-mode appearance or screenshot parity. Current UI may remain rough while the functional path is completed.
+Accepted implementation head:
 
-Real-device screenshots are **not required for M7-A implementation**. Before the later M7 visual-parity acceptance, request the exact iOS/Android evidence pages. At minimum that later evidence is expected to include:
+`208dcfe7025346039753c2662899cb11dc0eccac`
 
-- flow root;
-- voice root;
-- remaining detail in collapsed and expanded states;
-- light and dark mode where the iOS source has app-owned visual differences.
+Passed PR workflows:
 
-## CI
+- Android M1 Build run `32840713675` = success;
+- Android M2 Models run `32840713599` = success;
+- Android M3 Parsers run `32840713586` = success;
+- Android M4 Network run `32840713731` = success;
+- Android M5 Login Security run `32840713709` = success;
+- Android M6 Persistence Refresh run `32840713711` = success;
+- Android M7 Flow Voice Functional run `32840713662` = success.
 
-`.github/workflows/android-m7-build.yml` verifies the shared ViewModel/state boundary, source-derived flow/voice actions, no independent voice refresh, remaining-category disclosure behavior, API 30, fake-data isolation, all prior core/data unit tests, app unit tests and Debug/Release assembly.
+The M7 gate verifies shared production ViewModel/state ownership, flow refresh actions, no independent voice refresh, remaining-category collapse/expand behavior, API 30, fake-data isolation, all prior core/data tests, app unit tests and Debug/Release assembly.
+
+The first implementation CI correctly caught invalid explicit Compose `layout.weight` imports in both new dashboard files. Those imports were removed without changing production behavior; the accepted head above then passed all M1-M7 workflows.
+
+## Deferred visual parity
+
+M7 does not yet claim final spacing, card order/width, margins, corner radii, background/gradient, typography, number hierarchy, icons, progress-bar appearance or light/dark screenshot parity. These app-owned visual parameters remain mandatory during the later page-by-page UI refinement pass.
+
+No real-device screenshots are required for the functional M7 closure. When the deferred M7 visual pass begins, request at minimum:
+
+- iOS + Android flow root;
+- iOS + Android voice root;
+- remaining detail collapsed state;
+- remaining detail expanded state;
+- corresponding light/dark variants where app-owned visuals differ.
 
 ## Next
 
-`NEXT = wait for M7-A implementation CI; only after PASS decide the next functional M7 substage. Visual polish remains deferred.`
+`NEXT = Android-M8-A — Comprehensive Business Functional Migration (visual polish deferred)`
