@@ -18,7 +18,7 @@ class UnicomOrderedBusinessClientTest {
 
     @Test
     fun directFetchAllocatesBusinessSessionAppliesCookieAndParsesSnapshot() {
-        val transport = QueueTransport(
+        val transport = OrderedBusinessQueueTransport(
             response("1", setCookies = listOf("ordered_sid=abc; Path=/")),
             response(successPayload()),
         )
@@ -47,7 +47,7 @@ class UnicomOrderedBusinessClientTest {
 
     @Test
     fun expiredBusinessSessionUsesLoginxxThenReturnsRenewedCredentials() {
-        val transport = QueueTransport(
+        val transport = OrderedBusinessQueueTransport(
             response("{\"code\":\"9998\"}"),
             response(
                 "{\"code\":\"0000\",\"appId\":\"newApp\",\"token_online\":\"newToken\"}",
@@ -80,7 +80,7 @@ class UnicomOrderedBusinessClientTest {
 
     @Test
     fun expiredSessionWithoutAppIdTokenFailsBeforeActivationRequest() {
-        val transport = QueueTransport(response("{\"code\":\"9998\"}"))
+        val transport = OrderedBusinessQueueTransport(response("{\"code\":\"9998\"}"))
         val error = runCatching {
             client(transport).fetch(AccountCredentials("cookie=1", null, null))
         }.exceptionOrNull()
@@ -106,13 +106,13 @@ class UnicomOrderedBusinessClientTest {
               }
             }
         """.trimIndent().encodeToByteArray()
-        val snapshot = client(QueueTransport()).parse(duplicatePayload)
+        val snapshot = client(OrderedBusinessQueueTransport()).parse(duplicatePayload)
 
         assertEquals(1, snapshot.sections.single().items.size)
         assertEquals("p1|套餐|2026-01-01|", snapshot.sections.single().items.single().id)
     }
 
-    private fun client(transport: QueueTransport) = UnicomOrderedBusinessClient(
+    private fun client(transport: OrderedBusinessQueueTransport) = UnicomOrderedBusinessClient(
         http = UnicomHTTPClient(transport, retryDelayMillis = 0),
         clock = clock,
         systemVersionProvider = { "18.7" },
@@ -146,12 +146,13 @@ class UnicomOrderedBusinessClientTest {
         .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
 }
 
-private class QueueTransport(vararg responses: UnicomRawResponse) : UnicomTransport {
+private class OrderedBusinessQueueTransport(vararg responses: UnicomRawResponse) : UnicomTransport {
     private val queue = ArrayDeque(responses.toList())
     val requests = mutableListOf<UnicomRequest>()
 
     override fun post(request: UnicomRequest): UnicomRawResponse {
         requests += request
-        return queue.pollFirst() ?: error("No queued response for ${request.url}")
+        if (queue.isEmpty()) error("No queued response for ${request.url}")
+        return queue.removeFirst()
     }
 }
