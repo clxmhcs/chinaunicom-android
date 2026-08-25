@@ -1,5 +1,6 @@
 package com.clxmhcs.chinaunicom.data.settings
 
+import com.clxmhcs.chinaunicom.data.refresh.QuotaRefreshPolicy
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -12,10 +13,10 @@ class SettingsRepositoryTest {
     @Test
     fun missingOrCorruptStorageFallsBackToSourceDefaults() {
         val missing = FakeStorage()
-        assertEquals(QuotaRefreshPolicy(), DefaultSettingsRepository(missing).load())
+        assertEquals(QuotaRefreshPolicy(), DefaultSettingsRepository(missing).loadQuotaRefreshPolicy())
 
         val corrupt = FakeStorage("{not-json")
-        assertEquals(QuotaRefreshPolicy(), DefaultSettingsRepository(corrupt).load())
+        assertEquals(QuotaRefreshPolicy(), DefaultSettingsRepository(corrupt).loadQuotaRefreshPolicy())
     }
 
     @Test
@@ -34,7 +35,7 @@ class SettingsRepositoryTest {
             }
             """.trimIndent(),
         )
-        val policy = DefaultSettingsRepository(storage).load()
+        val policy = DefaultSettingsRepository(storage).loadQuotaRefreshPolicy()
 
         assertEquals(
             QuotaRefreshPolicy(
@@ -60,7 +61,7 @@ class SettingsRepositoryTest {
             """.trimIndent(),
         )
 
-        val policy = DefaultSettingsRepository(storage).load()
+        val policy = DefaultSettingsRepository(storage).loadQuotaRefreshPolicy()
 
         assertFalse(policy.automaticRefreshEnabled)
         val migrated = root(storage.value!!)
