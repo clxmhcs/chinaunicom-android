@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 enum class QuotaAutomaticRefreshTrigger {
@@ -79,17 +80,12 @@ data class UnicomAppState(
 }
 
 /**
- * M6-B production quota refresh coordinator.
+ * Production quota/AppState authority.
  *
- * Source-equivalent behavior frozen from iOS AppStore/DashboardView:
- * - restored accounts are immediately exposed through one StateFlow;
- * - manual account refresh and refresh-all share account-level mutual exclusion;
- * - refresh-all is additionally globally serialized and includes enabled accounts only;
- * - automatic-refresh cooldown is based on the time a real refresh was triggered, not success time;
- * - M5 owns credentials and renewed Cookie/token persistence; this layer never sees credential fields;
- * - successful quota data is persisted atomically through M6-A AccountRepository;
- * - persistence failure rolls back the network result before recording the account error;
- * - cancellation returns the account state to idle and does not write an error message.
+ * M6-D additionally exposes one serialized balance mutation entry point so quota and balance can
+ * share the same in-memory account authority. Quota persistence failure rolls back its candidate;
+ * shared-balance persistence failure deliberately keeps the already-published shared-cache value,
+ * matching the iOS rule that the durable shared balance cache remains authoritative.
  */
 class QuotaRefreshCoordinator(
     private val accountRepository: AccountRepository,
@@ -102,6 +98,7 @@ class QuotaRefreshCoordinator(
 ) {
     private val accountLocks = ConcurrentHashMap<UUID, Mutex>()
     private val refreshAllLock = Mutex()
+    private val accountPersistenceLock = Mutex()
     private val _state = MutableStateFlow(
         UnicomAppState(accounts = accountRepository.loadAccounts().sortedBy { it.sortOrder }),
     )
@@ -160,6 +157,29 @@ class QuotaRefreshCoordinator(
         }
     }
 
+    /**
+     * Balance-only account mutation path. The candidate is published first because the durable
+     * SharedBalanceCacheStore has already committed the successful network value. If ordinary
+     * accounts.json persistence fails, keep the published value and surface persistenceErrorMessage;
+     * a later shared-cache synchronization can repair the local snapshot.
+     */
+    suspend fun updateAccountsFromBalance(
+        transform: (List<UnicomAccount>) -> List<UnicomAccount>,
+    ): Boolean = accountPersistenceLock.withLock {
+        val currentAccounts = _state.value.accounts
+        val candidate = transform(currentAccounts).sortedBy { it.sortOrder }
+        if (candidate == currentAccounts) return@withLock true
+
+        _state.update { it.copy(accounts = candidate, persistenceErrorMessage = null) }
+        try {
+            persistAccounts(candidate)
+            true
+        } catch (error: Throwable) {
+            _state.update { it.copy(persistenceErrorMessage = persistenceMessage(error)) }
+            false
+        }
+    }
+
     fun clearPersistenceError() {
         _state.update { it.copy(persistenceErrorMessage = null) }
     }
@@ -179,42 +199,7 @@ class QuotaRefreshCoordinator(
 
             try {
                 val result = refreshClient.refreshValidatedQuota(accountID)
-                val completedAt = Instant.now(clock)
-                val previousAccounts = _state.value.accounts
-                val index = previousAccounts.indexOfFirst { it.id == accountID }
-                if (index < 0) {
-                    removeRefreshState(accountID)
-                    return
-                }
-
-                val refreshedAccount = mergeQuotaResult(
-                    account = previousAccounts[index],
-                    result = result,
-                    completedAt = completedAt,
-                )
-                val candidateAccounts = previousAccounts.toMutableList().apply {
-                    this[index] = refreshedAccount
-                }
-
-                _state.update { current ->
-                    current.copy(
-                        accounts = candidateAccounts,
-                        refreshStates = current.refreshStates + (accountID to RefreshState.Succeeded),
-                        persistenceErrorMessage = null,
-                    )
-                }
-
-                try {
-                    persistAccounts(candidateAccounts)
-                } catch (error: Throwable) {
-                    _state.update { current ->
-                        current.copy(
-                            accounts = previousAccounts,
-                            persistenceErrorMessage = persistenceMessage(error),
-                        )
-                    }
-                    throw error
-                }
+                commitQuotaSuccess(accountID, result, Instant.now(clock))
             } catch (error: CancellationException) {
                 setRefreshState(accountID, RefreshState.Idle)
                 throw error
@@ -226,36 +211,79 @@ class QuotaRefreshCoordinator(
         }
     }
 
-    private suspend fun persistRefreshFailure(accountID: UUID, error: Throwable) {
-        val message = error.message?.takeIf { it.isNotBlank() } ?: "刷新失败"
+    private suspend fun commitQuotaSuccess(
+        accountID: UUID,
+        result: QuotaFetchResult,
+        completedAt: Instant,
+    ) = accountPersistenceLock.withLock {
         val previousAccounts = _state.value.accounts
         val index = previousAccounts.indexOfFirst { it.id == accountID }
         if (index < 0) {
             removeRefreshState(accountID)
-            return
+            return@withLock
         }
 
-        val failedAccounts = previousAccounts.toMutableList().apply {
-            this[index] = this[index].copy(lastErrorMessage = message)
+        val refreshedAccount = mergeQuotaResult(
+            account = previousAccounts[index],
+            result = result,
+            completedAt = completedAt,
+        )
+        val candidateAccounts = previousAccounts.toMutableList().apply {
+            this[index] = refreshedAccount
         }
+
         _state.update { current ->
             current.copy(
-                accounts = failedAccounts,
-                refreshStates = current.refreshStates + (accountID to RefreshState.Failed(message)),
+                accounts = candidateAccounts,
+                refreshStates = current.refreshStates + (accountID to RefreshState.Succeeded),
+                persistenceErrorMessage = null,
             )
         }
 
         try {
-            persistAccounts(failedAccounts)
-        } catch (persistenceError: Throwable) {
+            persistAccounts(candidateAccounts)
+        } catch (error: Throwable) {
             _state.update { current ->
                 current.copy(
                     accounts = previousAccounts,
-                    persistenceErrorMessage = persistenceMessage(persistenceError),
+                    persistenceErrorMessage = persistenceMessage(error),
                 )
             }
+            throw error
         }
     }
+
+    private suspend fun persistRefreshFailure(accountID: UUID, error: Throwable) =
+        accountPersistenceLock.withLock {
+            val message = error.message?.takeIf { it.isNotBlank() } ?: "刷新失败"
+            val previousAccounts = _state.value.accounts
+            val index = previousAccounts.indexOfFirst { it.id == accountID }
+            if (index < 0) {
+                removeRefreshState(accountID)
+                return@withLock
+            }
+
+            val failedAccounts = previousAccounts.toMutableList().apply {
+                this[index] = this[index].copy(lastErrorMessage = message)
+            }
+            _state.update { current ->
+                current.copy(
+                    accounts = failedAccounts,
+                    refreshStates = current.refreshStates + (accountID to RefreshState.Failed(message)),
+                )
+            }
+
+            try {
+                persistAccounts(failedAccounts)
+            } catch (persistenceError: Throwable) {
+                _state.update { current ->
+                    current.copy(
+                        accounts = previousAccounts,
+                        persistenceErrorMessage = persistenceMessage(persistenceError),
+                    )
+                }
+            }
+        }
 
     private suspend fun persistAccounts(accounts: List<UnicomAccount>) {
         withContext(ioDispatcher) { accountRepository.replaceAccounts(accounts) }

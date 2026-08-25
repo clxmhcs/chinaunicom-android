@@ -9,6 +9,7 @@ Completed substages:
 - `M6-A_RESULT = PASS / CLOSED`
 - `M6-B_RESULT = PASS / CLOSED`
 - `M6-C_RESULT = PASS / CLOSED`
+- `M6-D_RESULT = PASS / CLOSED`
 
 Minimum supported Android version remains **Android 11 / API 30**.
 
@@ -18,11 +19,14 @@ Minimum supported Android version remains **Android 11 / API 30**.
 | --- | --- | --- |
 | `ChinaUnicom/Services/PersistenceStore.swift` | `a2d688590deb7f599807f50758469757b4e37f2934f3e6a90d8086930682e07a` | accounts/settings ordinary persistence |
 | `ChinaUnicom/Services/AppStore.swift` | `363468df319315f6df986b21e8b1b66219982fb7e9d2b90fc7fb8f40580902b3` | account restore/save/rollback and refresh orchestration |
+| `ChinaUnicom/Services/AppStoreBalance.swift` | `0c226bdce2f6fba2243ea92f3f0545cafba2d57fa9781d25ba22390c339879a6` | shared-balance groups, representative selection, automatic/manual refresh orchestration |
+| `ChinaUnicom/Services/UnicomNetworking.swift` | `3f1e31c6f1b367ac8119cd536f1cf7cbaa4109e033f3e8242627ac0aac910a2e` | `SharedBalanceCacheStore` scope/interval/lease/cache semantics |
+| `ChinaUnicom/Services/UnicomBalanceClient.swift` | `a306e5664e669cd5d09dfc1a97cd32f95b2adc6925b45d81c04b5f864b3c5c65` | balance API result and credential-renewal boundary |
 | `ChinaUnicom/Models/AppRefreshLogicPolicyModels.swift` | `ad1ed089d7c3079cabbbe38702d0d51758e5b3c979b4686711603fe408d23f22` | refresh-policy schema/defaults/tolerant decode |
 | `ChinaUnicom/Services/AppRefreshLogicPolicyStore.swift` | `f73c1ad1487a09f7e7c7822be6f3495a75e6da9949b06dee933573f0d9aff1fb` | refresh-policy persistence/change-domain behavior |
 | `ChinaUnicom/Views/DashboardView.swift` | `651a183aaedb418e333dbaf624352b4926d915ec8757b5ef404fca215af58810` | cold-launch / foreground / policy-change quota triggers |
 
-M6 follows the migration contract from `迁移总纲.txt`: establish `AccountRepository`, `SettingsRepository`, `QuotaRepository`, `BalanceRepository`, `RefreshCoordinator` and `AppState` before feature UI work. Shared balance lease/refresh semantics are a later M6 substage and must not be simplified to a cache-presence check.
+M6 follows the migration contract from `迁移总纲.txt`: establish `AccountRepository`, `SettingsRepository`, `QuotaRepository`, `BalanceRepository`, `RefreshCoordinator` and `AppState` before feature UI work. `M6-D` closes the balance/shared-gate requirement, but M6 as a whole is not closed until the remaining explicit `QuotaRepository` boundary is present and the final M6 regression closes.
 
 ## M6-A — account metadata persistence + production repository foundation
 
@@ -162,55 +166,27 @@ M6-B gates cover restored ordering, 10-minute/clock-rollback eligibility, per-ac
 
 - storage key is `chinaunicom.appRefreshLogic.policy.v1`;
 - current `AppRefreshLogicPolicy.currentSchemaVersion` is `3`;
-- source quota defaults are:
-  - `automaticRefreshEnabled = true`;
-  - `refreshOnColdLaunch = true`;
-  - `refreshOnForeground = true`;
-  - `minimumIntervalMinutes = 10`;
-  - `accountGapSeconds = 2`;
+- source quota defaults are automatic=true, cold-launch=true, foreground=true, minimum interval 10 minutes, account gap 2 seconds;
 - tolerant decode applies defaults per missing or wrongly typed quota field;
 - missing/malformed whole policy data falls back to source defaults;
 - valid documents older than the current schema are rewritten to the current schema during load;
-- quota values are not restricted to the Settings UI picker choices at persistence time;
-- runtime refresh logic clamps `minimumIntervalMinutes` to at least one minute and `accountGapSeconds` to at least zero seconds;
-- saving a policy identifies changed domains; quota change notification is emitted only when quota actually differs;
+- runtime refresh logic clamps minimum interval to at least one minute and account gap to at least zero seconds;
 - source first-bootstrap inherits a legacy iOS `settings.autoRefreshOnLaunch` value only when no dynamic policy has ever been stored.
 
-The Android migration has no pre-M6 Android equivalent of that legacy iOS `autoRefreshOnLaunch` key, so it does not fabricate a cross-platform legacy value. A missing Android policy starts from the source quota defaults.
+The Android migration has no pre-M6 Android equivalent of that legacy iOS key, so it does not fabricate a cross-platform legacy value.
 
 ### Android implementation
 
 Module added:
 
 - `data:settings`
-  - `SettingsRepository`;
-  - `DefaultSettingsRepository`;
-  - `quotaRefreshPolicy: StateFlow<QuotaRefreshPolicy>`;
+  - `SettingsRepository` / `DefaultSettingsRepository`;
+  - quota and balance policy StateFlows;
   - `AppRefreshLogicPolicyCodec`;
   - `RefreshLogicPolicyStorage` abstraction;
-  - `SharedPreferencesRefreshLogicPolicyStorage`;
-  - `AndroidSettingsRepositories.refreshLogic(context)` production factory.
+  - private SharedPreferences production storage.
 
-Persistence behavior:
-
-- the source-equivalent key `chinaunicom.appRefreshLogic.policy.v1` is used inside app-private SharedPreferences;
-- schema version is advanced to `3` for valid legacy documents;
-- malformed whole JSON falls back to default quota policy;
-- missing/wrong-typed quota fields independently fall back to source defaults;
-- saving writes all five quota fields;
-- unknown top-level policy domains are preserved rather than erased, so later Balance/Widget/business policy migration can extend the same document safely;
-- a failed SharedPreferences `commit()` does not publish an unpersisted policy through the SettingsRepository StateFlow;
-- saving an unchanged policy reports `changed = false` while still persisting, matching source save/change-notification separation.
-
-M6-B remains the single `QuotaRefreshPolicy` model owner. M6-C does not introduce a second policy model. Release wiring creates one SettingsRepository and supplies:
-
-`QuotaRefreshPolicyProvider { settingsRepository.loadQuotaRefreshPolicy() }`
-
-to `QuotaRefreshCoordinator`, so every automatic-refresh decision and refresh-all gap resolution reads the persisted policy instead of the fixed source-default provider.
-
-The settings document is ordinary non-secret data. Cookie, appID, token_online, passwords, SMS codes and captcha tokens remain excluded, and `android:allowBackup="false"` remains enforced.
-
-`quotaRefreshPolicy` StateFlow provides the bottom-layer change stream required by the later Settings UI. The app already has the M6-B `.POLICY_CHANGE` trigger; wiring the future visual editor to save and dispatch that active-screen trigger belongs to the later Settings/UI stage and is not claimed here.
+Quota policy persistence uses the source-equivalent key and schema version, tolerantly migrates valid legacy documents, preserves unknown top-level domains, does not publish failed writes, and remains non-secret. Release `QuotaRefreshCoordinator` reads persisted SettingsRepository policy instead of fixed defaults.
 
 ### M6-C regression evidence
 
@@ -223,43 +199,103 @@ Implementation head `7b1192ff073633e37deb98751bbe20a1f8a7fca4` passed all PR wor
 - Android M5 Login Security run `32828912454` = success;
 - Android M6 Persistence Refresh run `32828912452` = success.
 
-M6-C tests and gates verify:
-
-- missing settings -> exact source quota defaults = PASS;
-- corrupt JSON -> exact source quota defaults = PASS;
-- missing/wrong-typed quota fields -> per-field defaults = PASS;
-- valid legacy schema -> schemaVersion 3 rewrite = PASS;
-- unknown top-level domains survive migration/save = PASS;
-- all five quota fields round-trip = PASS;
-- unchanged policy reports no domain change = PASS;
-- failed settings persistence does not publish candidate state = PASS;
-- Release coordinator policy provider is backed by SettingsRepository = PASS;
-- ordinary settings layer declares no credential fields and no `AccountCredentials` dependency = PASS;
-- `data:settings` minSdk 30 = PASS;
-- `:data:settings:testDebugUnitTest` = PASS;
-- `:data:refresh:testDebugUnitTest` = PASS;
-- all prior core/data tests = PASS;
-- `:app:assembleDebug` = PASS;
-- `:app:assembleRelease` = PASS.
-
 `M6-C_RESULT = PASS / CLOSED`
 
-### Explicitly not claimed by M6-C
+## M6-D — BalanceRepository + Shared Balance Gate
 
-- balance refresh-policy persistence/migration and App Group-equivalent synchronization;
-- widget schedule synchronization/reload behavior;
-- ordered-business/video-ring/receipt/order/package/bill/rebate/integral policy domains;
-- Settings visual editor;
-- BalanceRepository;
-- SharedBalanceCacheStore representative-account / interval / scope / lease / forced-vs-automatic gate semantics;
-- UI visual parity.
+### iOS balance/shared-gate behavior frozen for this substage
 
-These remain subsequent migration stages/substages.
+`AppStoreBalance.swift` + `SharedBalanceCacheStore` require:
+
+- default shared balance refresh interval = **60 minutes**;
+- automatic freshness requires the same local calendar day and an interval-valid successful cache entry;
+- a new local day invalidates the previous day's automatic freshness even when the raw elapsed interval is short;
+- automatic refresh first consumes a fresh shared cache and performs no network request;
+- forced/manual refresh bypasses freshness, but never bypasses a live in-flight lease;
+- persistent lease default = **2 minutes**;
+- lease duration is clamped to **15 seconds ... 10 minutes**;
+- only the caller holding the matching lease token can complete or fail that refresh;
+- a failed refresh releases its lease and preserves the last successful balance entry;
+- scope/member topology changes invalidate obsolete cache and lease state;
+- successful/fresh-cache consumption clears the automatic failure-attempt cooldown;
+- a failed/incomplete automatic attempt remains persisted and enforces the balance policy `failureRetryMinutes` cooldown;
+- balance policy source defaults are automatic refresh enabled, interval 60 minutes, failure retry 15 minutes;
+- valid legacy balance interval 15 is migrated to 60;
+- shared balance is not a simple `if cache != nil return cache` cache.
+
+Financial representative priority for an effective group is preserved exactly:
+
+1. enabled `homeBalanceAccountID` when it belongs to the group;
+2. enabled group `defaultAccountID`;
+3. first enabled account by `sortOrder` that has secure credentials;
+4. first enabled account by `sortOrder`.
+
+Source lifecycle nuance is also frozen: when no persisted home-balance account exists during AppStore initialization, iOS calls `initializeHomeBalanceAccountIfNeeded()` and permanently seeds it to the first enabled account by `sortOrder`. Explicitly clearing the home account later allows the fallback representative path to be exercised.
+
+### Android implementation
+
+Module added:
+
+- `data:balance`
+  - `BalanceRepository` / `DefaultBalanceRepository`;
+  - `SharedBalanceCacheStore`;
+  - balance account-group and shared-scope models;
+  - automatic / forced / cached / in-flight / unavailable claim outcomes;
+  - persisted shared entries, scopes and leases;
+  - same-day + interval freshness;
+  - failure-attempt cooldown persistence;
+  - representative-account selection matching the source priority;
+  - foreground automatic balance loop and manual home-balance refresh entry points.
+
+Android shared state:
+
+- app-private directory: `shared-balance`;
+- state file: `chinaunicom.balance.shared-cache.v1.json`;
+- lock file: `chinaunicom.balance.shared-cache.v1.lock`;
+- writes use `android.util.AtomicFile`;
+- cross-process transaction exclusion uses a `RandomAccessFile` channel lock;
+- balance configuration/attempt metadata use app-private SharedPreferences;
+- Android minimum remains API 30.
+
+The production data path is:
+
+`M4 balance API -> M5 Keystore credential lifecycle -> SharedBalanceCacheStore gate -> M6 BalanceRepository/AppState`.
+
+`BalanceAccountCredentialLifecycle` keeps Cookie/appID/token_online inside the M5 secure boundary, persists renewed credentials before returning, and strips credentials from the ordinary M6 result. M6 balance/account/settings persistence never declares an `AccountCredentials` field or a parallel plaintext credential path.
+
+Quota and balance metadata updates share the same account-persistence serialization boundary so concurrent successful writes cannot silently overwrite each other's account-state changes.
+
+### M6-D regression evidence
+
+Accepted implementation head `2bad26e4b8bed0f158f9065bb24461af5f2c5592` passed all PR workflows:
+
+- Android M1 Build run `32832955310` = success;
+- Android M2 Models run `32832955514` = success;
+- Android M3 Parsers run `32832955425` = success;
+- Android M4 Network run `32832955412` = success;
+- Android M5 Login Security run `32832955422` = success;
+- Android M6 Persistence Refresh run `32832955462` = success.
+
+M6-D CI verifies the shared-balance source boundary, 60-minute interval, 2-minute lease, 15-second/10-minute lease clamp, same-day freshness, automatic/forced behavior, `AtomicFile` + file lock, balance policy migration, production wiring, Keystore isolation, all prior core/data tests, `data:balance` tests, and Debug/Release assembly.
+
+During implementation, CI also caught and closed two harness/dependency issues plus one source-lifecycle test setup issue:
+
+- a new M6-D test helper initially reused the M5 `FakeCredentialStore` top-level class name; the M6-D helper was renamed instead of changing production behavior;
+- `BalanceRepositoryTest` required `:data:account` only on its test classpath, so `testImplementation(project(":data:account"))` was added without widening the production dependency graph;
+- fallback representative testing now explicitly clears the startup-seeded home-balance account before asserting credential-aware fallback, matching the iOS initialization lifecycle rather than weakening production representative priority.
+
+`M6-D_RESULT = PASS / CLOSED`
+
+### Explicitly not claimed after M6-D
+
+The balance/shared-gate bottom layer is closed. M6 itself remains open only because the migration contract explicitly calls for a distinct `QuotaRepository` boundary and that contract is not yet present by name/ownership in the Android data layer. Current quota orchestration remains functional and fully regressed through `QuotaRefreshCoordinator`, but M6 final closure must not silently substitute the App-facing umbrella `UnicomRepository` for the required data-layer `QuotaRepository` contract.
+
+Settings UI, feature UI and visual parity are not M6-D claims and must not be used to block this bottom-layer closure.
 
 ## Screenshot requirement
 
-M6-A, M6-B and M6-C require no real-device screenshots. If a later M6 runtime step requires real-account evidence, the exact pages/states will be requested before that step begins.
+M6-A, M6-B, M6-C and M6-D require no real-device screenshots. M6-E bottom-layer/final-closure work is also expected to be source/test driven; if runtime evidence unexpectedly becomes necessary, the exact pages/states must be requested before that acceptance step begins.
 
 ## Next
 
-`NEXT = Android-M6-D — BalanceRepository + Shared Balance Gate`
+`NEXT = Android-M6-E — QuotaRepository Boundary + M6 Final Closure`

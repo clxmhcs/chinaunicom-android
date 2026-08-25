@@ -4,6 +4,7 @@ import com.clxmhcs.chinaunicom.core.model.FlowPackage
 import com.clxmhcs.chinaunicom.core.model.PackageCategory
 import com.clxmhcs.chinaunicom.core.model.QuotaType
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
+import com.clxmhcs.chinaunicom.data.balance.BalanceRepositoryState
 import com.clxmhcs.chinaunicom.data.refresh.QuotaAutomaticRefreshTrigger
 import com.clxmhcs.chinaunicom.data.refresh.UnicomAppState
 import java.time.Instant
@@ -45,12 +46,20 @@ internal class FakeUnicomRepository : UnicomRepository {
         lastUpdatedAt = Instant.now(),
     )
     private val stateFlow = MutableStateFlow(UnicomAppState(accounts = listOf(fixtureAccount)))
+    private val balanceStateFlow = MutableStateFlow(BalanceRepositoryState(homeBalanceAccountID = fixtureAccount.id))
 
     override val appState: StateFlow<UnicomAppState> = stateFlow.asStateFlow()
+    override val balanceState: StateFlow<BalanceRepositoryState> = balanceStateFlow.asStateFlow()
 
     override suspend fun refreshAll() = Unit
-
     override suspend fun refreshAccount(accountID: UUID) = Unit
-
     override suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger) = Unit
+    override suspend fun runBalanceAutoRefreshLoop() = Unit
+    override suspend fun refreshHomeBalanceManually() = Unit
+    override suspend fun addBalanceAccountGroup() = Unit
+    override suspend fun deleteBalanceAccountGroup(groupID: UUID) = Unit
+    override suspend fun toggleBalanceAccount(accountID: UUID, groupID: UUID) = Unit
+    override fun setHomeBalanceAccountID(accountID: UUID?) = Unit
+    override fun setDefaultFinancialAccountID(accountID: UUID?, groupID: UUID) = Unit
+    override fun financialRepresentativeAccountID(accountID: UUID): UUID? = accountID
 }
