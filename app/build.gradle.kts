@@ -12,7 +12,7 @@ android {
         minSdk = 30
         targetSdk = 36
         versionCode = 1
-        versionName = "0.6.0-m6b"
+        versionName = "0.6.0-m6c"
     }
 
     buildTypes {
@@ -51,6 +51,7 @@ dependencies {
     implementation(project(":core:storage"))
     implementation(project(":data:account"))
     implementation(project(":data:refresh"))
+    implementation(project(":data:settings"))
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
