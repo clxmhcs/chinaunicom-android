@@ -2,19 +2,11 @@ name: Android M6 Persistence Refresh
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
     paths:
       - "app/**"
-      - "core/model/**"
-      - "core/parser/**"
-      - "core/network/**"
-      - "core/security/**"
-      - "core/login/**"
-      - "core/storage/**"
-      - "data/account/**"
-      - "data/refresh/**"
-      - "data/settings/**"
+      - "core/**"
+      - "data/**"
       - "settings.gradle.kts"
       - "gradle/**"
       - "*.gradle.kts"
@@ -23,14 +15,11 @@ on:
       - "README.md"
       - ".github/workflows/android-m6-build.yml"
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - "app/**"
-      - "core/storage/**"
-      - "data/account/**"
-      - "data/refresh/**"
-      - "data/settings/**"
+      - "core/**"
+      - "data/**"
       - "settings.gradle.kts"
       - "docs/migration/M6_BASELINE.md"
       - ".github/workflows/android-m6-build.yml"
@@ -42,110 +31,86 @@ permissions:
 jobs:
   persistence-refresh-test-and-build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
-
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-
       - name: Set up Gradle 9.5
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.5.0"
-
       - name: Set up Android SDK tools
         uses: android-actions/setup-android@v4
         with:
           packages: ""
-
       - name: Ensure Android API 37 SDK
         shell: bash
         run: |
           PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && $1 ~ /android-37/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
-          if [ -z "$PLATFORM_PACKAGE" ]; then
-            echo "ERROR: Android API 37 platform package was not found."
-            exit 1
-          fi
+          test -n "$PLATFORM_PACKAGE"
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M6 persistence refresh settings and AppState boundary
+      - name: Verify M6-D shared balance boundary
         shell: bash
         run: |
-          test -f core/storage/src/main/kotlin/com/clxmhcs/chinaunicom/core/storage/AccountMetadataStore.kt
-          test -f core/storage/src/main/kotlin/com/clxmhcs/chinaunicom/core/storage/AccountMetadataCodec.kt
-          test -f data/account/src/main/kotlin/com/clxmhcs/chinaunicom/data/account/AccountRepository.kt
-          test -f data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
-          test -f data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
-          test -f data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/AndroidSettingsRepository.kt
-          test -f app/src/main/java/com/clxmhcs/chinaunicom/data/AndroidQuotaRefreshRuntimeStore.kt
-          test -f app/src/main/java/com/clxmhcs/chinaunicom/data/ProductionUnicomRepository.kt
+          test -f data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/SharedBalanceCacheStore.kt
+          test -f data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/AndroidBalanceStorage.kt
+          test -f data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/BalanceRepository.kt
+          test -f core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/BalanceAccountCredentialLifecycle.kt
 
-          grep -q 'AtomicFile' core/storage/src/main/kotlin/com/clxmhcs/chinaunicom/core/storage/AccountMetadataStore.kt
-          grep -q 'persistence/accounts.json' core/storage/src/main/kotlin/com/clxmhcs/chinaunicom/core/storage/AccountMetadataStore.kt
-          grep -q 'accounts.sortedBy { it.sortOrder }' core/storage/src/main/kotlin/com/clxmhcs/chinaunicom/core/storage/AccountMetadataStore.kt
-          grep -q 'Instant::parse' core/storage/src/main/kotlin/com/clxmhcs/chinaunicom/core/storage/AccountMetadataCodec.kt
-          grep -q 'UUID.fromString' core/storage/src/main/kotlin/com/clxmhcs/chinaunicom/core/storage/AccountMetadataCodec.kt
+          grep -q 'DEFAULT_REFRESH_INTERVAL_MINUTES = 60' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/SharedBalanceCacheStore.kt
+          grep -q 'DEFAULT_LEASE_DURATION.*Duration.ofMinutes(2)' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/SharedBalanceCacheStore.kt
+          grep -q 'MINIMUM_LEASE_SECONDS = 15L' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/SharedBalanceCacheStore.kt
+          grep -q 'MAXIMUM_LEASE_SECONDS = 10 \* 60L' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/SharedBalanceCacheStore.kt
+          grep -q 'beginAutomaticRefresh' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/SharedBalanceCacheStore.kt
+          grep -q 'beginForcedRefresh' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/SharedBalanceCacheStore.kt
+          grep -q 'failRefresh' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/SharedBalanceCacheStore.kt
+          grep -q 'toLocalDate()' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/SharedBalanceCacheStore.kt
 
-          grep -q 'ValidatedLoginAccountSeed' data/account/src/main/kotlin/com/clxmhcs/chinaunicom/data/account/AccountRepository.kt
-          grep -q 'DisplayPlacement.PRIMARY' data/account/src/main/kotlin/com/clxmhcs/chinaunicom/data/account/AccountRepository.kt
-          grep -q 'baseAccount.automaticSummaryGroups' data/account/src/main/kotlin/com/clxmhcs/chinaunicom/data/account/AccountRepository.kt
+          grep -q 'AtomicFile' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/AndroidBalanceStorage.kt
+          grep -q 'channel.lock()' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/AndroidBalanceStorage.kt
+          grep -q 'chinaunicom.balance.shared-cache.v1.json' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/AndroidBalanceStorage.kt
+          grep -q 'chinaunicom.balanceLastAttemptAt.v1' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/AndroidBalanceStorage.kt
+          grep -q 'chinaunicom.balanceAccountGroups.v1' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/AndroidBalanceStorage.kt
+          grep -q 'chinaunicom.homeBalanceAccountID.v1' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/AndroidBalanceStorage.kt
 
-          grep -q 'StateFlow<UnicomAppState>' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
-          grep -q 'ConcurrentHashMap<UUID, Mutex>' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
-          grep -q 'refreshAllLock.tryLock()' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
-          grep -q 'runtimeStore.recordRefreshTriggeredAt' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
-          grep -q 'minimumIntervalMinutes: Int = 10' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
-          grep -q 'accountGapSeconds: Int = 2' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
-          grep -q 'accountRepository.replaceAccounts' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
-          grep -q 'lifecycle.refreshValidatedQuota(accountID)' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
+          grep -q 'failureRetryMinutes: Int = 15' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
+          grep -q 'intervalMinutes: Int = 60' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
+          grep -q 'decodedInterval == 15' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
+          grep -q 'BalanceRefreshIntervalSynchronizer' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
 
-          grep -q 'interface SettingsRepository' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
-          grep -q 'chinaunicom.appRefreshLogic.policy.v1' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
-          grep -q 'CURRENT_SCHEMA_VERSION = 3' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
-          grep -q 'preserving unknown top-level JSON fields' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
-          grep -q 'SharedPreferencesRefreshLogicPolicyStorage' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/AndroidSettingsRepository.kt
-          grep -q '\.commit()' data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/AndroidSettingsRepository.kt
+          grep -q 'updateAccountsFromBalance' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
+          grep -q 'accountPersistenceLock' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt
+          grep -q 'lifecycle.refreshValidatedBalance' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/BalanceRepository.kt
+          grep -q 'SharedBalanceRefreshSource.APP_AUTOMATIC' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/BalanceRepository.kt
+          grep -q 'SharedBalanceRefreshSource.APP_MANUAL' data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/BalanceRepository.kt
+          grep -q 'BalanceAccountCredentialLifecycleProvider.create' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
+          grep -q 'AndroidSharedBalanceCacheStores.create' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
+          grep -q 'DefaultBalanceRepository' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
 
-          grep -q 'QuotaRefreshCoordinator' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
-          grep -q 'LoginAccountLifecycleProvider.create' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
-          grep -q 'AndroidQuotaRefreshRuntimeStore' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
-          grep -q 'AndroidSettingsRepositories.refreshLogic' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
-          grep -q 'settingsRepository.loadQuotaRefreshPolicy' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
-          grep -q 'QuotaAutomaticRefreshTrigger.COLD_LAUNCH' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowViewModel.kt
-          grep -q 'Lifecycle.Event.ON_RESUME' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowHomeScreen.kt
-
-          if grep -RIn 'PendingProductionUnicomRepository' app/src/main app/src/release; then
-            echo "ERROR: release production repository placeholder still exists."
+          if grep -RInE 'val[[:space:]]+(cookie|appID|tokenOnline)[[:space:]]*:' core/storage/src/main data/account/src/main data/refresh/src/main data/settings/src/main data/balance/src/main; then
+            echo "ERROR: ordinary M6 layer declares credential fields."
+            exit 1
+          fi
+          if grep -RIn 'AccountCredentials' core/storage/src/main data/account/src/main data/refresh/src/main data/settings/src/main data/balance/src/main; then
+            echo "ERROR: ordinary M6 layer depends directly on AccountCredentials."
             exit 1
           fi
           if grep -RInE 'FakeUnicomRepository|mock-flow-|18600009025|896\.87|测试号码' app/src/main app/src/release; then
-            echo "ERROR: fake repository fixture leaked into main/release sources."
-            exit 1
-          fi
-
-          if grep -RInE 'val[[:space:]]+(cookie|appID|tokenOnline)[[:space:]]*:' core/storage/src/main data/account/src/main data/refresh/src/main data/settings/src/main; then
-            echo "ERROR: ordinary M6 persistence/refresh/settings layer declares credential fields."
-            exit 1
-          fi
-          if grep -RIn 'AccountCredentials' core/storage/src/main data/account/src/main data/refresh/src/main data/settings/src/main; then
-            echo "ERROR: M6 ordinary state/settings layer depends directly on AccountCredentials."
+            echo "ERROR: fake fixture leaked into main/release."
             exit 1
           fi
 
           grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
-          grep -q 'minSdk = 30' core/storage/build.gradle.kts
-          grep -q 'minSdk = 30' data/account/build.gradle.kts
-          grep -q 'minSdk = 30' data/refresh/build.gradle.kts
-          grep -q 'minSdk = 30' data/settings/build.gradle.kts
-          echo "M6_C_SETTINGS_REFRESH_POLICY_BOUNDARY=PASS"
+          grep -q 'minSdk = 30' data/balance/build.gradle.kts
+          echo "M6_D_SHARED_BALANCE_GATE=PASS"
 
-      - name: Run M6-C regression
+      - name: Run M6-D regression
         id: verify
         continue-on-error: true
         run: >-
@@ -159,11 +124,12 @@ jobs:
           :data:account:testDebugUnitTest
           :data:refresh:testDebugUnitTest
           :data:settings:testDebugUnitTest
+          :data:balance:testDebugUnitTest
           :app:assembleDebug
           :app:assembleRelease
           --stacktrace
 
-      - name: Publish M6-C status
+      - name: Publish M6-D status
         if: always()
         uses: actions/github-script@v7
         with:
@@ -175,10 +141,9 @@ jobs:
               sha: context.sha,
               state: passed ? 'success' : 'failure',
               context: 'android-m6-persistence',
-              description: passed ? 'M6-C persistence/refresh/settings + debug/release passed' : 'M6-C persistence/refresh/settings regression failed',
+              description: passed ? 'M6-D shared balance gate + debug/release passed' : 'M6-D shared balance regression failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
-
-      - name: Fail workflow when M6-C verification failed
+      - name: Fail workflow when M6-D verification failed
         if: always() && steps.verify.outcome != 'success'
         run: exit 1
