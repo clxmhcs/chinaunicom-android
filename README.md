@@ -38,14 +38,29 @@ M6-A Account Metadata Persistence + Production Repository Foundation is `PASS / 
 - `AccountRepository` / `DefaultAccountRepository` restore accounts ordered by `sortOrder`;
 - M5 validated-login seed maps to default account metadata, display placements and summary groups;
 - Release `PendingProductionUnicomRepository` placeholder removed;
-- Release graph is `AndroidAccountMetadataStores -> DefaultAccountRepository -> ProductionUnicomRepository`;
-- Debug Fake Repository remains isolated;
-- `FlowViewModel` uses a factory-compatible `AndroidViewModel(Application)` constructor for app-private production storage access;
-- M1/M2/M3/M4/M5/M6 workflows and Debug/Release builds passed on the accepted implementation head.
+- Debug Fake Repository remains isolated.
 
-M6-A intentionally does not yet claim quota refresh orchestration/AppState, SettingsRepository, BalanceRepository, SharedBalance cache/lease logic, representative balance-account selection or UI parity.
+M6-B Production Quota Refresh Orchestration + AppState is `PASS / CLOSED`:
 
-`NEXT = Android-M6-B — Production quota refresh orchestration + AppState`.
+- production `QuotaRefreshCoordinator` and `StateFlow<UnicomAppState>`;
+- immediate account restore followed by independently gated cold-launch refresh;
+- manual single-account and refresh-all account-level mutual exclusion;
+- global refresh-all mutual exclusion;
+- enabled-account-only sequential refresh-all with source-default two-second gap;
+- source-default automatic refresh: enabled, cold launch, foreground, 10-minute minimum interval;
+- non-secret refresh-trigger timestamp persists across process recreation;
+- M5 remains the credential/renewal boundary for every production quota refresh;
+- refreshed quota preserves balance and user display configuration;
+- flow/voice override synchronization and voice summary-group identity stabilization survive refreshed resource IDs;
+- network failure keeps prior quota and persists lastErrorMessage;
+- metadata persistence failure rolls back the network candidate before recording failure;
+- `FlowViewModel` observes production AppState and forwards cold-launch/foreground triggers without visual redesign;
+- Debug Fake StateFlow remains isolated;
+- M1/M2/M3/M4/M5/M6 workflows, `data:refresh` tests, and Debug/Release builds passed on the accepted implementation head.
+
+M6 still does not claim SettingsRepository, BalanceRepository, SharedBalance cache/representative-account/lease semantics or UI parity.
+
+`NEXT = Android-M6-C — SettingsRepository + persisted refresh policy`.
 
 M0 is closed for progression by explicit migration decision; the deferred real iOS light/dark screenshot set remains mandatory before M7 visual-parity acceptance.
 
