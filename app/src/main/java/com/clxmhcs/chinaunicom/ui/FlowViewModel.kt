@@ -7,24 +7,20 @@ import com.clxmhcs.chinaunicom.data.UnicomRepositoryProvider
 import com.clxmhcs.chinaunicom.data.refresh.QuotaAutomaticRefreshTrigger
 import com.clxmhcs.chinaunicom.model.BusinessAggregator
 import java.util.UUID
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * Rough flow state holder; visual parity remains deferred.
- *
- * M6-B observes the production StateFlow immediately, then invokes the source-equivalent cold
- * launch / foreground quota refresh gates. Repository refresh failures are reflected in account
- * AppState rather than replacing already-restored content with a synthetic UI error.
- */
+/** Rough state holder; M6-D only adds foreground-scoped balance auto-loop plumbing. */
 class FlowViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
 
     private val repository = UnicomRepositoryProvider.create(application)
     private val _uiState = MutableStateFlow<FlowUiState>(FlowUiState.Loading)
+    private var balanceLoopJob: Job? = null
 
     val uiState: StateFlow<FlowUiState> = _uiState.asStateFlow()
 
@@ -59,15 +55,27 @@ class FlowViewModel(
     }
 
     fun refreshAccount(accountID: UUID) {
-        viewModelScope.launch {
-            repository.refreshAccount(accountID)
-        }
+        viewModelScope.launch { repository.refreshAccount(accountID) }
+    }
+
+    fun refreshHomeBalanceManually() {
+        viewModelScope.launch { repository.refreshHomeBalanceManually() }
     }
 
     fun onForeground() {
         viewModelScope.launch {
             repository.autoRefreshIfNeeded(QuotaAutomaticRefreshTrigger.FOREGROUND)
         }
+        if (balanceLoopJob?.isActive != true) {
+            balanceLoopJob = viewModelScope.launch {
+                repository.runBalanceAutoRefreshLoop()
+            }
+        }
+    }
+
+    fun onBackground() {
+        balanceLoopJob?.cancel()
+        balanceLoopJob = null
     }
 
     fun onQuotaPolicyChanged() {
