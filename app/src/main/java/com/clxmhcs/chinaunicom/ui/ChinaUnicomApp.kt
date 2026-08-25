@@ -8,10 +8,15 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -22,6 +27,23 @@ import com.clxmhcs.chinaunicom.ui.navigation.RootTab
 fun ChinaUnicomApp() {
     val navController = rememberNavController()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val flowViewModel: FlowViewModel = viewModel()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner, flowViewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> flowViewModel.onForeground()
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> flowViewModel.onBackground()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            flowViewModel.onBackground()
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -49,9 +71,7 @@ fun ChinaUnicomApp() {
                                 fontSize = 19.sp,
                             )
                         },
-                        label = {
-                            Text(text = tab.label)
-                        },
+                        label = { Text(text = tab.label) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -69,8 +89,8 @@ fun ChinaUnicomApp() {
             startDestination = RootTab.Flow.route,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable(RootTab.Flow.route) { FlowHomeScreen() }
-            composable(RootTab.Voice.route) { VoiceDashboardPlaceholder() }
+            composable(RootTab.Flow.route) { FlowHomeScreen(flowViewModel) }
+            composable(RootTab.Voice.route) { VoiceDashboardScreen(flowViewModel) }
             composable(RootTab.Comprehensive.route) { ComprehensiveBusinessPlaceholder() }
             composable(RootTab.OtherBusiness.route) { OtherBusinessPlaceholder() }
             composable(RootTab.Settings.route) { SettingsPlaceholder() }
