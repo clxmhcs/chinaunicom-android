@@ -69,9 +69,21 @@ M6-C SettingsRepository + Persisted Refresh Policy is `PASS / CLOSED`:
 - settings persistence contains no credential fields and remains covered by `android:allowBackup="false"`;
 - M1/M2/M3/M4/M5/M6 workflows, `data:settings` / `data:refresh` tests, and Debug/Release builds passed on the accepted implementation head.
 
-M6 still does not claim BalanceRepository, SharedBalance cache/representative-account/lease semantics, non-quota refresh-policy domains, Settings UI or UI parity.
+M6-D BalanceRepository + Shared Balance Gate is `PASS / CLOSED`:
 
-`NEXT = Android-M6-D — BalanceRepository + Shared Balance Gate`.
+- new `data:balance` module with `BalanceRepository` / `DefaultBalanceRepository` and `SharedBalanceCacheStore`;
+- automatic balance freshness requires the same local calendar day and the source-default 60-minute interval;
+- forced/manual refresh bypasses freshness but never bypasses an active lease;
+- shared refresh uses a durable two-minute lease, clamped to 15 seconds through 10 minutes, with Android `AtomicFile` state plus a cross-process file lock;
+- failed refresh releases the matching lease while preserving the last successful balance and the persisted 15-minute failure retry cooldown;
+- financial representative priority matches iOS: home balance account, group default, first enabled credential-bearing account by sortOrder, then first enabled account;
+- M5 Keystore remains the sole Cookie/appID/token_online renewal boundary for balance refresh;
+- quota and balance metadata persistence share the same account-persistence serialization boundary;
+- the accepted implementation head passed M1/M2/M3/M4/M5/M6 workflows, all core/data tests, and Debug/Release builds.
+
+M6 overall remains `IN_PROGRESS`: the migration contract still requires a distinct data-layer `QuotaRepository` boundary before M6 can close. Settings UI and visual parity remain later UI work and do not block the completed M6-D bottom layer.
+
+`NEXT = Android-M6-E — QuotaRepository Boundary + M6 Final Closure`.
 
 M0 is closed for progression by explicit migration decision; the deferred real iOS light/dark screenshot set remains mandatory before M7 visual-parity acceptance.
 
