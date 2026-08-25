@@ -1,26 +1,26 @@
 package com.clxmhcs.chinaunicom.data
 
-import com.clxmhcs.chinaunicom.data.account.AccountRepository
-import com.clxmhcs.chinaunicom.model.BusinessOverview
+import com.clxmhcs.chinaunicom.data.refresh.QuotaAutomaticRefreshTrigger
+import com.clxmhcs.chinaunicom.data.refresh.QuotaRefreshCoordinator
+import com.clxmhcs.chinaunicom.data.refresh.UnicomAppState
+import java.util.UUID
+import kotlinx.coroutines.flow.StateFlow
 
-/**
- * M6 production repository entry point.
- *
- * M6-A intentionally restores persisted account metadata only. Network refresh scheduling,
- * balance/shared-gate orchestration and AppState mutation are added in later M6 substages.
- */
+/** Release production repository backed by the M6-B quota refresh coordinator. */
 class ProductionUnicomRepository(
-    private val accounts: AccountRepository,
+    private val coordinator: QuotaRefreshCoordinator,
 ) : UnicomRepository {
-    override fun loadOverview(): BusinessOverview {
-        val restored = accounts.loadAccounts()
-        val updatedAt = restored.mapNotNull { it.lastUpdatedAt }
-            .maxOrNull()
-            ?.toEpochMilli()
-            ?: 0L
-        return BusinessOverview(
-            accounts = restored,
-            updatedAt = updatedAt,
-        )
+    override val appState: StateFlow<UnicomAppState> = coordinator.state
+
+    override suspend fun refreshAll() {
+        coordinator.refreshAll()
+    }
+
+    override suspend fun refreshAccount(accountID: UUID) {
+        coordinator.refreshAccount(accountID)
+    }
+
+    override suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger) {
+        coordinator.autoRefreshIfNeeded(trigger)
     }
 }
