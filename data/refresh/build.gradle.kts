@@ -20,7 +20,6 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:login"))
     implementation(project(":data:account"))
-    implementation(project(":data:settings"))
     implementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit4)
 }
