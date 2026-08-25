@@ -2,11 +2,12 @@ package com.clxmhcs.chinaunicom.core.network
 
 import com.clxmhcs.chinaunicom.core.model.AccountCredentials
 import com.clxmhcs.chinaunicom.core.model.BillMonth
-import com.clxmhcs.chinaunicom.core.model.IntegralDetailItem
 import com.clxmhcs.chinaunicom.core.model.IntegralDetailQuery
-import com.clxmhcs.chinaunicom.core.model.IntegralSnapshot
-import com.clxmhcs.chinaunicom.core.model.OrderedBusinessSnapshot
-import com.clxmhcs.chinaunicom.core.model.PhoneBillSnapshot
+import com.clxmhcs.chinaunicom.core.model.IntegralDetailsFetchResult
+import com.clxmhcs.chinaunicom.core.model.IntegralFetchResult
+import com.clxmhcs.chinaunicom.core.model.OrderedBusinessFetchResult
+import com.clxmhcs.chinaunicom.core.model.PhoneBillFetchResult
+import com.clxmhcs.chinaunicom.core.model.PhoneBillMonthsFetchResult
 import java.time.Instant
 
 /**
@@ -31,40 +32,18 @@ object ComprehensiveBusinessEndpoints {
     const val INTEGRAL_SOURCE = "ZXGS97000017640,003"
 }
 
-data class OrderedBusinessFetchResult(
-    val snapshot: OrderedBusinessSnapshot,
-    val updatedCredentials: AccountCredentials?,
-)
-
+/** M8-B will implement this with the frozen iOS ordered-business session and parsing behavior. */
 fun interface OrderedBusinessNetworkClient {
     fun fetch(credentials: AccountCredentials): OrderedBusinessFetchResult
 }
 
-data class PhoneBillFetchResult(
-    val snapshot: PhoneBillSnapshot,
-    val updatedCredentials: AccountCredentials?,
-)
-
-data class PhoneBillMonthsFetchResult(
-    val months: List<BillMonth>,
-    val updatedCredentials: AccountCredentials?,
-)
-
+/** M8-C will implement this with the frozen iOS phone-bill session and parsing behavior. */
 interface PhoneBillNetworkClient {
     fun fetchMonths(credentials: AccountCredentials): PhoneBillMonthsFetchResult
     fun fetchDetail(credentials: AccountCredentials, month: BillMonth): PhoneBillFetchResult
 }
 
-data class IntegralFetchResult(
-    val snapshot: IntegralSnapshot,
-    val updatedCredentials: AccountCredentials?,
-)
-
-data class IntegralDetailsFetchResult(
-    val items: List<IntegralDetailItem>,
-    val updatedCredentials: AccountCredentials?,
-)
-
+/** M8-D will implement this with the frozen iOS integral session and parsing behavior. */
 interface IntegralNetworkClient {
     fun fetchOverview(
         credentials: AccountCredentials,
@@ -77,9 +56,4 @@ interface IntegralNetworkClient {
         credentials: AccountCredentials,
         mobile: String,
     ): IntegralDetailsFetchResult
-}
-
-sealed class IntegralNetworkException(message: String) : Exception(message) {
-    data object AccountMismatch : IntegralNetworkException("integralAccountMismatch")
-    data object MissingTotalScore : IntegralNetworkException("integralMissingTotalScore")
 }
