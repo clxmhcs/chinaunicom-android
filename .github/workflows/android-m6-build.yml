@@ -55,9 +55,20 @@ jobs:
           test -n "$PLATFORM_PACKAGE"
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M6-D shared balance boundary
+      - name: Verify M6-E quota repository boundary and prior M6 gates
         shell: bash
         run: |
+          test -f data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRepository.kt
+          grep -q 'interface QuotaRepository' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRepository.kt
+          grep -q 'class DefaultQuotaRepository' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRepository.kt
+          grep -q 'private val coordinator: QuotaRefreshCoordinator' data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRepository.kt
+          grep -q 'private val quotaRepository: QuotaRepository' app/src/main/java/com/clxmhcs/chinaunicom/data/ProductionUnicomRepository.kt
+          grep -q 'DefaultQuotaRepository(refreshCoordinator)' app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
+          if grep -q 'QuotaRefreshCoordinator' app/src/main/java/com/clxmhcs/chinaunicom/data/ProductionUnicomRepository.kt; then
+            echo "ERROR: app-facing ProductionUnicomRepository still depends on concrete QuotaRefreshCoordinator."
+            exit 1
+          fi
+
           test -f data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/SharedBalanceCacheStore.kt
           test -f data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/AndroidBalanceStorage.kt
           test -f data/balance/src/main/kotlin/com/clxmhcs/chinaunicom/data/balance/BalanceRepository.kt
@@ -107,10 +118,11 @@ jobs:
           fi
 
           grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+          grep -q 'minSdk = 30' data/refresh/build.gradle.kts
           grep -q 'minSdk = 30' data/balance/build.gradle.kts
-          echo "M6_D_SHARED_BALANCE_GATE=PASS"
+          echo "M6_E_QUOTA_REPOSITORY_GATE=PASS"
 
-      - name: Run M6-D regression
+      - name: Run M6 final regression
         id: verify
         continue-on-error: true
         run: >-
@@ -129,7 +141,7 @@ jobs:
           :app:assembleRelease
           --stacktrace
 
-      - name: Publish M6-D status
+      - name: Publish M6 final status
         if: always()
         uses: actions/github-script@v7
         with:
@@ -141,9 +153,9 @@ jobs:
               sha: context.sha,
               state: passed ? 'success' : 'failure',
               context: 'android-m6-persistence',
-              description: passed ? 'M6-D shared balance gate + debug/release passed' : 'M6-D shared balance regression failed',
+              description: passed ? 'M6 quota repository + persistence/refresh gates passed' : 'M6 final regression failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
-      - name: Fail workflow when M6-D verification failed
+      - name: Fail workflow when M6 verification failed
         if: always() && steps.verify.outcome != 'success'
         run: exit 1
