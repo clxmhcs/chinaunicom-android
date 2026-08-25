@@ -6,9 +6,13 @@
 
 Current substage:
 
-- `M8-A_RESULT = IMPLEMENTED / CI_PENDING`
+- `M8-A_RESULT = PASS / CLOSED`
 
 Minimum supported Android version remains **Android 11 / API 30**.
+
+Accepted M8-A implementation head:
+
+- `896c923f8af877c16d73d94b2a620cb6f291f27c`
 
 ## Source-derived M8 boundary
 
@@ -16,7 +20,7 @@ The iOS comprehensive root is an aggregation page. It does not actively refresh 
 
 M8 is therefore split as:
 
-1. **M8-A — comprehensive business model / refresh-policy / network-contract foundation**
+1. **M8-A — comprehensive business model / refresh-policy / network-contract foundation — PASS / CLOSED**
 2. **M8-B — ordered business client + cache + store**
 3. **M8-C — phone bill client + cache + store**
 4. **M8-D — integral client + cache + store**
@@ -42,12 +46,16 @@ Visual refinement remains deferred until the later page-by-page visual pass.
 
 ### Ordered business models
 
+Android reuses the pre-existing source-aligned `OrderedBusinessModels.kt`; M8-A does not introduce a second business model hierarchy.
+
 - `OrderedBusinessSnapshot`: optional title/queryTime, fetchedAt, sections;
 - `totalCount` is the sum of all section item counts;
 - section fields: id/title/icon/items;
 - item fields: id/name/subtitle/fee/startDate/endDate.
 
 ### Phone bill models
+
+Android reuses the pre-existing source-aligned `PhoneBillModels.kt`.
 
 - `BillMonth.key` defaults to `year + two-digit month`;
 - month title removes a leading zero and appends `月` when numeric;
@@ -56,6 +64,8 @@ Visual refinement remains deferred until the later page-by-page visual pass.
 - monetary fields remain carrier-provided strings at this model boundary.
 
 ### Integral models
+
+Android reuses the pre-existing source-aligned `IntegralModels.kt`.
 
 - `IntegralSnapshot.currentParserVersion = 1`;
 - month `yearMonth` is derived from the first two numeric groups of cycleID and validates month 1...12;
@@ -75,7 +85,7 @@ Exact source defaults now exist in Android `SettingsRepository`:
 - phone bill: current month 10 minutes, historical 15 days, monthly recheck day 2 at 08:00;
 - integral: automatic enabled, monthly cycle, day 2 at 08:00, fixed interval 24 hours, check on entry enabled.
 
-The existing schema-version-3 refresh-policy document remains a single tolerant document. M8 saves preserve unknown top-level domains and existing quota/balance domains.
+The existing schema-version-3 refresh-policy document remains a single tolerant document. M8 saves preserve unknown top-level domains and existing quota/balance domains. `JsonPrimitiveCompat.kt` keeps nullable string extraction compatible with the repository's kotlinx.serialization version without treating JSON null as the literal string `"null"`.
 
 ### Frozen endpoint contract
 
@@ -101,7 +111,7 @@ Integral:
 - `/welfare-mall-front/new/integral/querySummaryList/v1`
 - source `ZXGS97000017640,003`
 
-M8-A defines typed network contracts/results but deliberately does **not** implement the three real clients yet. Those are the next independent substages so each parser/session/cache path can be tested and reviewed separately.
+M8-A defines typed network contracts/results but deliberately does **not** implement the three real clients yet. Those are independent substages so each parser/session/cache path can be tested and reviewed separately.
 
 ## Security / persistence boundary
 
@@ -111,22 +121,37 @@ M8-A defines typed network contracts/results but deliberately does **not** imple
 - ordinary M8 caches must not contain Cookie/appID/token_online/password/SMS code;
 - `android:allowBackup="false"` remains required.
 
+## Regression compatibility fix
+
+Extending `SettingsRepository` with the three M8 refresh-policy domains requires existing test doubles to implement the same interface. `BalanceRepositoryTest`'s `FakeSettingsRepository` was updated only as a test contract adapter; the change does not create another production settings authority or alter balance behavior.
+
 ## Visual / device boundary
 
 M8-A contains no new app-owned feature UI and requires **no real-device screenshots**.
 
 When M8-E later performs functional page acceptance, the exact required screenshots will be requested before that step. Final visual parity remains deferred by the project decision to finish business functionality first.
 
-## CI
+## CI acceptance
 
-`.github/workflows/android-m8-build.yml` verifies:
+Accepted implementation head `896c923f8af877c16d73d94b2a620cb6f291f27c` passed every triggered migration workflow:
 
-- source-derived M8 models and parser versions;
-- endpoint/source constants;
-- exact refresh-policy defaults and enum raw values;
-- API 30 and backup security boundary;
+- M2 Models — run `32847755833` — success;
+- M3 Parsers — run `32847755804` — success;
+- M4 Network — run `32847755892` — success;
+- M5 Login Security — run `32847755798` — success;
+- M6 Persistence Refresh — run `32847755788` — success;
+- M7 Flow Voice Functional — run `32847755812` — success;
+- M8 Comprehensive Business — run `32847755901` — success.
+
+M8's dedicated job passed:
+
+- source-derived M8 model / endpoint / policy static gate;
 - all existing core/data/app unit tests;
-- Debug and Release assembly.
+- `data:settings` compatibility tests;
+- `data:balance` regression tests;
+- Debug assembly;
+- Release assembly;
+- `android-m8-foundation` status publication.
 
 ## Next
 
