@@ -55,12 +55,23 @@ M6-B Production Quota Refresh Orchestration + AppState is `PASS / CLOSED`:
 - network failure keeps prior quota and persists lastErrorMessage;
 - metadata persistence failure rolls back the network candidate before recording failure;
 - `FlowViewModel` observes production AppState and forwards cold-launch/foreground triggers without visual redesign;
-- Debug Fake StateFlow remains isolated;
-- M1/M2/M3/M4/M5/M6 workflows, `data:refresh` tests, and Debug/Release builds passed on the accepted implementation head.
+- Debug Fake StateFlow remains isolated.
 
-M6 still does not claim SettingsRepository, BalanceRepository, SharedBalance cache/representative-account/lease semantics or UI parity.
+M6-C SettingsRepository + Persisted Refresh Policy is `PASS / CLOSED`:
 
-`NEXT = Android-M6-C — SettingsRepository + persisted refresh policy`.
+- new `data:settings` module with `SettingsRepository` / `DefaultSettingsRepository`;
+- source-equivalent quota policy defaults and key `chinaunicom.appRefreshLogic.policy.v1`;
+- schemaVersion 3 and tolerant per-field decode;
+- malformed policy fallback to source defaults;
+- valid legacy schema upgrade while preserving unknown top-level domains;
+- quota policy StateFlow publishes only successfully persisted values;
+- Release `QuotaRefreshCoordinator` now reads the persisted SettingsRepository policy instead of a fixed default provider;
+- settings persistence contains no credential fields and remains covered by `android:allowBackup="false"`;
+- M1/M2/M3/M4/M5/M6 workflows, `data:settings` / `data:refresh` tests, and Debug/Release builds passed on the accepted implementation head.
+
+M6 still does not claim BalanceRepository, SharedBalance cache/representative-account/lease semantics, non-quota refresh-policy domains, Settings UI or UI parity.
+
+`NEXT = Android-M6-D — BalanceRepository + Shared Balance Gate`.
 
 M0 is closed for progression by explicit migration decision; the deferred real iOS light/dark screenshot set remains mandatory before M7 visual-parity acceptance.
 
