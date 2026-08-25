@@ -24,9 +24,7 @@ import com.clxmhcs.chinaunicom.ui.components.UnicomBottomNavigationBar
 import com.clxmhcs.chinaunicom.ui.components.UnicomHeader
 import com.clxmhcs.chinaunicom.ui.components.UnicomQuotaCard
 
-/**
- * Rough flow shell. Visual parity remains deferred; M6-B only adds the foreground refresh trigger.
- */
+/** Rough flow shell. Visual parity remains deferred; M6-D only adds balance-loop lifecycle plumbing. */
 @Composable
 fun FlowHomeScreen(
     flowViewModel: FlowViewModel = viewModel()
@@ -36,12 +34,17 @@ fun FlowHomeScreen(
 
     DisposableEffect(lifecycleOwner, flowViewModel) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                flowViewModel.onForeground()
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> flowViewModel.onForeground()
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> flowViewModel.onBackground()
+                else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose {
+            flowViewModel.onBackground()
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     Column(
@@ -55,14 +58,8 @@ fun FlowHomeScreen(
             UnicomHeader(title = "流量")
 
             when (val state = uiState) {
-                FlowUiState.Loading -> {
-                    Text(text = "加载中...")
-                }
-
-                is FlowUiState.Error -> {
-                    Text(text = state.message)
-                }
-
+                FlowUiState.Loading -> Text(text = "加载中...")
+                is FlowUiState.Error -> Text(text = state.message)
                 is FlowUiState.Content -> {
                     val account = state.overview.accounts.firstOrNull()
                     if (account != null) {
@@ -79,7 +76,6 @@ fun FlowHomeScreen(
                                 packageValue = quota,
                                 unit = DisplayUnit.AUTOMATIC,
                             )
-
                             UnicomQuotaCard(
                                 title = display.title,
                                 subtitle = account.mobile,
