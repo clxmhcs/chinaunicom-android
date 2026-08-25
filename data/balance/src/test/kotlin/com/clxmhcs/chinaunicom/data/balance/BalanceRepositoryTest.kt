@@ -12,6 +12,12 @@ import com.clxmhcs.chinaunicom.data.refresh.QuotaRefreshPolicy
 import com.clxmhcs.chinaunicom.data.refresh.QuotaRefreshRuntimeStore
 import com.clxmhcs.chinaunicom.data.settings.BalanceRefreshPolicy
 import com.clxmhcs.chinaunicom.data.settings.BalanceRefreshPolicySaveResult
+import com.clxmhcs.chinaunicom.data.settings.IntegralRefreshPolicy
+import com.clxmhcs.chinaunicom.data.settings.IntegralRefreshPolicySaveResult
+import com.clxmhcs.chinaunicom.data.settings.OrderedBusinessRefreshPolicy
+import com.clxmhcs.chinaunicom.data.settings.OrderedBusinessRefreshPolicySaveResult
+import com.clxmhcs.chinaunicom.data.settings.PhoneBillRefreshPolicy
+import com.clxmhcs.chinaunicom.data.settings.PhoneBillRefreshPolicySaveResult
 import com.clxmhcs.chinaunicom.data.settings.QuotaRefreshPolicySaveResult
 import com.clxmhcs.chinaunicom.data.settings.SettingsRepository
 import java.time.Clock
@@ -185,10 +191,34 @@ private class FakeBalanceAccountRepository(
 private class FakeSettingsRepository : SettingsRepository {
     private val quota = MutableStateFlow(QuotaRefreshPolicy())
     private val balance = MutableStateFlow(BalanceRefreshPolicy())
+    private val orderedBusiness = MutableStateFlow(OrderedBusinessRefreshPolicy())
+    private val phoneBill = MutableStateFlow(PhoneBillRefreshPolicy())
+    private val integral = MutableStateFlow(IntegralRefreshPolicy())
+
     override val quotaRefreshPolicy: StateFlow<QuotaRefreshPolicy> = quota
     override val balanceRefreshPolicy: StateFlow<BalanceRefreshPolicy> = balance
+    override val orderedBusinessRefreshPolicy: StateFlow<OrderedBusinessRefreshPolicy> = orderedBusiness
+    override val phoneBillRefreshPolicy: StateFlow<PhoneBillRefreshPolicy> = phoneBill
+    override val integralRefreshPolicy: StateFlow<IntegralRefreshPolicy> = integral
+
     override fun loadQuotaRefreshPolicy(): QuotaRefreshPolicy = quota.value
     override fun loadBalanceRefreshPolicy(): BalanceRefreshPolicy = balance.value
-    override fun saveQuotaRefreshPolicy(policy: QuotaRefreshPolicy): QuotaRefreshPolicySaveResult = QuotaRefreshPolicySaveResult(true, quota.value != policy, policy).also { quota.value = policy }
-    override fun saveBalanceRefreshPolicy(policy: BalanceRefreshPolicy): BalanceRefreshPolicySaveResult = BalanceRefreshPolicySaveResult(true, balance.value != policy, policy).also { balance.value = policy }
+    override fun loadOrderedBusinessRefreshPolicy(): OrderedBusinessRefreshPolicy = orderedBusiness.value
+    override fun loadPhoneBillRefreshPolicy(): PhoneBillRefreshPolicy = phoneBill.value
+    override fun loadIntegralRefreshPolicy(): IntegralRefreshPolicy = integral.value
+
+    override fun saveQuotaRefreshPolicy(policy: QuotaRefreshPolicy): QuotaRefreshPolicySaveResult =
+        QuotaRefreshPolicySaveResult(true, quota.value != policy, policy).also { quota.value = policy }
+
+    override fun saveBalanceRefreshPolicy(policy: BalanceRefreshPolicy): BalanceRefreshPolicySaveResult =
+        BalanceRefreshPolicySaveResult(true, balance.value != policy, policy).also { balance.value = policy }
+
+    override fun saveOrderedBusinessRefreshPolicy(policy: OrderedBusinessRefreshPolicy): OrderedBusinessRefreshPolicySaveResult =
+        OrderedBusinessRefreshPolicySaveResult(true, orderedBusiness.value != policy, policy).also { orderedBusiness.value = policy }
+
+    override fun savePhoneBillRefreshPolicy(policy: PhoneBillRefreshPolicy): PhoneBillRefreshPolicySaveResult =
+        PhoneBillRefreshPolicySaveResult(true, phoneBill.value != policy, policy).also { phoneBill.value = policy }
+
+    override fun saveIntegralRefreshPolicy(policy: IntegralRefreshPolicy): IntegralRefreshPolicySaveResult =
+        IntegralRefreshPolicySaveResult(true, integral.value != policy, policy).also { integral.value = policy }
 }
