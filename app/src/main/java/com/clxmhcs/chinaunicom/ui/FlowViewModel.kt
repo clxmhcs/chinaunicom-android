@@ -5,15 +5,15 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.clxmhcs.chinaunicom.data.UnicomRepositoryProvider
 import com.clxmhcs.chinaunicom.data.refresh.QuotaAutomaticRefreshTrigger
-import com.clxmhcs.chinaunicom.model.BusinessAggregator
 import java.util.UUID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
-/** Rough state holder; M6-D only adds foreground-scoped balance auto-loop plumbing. */
+/** Shared functional state holder for the flow and voice dashboards. */
 class FlowViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
@@ -26,10 +26,10 @@ class FlowViewModel(
 
     init {
         viewModelScope.launch {
-            repository.appState.collect { state ->
-                _uiState.value = FlowUiState.Content(
-                    BusinessAggregator.aggregateAccounts(state.accounts),
-                )
+            combine(repository.appState, repository.balanceState) { appState, balanceState ->
+                FlowUiState.Content(appState = appState, balanceState = balanceState)
+            }.collect { state ->
+                _uiState.value = state
             }
         }
         viewModelScope.launch {
@@ -60,6 +60,10 @@ class FlowViewModel(
 
     fun refreshHomeBalanceManually() {
         viewModelScope.launch { repository.refreshHomeBalanceManually() }
+    }
+
+    fun setHomeBalanceAccountID(accountID: UUID?) {
+        repository.setHomeBalanceAccountID(accountID)
     }
 
     fun onForeground() {
