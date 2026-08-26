@@ -56,39 +56,33 @@ Per the explicit project priority, **M7 final visual parity is deferred**. M7 cl
 
 `Android-M8 — Comprehensive Business` is `IN_PROGRESS`.
 
-`Android-M8-A — Comprehensive Business Foundation` is `PASS / CLOSED`:
+`Android-M8-A — Comprehensive Business Foundation` is `PASS / CLOSED`.
 
-- reuses the existing source-aligned ordered-business, phone-bill and integral model files instead of introducing duplicate business types;
-- freezes source-derived endpoints and typed network contracts for ordered business, phone bill and integral;
-- preserves phone-bill parser version 4 and integral parser version 1 semantics;
-- extends the single tolerant `SettingsRepository` document with source-equivalent ordered-business, phone-bill and integral refresh-policy defaults;
-- preserves unknown settings domains and existing quota/balance settings while keeping Android 11 / API 30 support;
-- introduces no additional credential persistence path: M5 Keystore remains the credential authority.
+M8-A freezes the source-derived ordered-business, phone-bill and integral models/network contracts and extends the single tolerant `SettingsRepository` with their refresh policies while preserving M5 Keystore as the only credential authority.
 
-`Android-M8-B — Ordered Business Client + Cache + Store` is `PASS / CLOSED`:
+`Android-M8-B — Ordered Business Client + Cache + Store` is `PASS / CLOSED`.
 
-- implements the real `mxx.client.10010.com` allocation/query flow and `loginxx.10010.com/mobileService/onLine.htm` recovery path;
-- preserves source `iphone_c@12.1300` session fields, Cookie mutation propagation, parser section structure and stable item IDs;
-- routes renewed Cookie/appID/token_online through the existing M5 `CredentialStore` and strips them before ordinary M8 state/cache;
-- adds app-private Android `AtomicFile` snapshot persistence at `ordered-business/ordered-business-snapshots.json`;
-- adds a multi-account `OrderedBusinessStore` with cachePreferred / refreshWhenExpired / everyEntry / manualOnly policies, same-account duplicate suppression, serial refresh-all gap, orphan reconciliation, old-cache retention on failure and warning state when local save fails;
-- keeps Android 11 / API 30 and `allowBackup=false` security boundaries unchanged.
+M8-B implements the real ordered-business allocation/query/recovery flow, source `iphone_c@12.1300` semantics, M5 credential renewal, app-private `AtomicFile` cache and source-equivalent multi-account refresh/store rules.
 
-`Android-M8-C — Phone Bill Client + Cache + Store` is `PASS / CLOSED`:
+`Android-M8-C — Phone Bill Client + Cache + Store` is `PASS / CLOSED`.
 
-- implements the real `m.client.10010.com` months/detail requests and `/mobileService/onLine.htm` recovery path with source `iphone_c@9.0100` activation semantics;
-- preserves phone-bill parser version `4`, source money normalization and existing M4 HTTP/Cookie/session classification;
-- routes renewed Cookie/appID/token_online through the existing M5 `CredentialStore` and strips credential material before ordinary M8 state/cache;
-- adds app-private `AtomicFile` persistence at `phone-bill/phone-bill-snapshots.json` with synchronized read-modify-write and `fd.sync()`;
-- preserves the 13-month window, current-month 10-minute cache, historical 15-day cache and monthly day-2 08:00 recheck boundary in Asia/Shanghai;
-- keeps current-month cache account-local while allowing historical reuse only when the cached bill membership uniquely proves the target/source account relationship;
-- serializes network writes for the same historical month across store instances and preserves the latest queued month-selection intent;
-- keeps a successful network result visible if disk persistence fails and does not introduce a second credential/session authority;
-- accepted implementation head `8649aa57ecb970fe423956e6adaf31285abee2fa` passed the dedicated M8-C static gate, all core/data/app unit-test regression, Debug assembly and Release assembly in run `32924827574`.
+M8-C implements the real phone-bill months/detail flow, parser version `4`, `iphone_c@9.0100` activation recovery, M5 credential renewal, 13-month window, current/history cache policy, historical member-based sharing and same-month serialization. Accepted implementation head `8649aa57ecb970fe423956e6adaf31285abee2fa` passed run `32924827574`.
 
-M8-A/M8-B/M8-C contain no final visual refinement. Final comprehensive-page visual parity remains deferred until the later page-by-page visual pass.
+`Android-M8-D — Integral Client + Cache + Store` is `PASS / CLOSED`:
 
-`NEXT = Android-M8-D — Integral Client + Cache + Store`
+- implements the real `activity.10010.com` integral balance/month/detail requests with source `ZXGS97000017640,003`;
+- preserves `IntegralSnapshot` parser version `1`, section/detail query and cache-key semantics;
+- validates `c_mobile` / `u_account` against the selected mobile before any integral carrier request to prevent cross-account data leakage;
+- reuses the existing M4 `/mobileService/onLine.htm` activation path for source-equivalent cookie/login expiry and routes renewed credentials through M5 `CredentialStore` before stripping them from ordinary state;
+- adds app-private `AtomicFile` persistence at `integral/integral-snapshots.json` with `fd.sync()` and no credential material;
+- preserves monthly day-2 08:00 Asia/Shanghai refresh cycles, fixed 24-hour mode, manual-only mode, check-on-entry and clock-rollback refresh behavior;
+- keeps overview and per-query detail caches separate; a successful overview refresh clears stale details while detail cache writes remain query-keyed;
+- preserves a prior successful overview if network or disk persistence fails, while a detail disk-write failure keeps the newly fetched detail in memory and exposes an error;
+- accepted implementation head `c091cb87036fa620bc0289312ec08e122e106ed9` passed the dedicated M8-D static gate, integral client/lifecycle/store tests, all existing core/data/app unit-test regression, Debug assembly and Release assembly in run `32926493346`.
+
+M8-A/M8-B/M8-C/M8-D contain no final visual refinement. Final comprehensive-page visual parity remains deferred until the later page-by-page visual pass.
+
+`NEXT = Android-M8-E — Comprehensive Root Aggregation / Entries / Final Functional Closure`
 
 M0 is closed for progression by explicit migration decision. Deferred real iOS/Android screenshot evidence remains mandatory when the final page-by-page visual parity pass begins.
 
