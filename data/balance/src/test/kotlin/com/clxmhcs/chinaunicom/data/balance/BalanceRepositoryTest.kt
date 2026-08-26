@@ -14,6 +14,8 @@ import com.clxmhcs.chinaunicom.data.settings.BalanceRefreshPolicy
 import com.clxmhcs.chinaunicom.data.settings.BalanceRefreshPolicySaveResult
 import com.clxmhcs.chinaunicom.data.settings.IntegralRefreshPolicy
 import com.clxmhcs.chinaunicom.data.settings.IntegralRefreshPolicySaveResult
+import com.clxmhcs.chinaunicom.data.settings.OrderRefreshPolicy
+import com.clxmhcs.chinaunicom.data.settings.OrderRefreshPolicySaveResult
 import com.clxmhcs.chinaunicom.data.settings.OrderedBusinessRefreshPolicy
 import com.clxmhcs.chinaunicom.data.settings.OrderedBusinessRefreshPolicySaveResult
 import com.clxmhcs.chinaunicom.data.settings.PhoneBillRefreshPolicy
@@ -194,18 +196,21 @@ private class FakeSettingsRepository : SettingsRepository {
     private val orderedBusiness = MutableStateFlow(OrderedBusinessRefreshPolicy())
     private val phoneBill = MutableStateFlow(PhoneBillRefreshPolicy())
     private val integral = MutableStateFlow(IntegralRefreshPolicy())
+    private val orders = MutableStateFlow(OrderRefreshPolicy())
 
     override val quotaRefreshPolicy: StateFlow<QuotaRefreshPolicy> = quota
     override val balanceRefreshPolicy: StateFlow<BalanceRefreshPolicy> = balance
     override val orderedBusinessRefreshPolicy: StateFlow<OrderedBusinessRefreshPolicy> = orderedBusiness
     override val phoneBillRefreshPolicy: StateFlow<PhoneBillRefreshPolicy> = phoneBill
     override val integralRefreshPolicy: StateFlow<IntegralRefreshPolicy> = integral
+    override val orderRefreshPolicy: StateFlow<OrderRefreshPolicy> = orders
 
     override fun loadQuotaRefreshPolicy(): QuotaRefreshPolicy = quota.value
     override fun loadBalanceRefreshPolicy(): BalanceRefreshPolicy = balance.value
     override fun loadOrderedBusinessRefreshPolicy(): OrderedBusinessRefreshPolicy = orderedBusiness.value
     override fun loadPhoneBillRefreshPolicy(): PhoneBillRefreshPolicy = phoneBill.value
     override fun loadIntegralRefreshPolicy(): IntegralRefreshPolicy = integral.value
+    override fun loadOrderRefreshPolicy(): OrderRefreshPolicy = orders.value
 
     override fun saveQuotaRefreshPolicy(policy: QuotaRefreshPolicy): QuotaRefreshPolicySaveResult =
         QuotaRefreshPolicySaveResult(true, quota.value != policy, policy).also { quota.value = policy }
@@ -221,4 +226,7 @@ private class FakeSettingsRepository : SettingsRepository {
 
     override fun saveIntegralRefreshPolicy(policy: IntegralRefreshPolicy): IntegralRefreshPolicySaveResult =
         IntegralRefreshPolicySaveResult(true, integral.value != policy, policy).also { integral.value = policy }
+
+    override fun saveOrderRefreshPolicy(policy: OrderRefreshPolicy): OrderRefreshPolicySaveResult =
+        OrderRefreshPolicySaveResult(true, orders.value != policy, policy).also { orders.value = policy }
 }
