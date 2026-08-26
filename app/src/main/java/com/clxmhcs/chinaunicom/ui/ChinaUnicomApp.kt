@@ -9,6 +9,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -21,13 +23,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.ui.navigation.RootTab
+import java.util.UUID
+
+private const val ORDERED_ROUTE = "comprehensive/ordered/{accountId}"
+private const val BILL_ROUTE = "comprehensive/bill/{accountId}"
+private const val FLOW_ROUTE = "comprehensive/flow/{accountId}"
+private const val VOICE_ROUTE = "comprehensive/voice/{accountId}"
+private const val INTEGRAL_ROUTE = "comprehensive/integral/{accountId}"
 
 @Composable
 fun ChinaUnicomApp() {
     val navController = rememberNavController()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val flowViewModel: FlowViewModel = viewModel()
+    val comprehensiveViewModel: ComprehensiveBusinessViewModel = viewModel()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner, flowViewModel) {
@@ -53,7 +64,10 @@ fun ChinaUnicomApp() {
                 tonalElevation = 0.dp,
             ) {
                 RootTab.entries.forEach { tab ->
-                    val selected = currentRoute == tab.route
+                    val selected = if (tab == RootTab.Comprehensive) {
+                        currentRoute?.startsWith(RootTab.Comprehensive.route) == true ||
+                            currentRoute?.startsWith("comprehensive/") == true
+                    } else currentRoute == tab.route
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
@@ -91,9 +105,78 @@ fun ChinaUnicomApp() {
         ) {
             composable(RootTab.Flow.route) { FlowHomeScreen(flowViewModel) }
             composable(RootTab.Voice.route) { VoiceDashboardScreen(flowViewModel) }
-            composable(RootTab.Comprehensive.route) { ComprehensiveBusinessPlaceholder() }
+            composable(RootTab.Comprehensive.route) {
+                ComprehensiveBusinessScreen(
+                    flowViewModel = flowViewModel,
+                    businessViewModel = comprehensiveViewModel,
+                    onOpenOrderedBusiness = { navController.navigate("comprehensive/ordered/$it") },
+                    onOpenPhoneBill = { navController.navigate("comprehensive/bill/$it") },
+                    onOpenFlow = { navController.navigate("comprehensive/flow/$it") },
+                    onOpenVoice = { navController.navigate("comprehensive/voice/$it") },
+                    onOpenIntegral = { navController.navigate("comprehensive/integral/$it") },
+                )
+            }
+            composable(ORDERED_ROUTE) { entry ->
+                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                    OrderedBusinessEntryScreen(account, comprehensiveViewModel) { navController.popBackStack() }
+                }
+            }
+            composable(BILL_ROUTE) { entry ->
+                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                    PhoneBillEntryScreen(account, comprehensiveViewModel) { navController.popBackStack() }
+                }
+            }
+            composable(FLOW_ROUTE) { entry ->
+                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
+                    ComprehensiveRemainingEntryScreen(
+                        initialAccount = account,
+                        accounts = accounts,
+                        initialVoice = false,
+                        flowViewModel = flowViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+            }
+            composable(VOICE_ROUTE) { entry ->
+                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
+                    ComprehensiveRemainingEntryScreen(
+                        initialAccount = account,
+                        accounts = accounts,
+                        initialVoice = true,
+                        flowViewModel = flowViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+            }
+            composable(INTEGRAL_ROUTE) { entry ->
+                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
+                    IntegralEntryScreen(
+                        account = account,
+                        allAccountIDs = accounts.map { it.id },
+                        businessViewModel = comprehensiveViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+            }
             composable(RootTab.OtherBusiness.route) { OtherBusinessPlaceholder() }
             composable(RootTab.Settings.route) { SettingsPlaceholder() }
         }
+    }
+}
+
+@Composable
+private fun BusinessAccountDestination(
+    flowViewModel: FlowViewModel,
+    rawAccountID: String?,
+    content: @Composable (UnicomAccount, List<UnicomAccount>) -> Unit,
+) {
+    val state by flowViewModel.uiState.collectAsState()
+    val accounts = (state as? FlowUiState.Content)?.accounts.orEmpty()
+    val accountID = rawAccountID?.let { runCatching(UUID::fromString).getOrNull() }
+    val account = accountID?.let { id -> accounts.firstOrNull { it.id == id } }
+    if (account == null) {
+        Text("号码不存在或尚未加载")
+    } else {
+        content(account, accounts)
     }
 }

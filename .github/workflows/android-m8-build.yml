@@ -55,80 +55,64 @@ jobs:
           test -n "$PLATFORM_PACKAGE"
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M8-D integral client cache store boundary
+      - name: Verify M8-E1 comprehensive root aggregation and entries boundary
         shell: bash
         run: |
-          MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/IntegralModels.kt
-          NETWORK_CONTRACT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/ComprehensiveBusinessNetworkContracts.kt
-          CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomIntegralClient.kt
-          LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/IntegralAccountCredentialLifecycle.kt
-          CACHE=data/integral/src/main/kotlin/com/clxmhcs/chinaunicom/data/integral/AndroidIntegralDiskCache.kt
-          STORE=data/integral/src/main/kotlin/com/clxmhcs/chinaunicom/data/integral/IntegralStore.kt
-          FACTORY=data/integral/src/main/kotlin/com/clxmhcs/chinaunicom/data/integral/AndroidIntegralStores.kt
-          SETTINGS=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
+          STORE=data/comprehensive/src/main/kotlin/com/clxmhcs/chinaunicom/data/comprehensive/ComprehensiveBusinessStore.kt
+          SCREEN=app/src/main/java/com/clxmhcs/chinaunicom/ui/ComprehensiveBusinessScreen.kt
+          VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/ComprehensiveBusinessViewModel.kt
+          ROOT=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
+          FLOW_VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowViewModel.kt
 
-          test -f "$MODEL"
-          test -f "$NETWORK_CONTRACT"
-          test -f "$CLIENT"
-          test -f "$LIFECYCLE"
-          test -f "$CACHE"
           test -f "$STORE"
-          test -f "$FACTORY"
-          grep -q 'include(":data:orderedbusiness")' settings.gradle.kts
-          grep -q 'include(":data:phonebill")' settings.gradle.kts
+          test -f "$SCREEN"
+          test -f "$VM"
+          test -f "$ROOT"
           grep -q 'include(":data:integral")' settings.gradle.kts
+          grep -q 'include(":data:comprehensive")' settings.gradle.kts
+          grep -q 'implementation(project(":data:orderedbusiness"))' app/build.gradle.kts
+          grep -q 'implementation(project(":data:phonebill"))' app/build.gradle.kts
+          grep -q 'implementation(project(":data:integral"))' app/build.gradle.kts
+          grep -q 'implementation(project(":data:comprehensive"))' app/build.gradle.kts
 
-          grep -q 'CURRENT_PARSER_VERSION = 1' "$MODEL"
-          grep -q 'activity.10010.com' "$NETWORK_CONTRACT"
-          grep -q 'welfare-mall-front/mobile/show/bj2205/v2/1' "$NETWORK_CONTRACT"
-          grep -q 'new/integral/queryMonthlyList/v1' "$NETWORK_CONTRACT"
-          grep -q 'new/integral/querySummaryList/v1' "$NETWORK_CONTRACT"
-          grep -q 'ZXGS97000017640,003' "$NETWORK_CONTRACT"
+          grep -q 'integralCache.snapshots(accountIDs)' "$STORE"
+          grep -q 'requestSequence' "$STORE"
+          ! grep -Eq 'core\.network|UnicomHTTPClient|NetworkClient|CredentialStore' "$STORE"
 
-          grep -q 'OkHttpUnicomTransport(20_000L)' "$CLIENT"
-          grep -q 'iphone_c@12.1400' "$CLIENT"
-          grep -q 'c_mobile' "$CLIENT"
-          grep -q 'u_account' "$CLIENT"
-          grep -q 'sessionClient.activateSession(credentials)' "$CLIENT"
-          grep -q 'UnicomCookieCodec.applying' "$CLIENT"
-          grep -q 'IntegralSnapshot.CURRENT_PARSER_VERSION' "$CLIENT"
-          grep -q 'INTEGRAL_SOURCE' "$CLIENT"
+          grep -q '本页面不会主动联网刷新' "$SCREEN"
+          grep -q 'loadCachedPoints(accountIDs)' "$SCREEN"
+          grep -q 'financialRepresentativeAccountID(account.id)' "$SCREEN"
+          grep -q 'loadOrderedBusiness(account)' "$SCREEN"
+          grep -q 'loadPhoneBill(account)' "$SCREEN"
+          grep -q 'remainingQuerySnapshot == null' "$SCREEN"
+          grep -q 'loadIntegral(account)' "$SCREEN"
+          grep -q 'IntegralDetailQuery.month' "$SCREEN"
 
-          grep -q 'credentialStore.read(accountID)' "$LIFECYCLE"
-          grep -q 'credentialStore.save(accountID, it)' "$LIFECYCLE"
-          grep -q 'copy(updatedCredentials = null)' "$LIFECYCLE"
+          ROOT_SECTION="$(awk '/fun ComprehensiveBusinessScreen\(/,/^private fun ComprehensiveAccountCard\(/' "$SCREEN")"
+          echo "$ROOT_SECTION" | grep -q 'loadCachedPoints'
+          ! echo "$ROOT_SECTION" | grep -Eq 'refresh(Account|All|Integral|Ordered|Phone)|loadOrderedBusiness|loadPhoneBill|loadIntegral'
 
-          grep -q 'AtomicFile' "$CACHE"
-          grep -q 'integral-snapshots.json' "$CACHE"
-          grep -q 'stream.fd.sync()' "$CACHE"
-          grep -q 'refreshCycleKey' "$CACHE"
-          grep -q 'monthlyRefreshDay' "$CACHE"
-          grep -q 'monthlyRefreshHour' "$CACHE"
-          grep -q 'fixedIntervalHours' "$CACHE"
-          grep -q 'MANUAL_ONLY' "$CACHE"
-          ! grep -Eiq 'cookie|token_online|password|verificationcode|resulttoken' "$CACHE"
+          grep -q 'OrderedBusinessAccountCredentialLifecycle' "$VM"
+          grep -q 'PhoneBillAccountCredentialLifecycle' "$VM"
+          grep -q 'IntegralAccountCredentialLifecycle' "$VM"
+          grep -q 'CredentialStoreProvider.create' "$VM"
+          grep -q 'financialRepresentativeAccountID' "$FLOW_VM"
 
-          grep -q 'ManualRequired' "$STORE"
-          grep -q 'details = emptyMap()' "$STORE"
-          grep -q 'loadDetails' "$STORE"
-          grep -q 'manualRefresh' "$STORE"
-          grep -q 'DefaultIntegralStore' "$FACTORY"
+          grep -q 'ComprehensiveBusinessScreen' "$ROOT"
+          ! grep -q 'ComprehensiveBusinessPlaceholder()' "$ROOT"
+          grep -q 'comprehensive/ordered/' "$ROOT"
+          grep -q 'comprehensive/bill/' "$ROOT"
+          grep -q 'comprehensive/flow/' "$ROOT"
+          grep -q 'comprehensive/voice/' "$ROOT"
+          grep -q 'comprehensive/integral/' "$ROOT"
 
-          grep -q 'automaticRefreshEnabled: Boolean = true' "$SETTINGS"
-          grep -q 'cycleMode: IntegralRefreshCycleMode = IntegralRefreshCycleMode.MONTHLY' "$SETTINGS"
-          grep -q 'monthlyRefreshDay: Int = 2' "$SETTINGS"
-          grep -q 'monthlyRefreshHour: Int = 8' "$SETTINGS"
-          grep -q 'fixedIntervalHours: Int = 24' "$SETTINGS"
-          grep -q 'checkOnEntry: Boolean = true' "$SETTINGS"
-
+          grep -q 'versionName = "0.8.0-m8e1"' app/build.gradle.kts
           grep -q 'minSdk = 30' app/build.gradle.kts
-          grep -q 'minSdk = 30' data/orderedbusiness/build.gradle.kts
-          grep -q 'minSdk = 30' data/phonebill/build.gradle.kts
-          grep -q 'minSdk = 30' data/integral/build.gradle.kts
+          grep -q 'minSdk = 30' data/comprehensive/build.gradle.kts
           grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
-          echo "M8_D_INTEGRAL_GATE=PASS"
+          echo "M8_E1_COMPREHENSIVE_ROOT_GATE=PASS"
 
-      - name: Run M8-D regression
+      - name: Run M8-E1 regression
         id: verify
         continue-on-error: true
         run: >-
@@ -146,12 +130,13 @@ jobs:
           :data:orderedbusiness:testDebugUnitTest
           :data:phonebill:testDebugUnitTest
           :data:integral:testDebugUnitTest
+          :data:comprehensive:testDebugUnitTest
           :app:testDebugUnitTest
           :app:assembleDebug
           :app:assembleRelease
           --stacktrace
 
-      - name: Publish M8-D status
+      - name: Publish M8-E1 status
         if: always()
         uses: actions/github-script@v7
         with:
@@ -162,10 +147,10 @@ jobs:
               repo: context.repo.repo,
               sha: context.sha,
               state: passed ? 'success' : 'failure',
-              context: 'android-m8-integral',
-              description: passed ? 'M8-D integral gate passed' : 'M8-D integral regression failed',
+              context: 'android-m8-comprehensive-root',
+              description: passed ? 'M8-E1 comprehensive root gate passed' : 'M8-E1 comprehensive root regression failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
-      - name: Fail workflow when M8-D verification failed
+      - name: Fail workflow when M8-E1 verification failed
         if: always() && steps.verify.outcome != 'success'
         run: exit 1

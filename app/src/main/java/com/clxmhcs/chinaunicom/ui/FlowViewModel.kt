@@ -66,6 +66,10 @@ class FlowViewModel(
         repository.setHomeBalanceAccountID(accountID)
     }
 
+    /** Reuses M6's financial representative choice for comprehensive-card phone-bill entry. */
+    fun financialRepresentativeAccountID(accountID: UUID): UUID? =
+        repository.financialRepresentativeAccountID(accountID)
+
     fun onForeground() {
         viewModelScope.launch {
             repository.autoRefreshIfNeeded(QuotaAutomaticRefreshTrigger.FOREGROUND)
