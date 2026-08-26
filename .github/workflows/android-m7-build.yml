@@ -86,7 +86,8 @@ jobs:
           fi
 
           grep -q 'minSdk = 30' app/build.gradle.kts
-          grep -q 'versionName = "0.7.0-m7a"' app/build.gradle.kts
+          # M7 remains a regression gate after later milestones; do not pin the current app version to M7.
+          grep -Eq 'versionName = "[0-9]+\.[0-9]+\.[0-9]+[^"]*"' app/build.gradle.kts
           grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
 
           if grep -RInE 'FakeUnicomRepository|mock-flow-|18600009025|896\.87|测试号码' app/src/main app/src/release; then
