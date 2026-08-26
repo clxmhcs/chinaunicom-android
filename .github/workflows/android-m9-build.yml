@@ -4,10 +4,12 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "app/**"
       - "core/model/**"
       - "core/network/**"
       - "core/login/**"
       - "data/settings/**"
+      - "data/balance/**"
       - "data/myorder/**"
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
@@ -15,10 +17,12 @@ on:
   push:
     branches: [main]
     paths:
+      - "app/**"
       - "core/model/**"
       - "core/network/**"
       - "core/login/**"
       - "data/settings/**"
+      - "data/balance/**"
       - "data/myorder/**"
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
