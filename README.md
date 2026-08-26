@@ -118,10 +118,13 @@ M8 contains no final visual refinement. Final comprehensive-page visual parity r
 
 - `M9-A1 — My Order Client + Store Core` is `PASS / CLOSED`; it supplies the real order-list client, M5 credential lifecycle and source-equivalent in-memory account/pagination store without inventing an order-list disk cache;
 - `M9-A2 — My Order Settings / Detail Core` is `PASS / CLOSED`; it persists `orders.refreshOnEntry` in the single tolerant `SettingsRepository`, adds the source-derived business/renewal order-detail request/bridge/parser/store core, keeps Cookie access behind M5, and explicitly rejects unsupported detail types instead of inventing a fallback;
-- M9-A2 primary implementation commit `0b5101e752cc46f87cf38c93c57ff5f7e3e2200d`, accepted verified head `d9c864fb3675320a62ed29b765117088b696b173`, passed Android M9 Other Business run `32973038127` with source/static boundary, full regression and status publication all successful; the failure gate was skipped as expected;
-- final visual styling remains deferred. M9-A3 will wire the rough functional Other Business entry, My Order list/pagination and Android hosted-detail destination before real-device validation in M9-A4.
+- `M9-A3 — My Order Rough Functional Entry / List / Detail Wiring` is `PASS / CLOSED`; it wires the Other Business entry, production account selector, real list refresh/search/filter/pagination and the Android hosted-detail WebView/bridge while keeping carrier Cookie access behind M5 and restricting hosted navigation to `10010.com`;
+- accepted A3 head `1f32584c9856f0afe84d2b01fc98085efc120e3b` passed Android M9 run `33024157050`, Android M2 run `33024157038`, Android M8 run `33024157045`, and Android Main APK Build run `33024157051`;
+- the accepted installable artifact is `chinaunicom-debug-apk` id `9627813189`, SHA-256 digest `6efc8b05e27dd66f1d645aa0505af96369214ba10bcda31e2c7717eaf4267308`;
+- `M9-A4 — My Order Real-device Functional Validation` is now `IN_PROGRESS`;
+- final visual styling remains deferred until the later page-by-page visual pass.
 
-`NEXT = Android-M9-A3 — My Order Rough Functional Entry / List / Detail Wiring`
+`NEXT = Android-M9-A4 — My Order Real-device Functional Validation`
 
 M0 is closed for progression by explicit migration decision. Deferred real iOS/Android screenshot evidence remains mandatory when the final page-by-page visual parity pass begins.
 

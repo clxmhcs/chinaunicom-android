@@ -9,8 +9,8 @@ Substages:
 - `M9-A_RESULT = IN_PROGRESS` — 我的订单
   - `M9-A1_RESULT = PASS / CLOSED` — order list client + M5 credential lifecycle + in-memory pagination store
   - `M9-A2_RESULT = PASS / CLOSED` — unified order refresh setting + order detail core
-  - `M9-A3_RESULT = NOT_STARTED` — rough functional entry/list/detail wiring
-  - `M9-A4_RESULT = NOT_STARTED` — real-device functional validation
+  - `M9-A3_RESULT = PASS / CLOSED` — rough functional entry/list/detail wiring
+  - `M9-A4_RESULT = IN_PROGRESS` — real-device functional validation
 - `M9-B_RESULT = NOT_STARTED` — 我的套餐
 - `M9-C_RESULT = NOT_STARTED` — 已订业务
 - `M9-D_RESULT = NOT_STARTED` — 积分
@@ -169,19 +169,79 @@ Android M9 Other Business run `32973038127` completed successfully:
 
 Therefore `M9-A2_RESULT = PASS / CLOSED`.
 
-## Deferred after M9-A2
+## M9-A3 accepted boundary
 
-M9-A2 intentionally does not yet implement:
+M9-A3 wires the frozen My Order business core into the installable Android app while intentionally keeping presentation rough:
 
-- Other Business Compose entry for My Order;
-- My Order account selector/list/pagination UI wiring;
-- Android WebView adapter for the frozen detail bridge contract;
-- business/renewal order-detail functional destination rendering;
-- real-device My Order functional evidence;
-- final visual parity.
+- `OtherBusinessScreen` exposes the real `我的订单` destination rather than a placeholder;
+- one root-scoped `MyOrderViewModel` owns the list/detail state for the app destination;
+- account selection consumes the same persisted production accounts already owned by M6/M8, without creating another account store;
+- selecting an account performs source-equivalent entry loading through `orders.refreshOnEntry`;
+- manual refresh, local text search and order-kind filtering are wired;
+- list-end detection calls the existing source-equivalent pagination store and a manual `加载更多` fallback remains available;
+- only orders carrying a supported `查看详情` action can open the detail destination;
+- business and renewal detail modes use the M9-A2 request/parser/store core rather than an invented browser fallback;
+- hosted detail uses an Android WebView limited to `10010.com` and subdomains;
+- carrier Cookie is obtained only through the M5 `CredentialStore`, injected only for the hosted request, never placed in Compose state/navigation/disk/logs, and is expired by cookie name when the hosted detail is destroyed;
+- the detail bridge/result remains request-ID scoped so stale WebView results cannot replace a newer detail request;
+- app version advanced to `0.9.0-m9a3`; minimum Android remains API 30.
 
-These remain ordered as M9-A3 → M9-A4. Final app-owned visual refinement stays deferred until the later page-by-page pass.
+### M9-A3 CI fixes discovered before acceptance
+
+The first A3 run exposed one real Kotlin compile error and one obsolete old-stage CI assumption:
+
+- `c586cc450945ede74c0c2da5c531ad4af62c0f0b` introduced the rough entry/list/detail wiring and strengthened the M9 source/static gate;
+- the first compile attempt failed because `MyOrderScreen` referenced a non-existent `displayTitle` account property;
+- `1f32584c9856f0afe84d2b01fc98085efc120e3b` corrected the account label to the actual `UnicomAccount.displayName` field and changed the M8 version-name assertion from the frozen M8 literal to the already-established forward-compatible semantic version regex.
+
+No carrier protocol or business behavior was changed by the follow-up fix.
+
+### M9-A3 accepted implementation / CI
+
+Accepted verified repository head:
+
+`1f32584c9856f0afe84d2b01fc98085efc120e3b`
+
+Android M9 Other Business run `33024157050` completed successfully:
+
+- `Verify M9-A1/A2/A3 My Order source and app boundary` — success;
+- `Run M9-A3 regression` — success;
+- `Publish M9-A3 status` — success;
+- failure gate — skipped as expected;
+- complete job — success.
+
+Additional regression/build evidence on the same head:
+
+- Android M2 Models run `33024157038` — complete success, including app assembly;
+- Android M8 Comprehensive Business run `33024157045` — complete success after the forward-compatible version gate fix;
+- Android Main APK Build run `33024157051` — complete success, including artifact upload;
+- artifact `chinaunicom-debug-apk` id `9627813189`, SHA-256 digest `6efc8b05e27dd66f1d645aa0505af96369214ba10bcda31e2c7717eaf4267308`, built from head `1f32584c9856f0afe84d2b01fc98085efc120e3b`.
+
+Therefore `M9-A3_RESULT = PASS / CLOSED`.
+
+## Deferred after M9-A3
+
+M9-A3 intentionally does not claim:
+
+- real-device order-list behavior for the user's current production accounts;
+- real-device business/renewal hosted-detail behavior;
+- final app-owned My Order visual parity.
+
+Those are now ordered as M9-A4 real-device functional validation, followed later by the project-wide page-by-page visual refinement pass.
+
+## M9-A4 real-device acceptance scope
+
+A4 uses only the installable APK built from the accepted A3 head. No credential export or upload is required.
+
+Required evidence:
+
+1. `其它业务` root showing the `我的订单` entry;
+2. `我的订单` account-selection state showing at least one persisted production account (account identifiers may be masked);
+3. after selecting an account, the real order-list result — populated list, legitimate empty state, or legitimate carrier error are all valid evidence;
+4. if at least one returned order exposes a supported `查看详情` action, open it and capture the resulting native detail state; if all current real accounts have no supported detail action, do not manufacture an order solely for acceptance.
+
+Final visual comparison against iOS is explicitly not part of A4.
 
 ## Next
 
-`NEXT = Android-M9-A3 — My Order Rough Functional Entry / List / Detail Wiring`
+`NEXT = Android-M9-A4 — My Order Real-device Functional Validation`
