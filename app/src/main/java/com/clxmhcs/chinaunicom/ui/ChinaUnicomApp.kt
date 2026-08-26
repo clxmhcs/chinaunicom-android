@@ -172,8 +172,12 @@ private fun BusinessAccountDestination(
 ) {
     val state by flowViewModel.uiState.collectAsState()
     val accounts = (state as? FlowUiState.Content)?.accounts.orEmpty()
-    val accountID = rawAccountID?.let { runCatching(UUID::fromString).getOrNull() }
-    val account = accountID?.let { id -> accounts.firstOrNull { it.id == id } }
+    val accountID: UUID? = rawAccountID?.let { raw ->
+        runCatching { UUID.fromString(raw) }.getOrNull()
+    }
+    val account: UnicomAccount? = accountID?.let { id ->
+        accounts.firstOrNull { it.id == id }
+    }
     if (account == null) {
         Text("号码不存在或尚未加载")
     } else {
