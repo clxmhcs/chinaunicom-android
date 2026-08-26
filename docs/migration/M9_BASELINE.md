@@ -8,7 +8,7 @@ Substages:
 
 - `M9-A_RESULT = IN_PROGRESS` — 我的订单
   - `M9-A1_RESULT = PASS / CLOSED` — order list client + M5 credential lifecycle + in-memory pagination store
-  - `M9-A2_RESULT = NOT_STARTED` — unified order refresh setting + order detail core
+  - `M9-A2_RESULT = PASS / CLOSED` — unified order refresh setting + order detail core
   - `M9-A3_RESULT = NOT_STARTED` — rough functional entry/list/detail wiring
   - `M9-A4_RESULT = NOT_STARTED` — real-device functional validation
 - `M9-B_RESULT = NOT_STARTED` — 我的套餐
@@ -87,9 +87,9 @@ The iOS `MyOrderStore.swift` does **not** persist an order-list disk cache. Andr
 - initial and load-more loading states remain distinct;
 - prior business data is not written to disk.
 
-The iOS `orders.refreshOnEntry` default is `true`. M9-A1 exposes that behavior through `MyOrderEntryRefreshPolicy` with source-default `true`, but **persistent integration into the single Android `SettingsRepository` is intentionally deferred to M9-A2** rather than creating a second settings authority.
+The iOS `orders.refreshOnEntry` default is `true`. M9-A1 exposed that behavior through `MyOrderEntryRefreshPolicy` with source-default `true`; persistence was intentionally deferred to M9-A2.
 
-## Accepted implementation / CI
+### M9-A1 accepted implementation / CI
 
 Accepted implementation head:
 
@@ -108,18 +108,80 @@ Android M9 Other Business run `32966913358` completed successfully:
 - `android-m9-my-order-core` status publication — success;
 - failure gate — skipped as expected after successful verification.
 
-## Deferred from M9-A1
+## M9-A2 accepted boundary
 
-M9-A1 intentionally does not yet implement:
+### One persistent order-refresh setting authority
 
-- persistence of `orders.refreshOnEntry` in the existing tolerant `SettingsRepository`;
-- hosted My Order detail parser/store/WebView bridge;
-- Other Business Compose entry and My Order list/detail screens;
+M9-A2 extends the existing tolerant `SettingsRepository` rather than creating a My Order-specific settings store:
+
+- `OrderRefreshPolicy(refreshOnEntry = true)` matches the frozen iOS source default;
+- `orderRefreshPolicy`, `loadOrderRefreshPolicy()` and `saveOrderRefreshPolicy(...)` live beside the existing quota/balance/ordered-business/phone-bill/integral policies;
+- the `orders` JSON domain is decoded with tolerant defaults and merged without replacing unrelated refresh-policy domains;
+- malformed or older policy payloads continue to fall back through the existing codec/migration path;
+- `SettingsMyOrderEntryRefreshPolicy` makes the M9 list store consume this single persisted authority.
+
+The cold-launch key typo found by CI was corrected in commit `410bed13264a02a04269007fa81c2a7004a738ec`; this was a constant-name correction only and did not change the intended refresh behavior.
+
+### Platform-neutral order-detail core
+
+M9-A2 adds the business/detail layer while still deferring the Android WebView/Compose destination itself to M9-A3:
+
+- `MyOrderDetailRequestFactory` derives the detail mode and order identifier from the frozen iOS action URL semantics;
+- renewal orders recognize renewal/broad-order detail URLs and business/storefront orders recognize the `omo.10010.com` detail path;
+- unsupported order types fail explicitly instead of inventing a payment/detail fallback;
+- encoded `%26` / `%3D` query fragments are normalized before extracting `orderNo`, `orderId` or `serviceType`;
+- the business ready gate is `omo.10010.com` + `dbh-evaluate-fe`;
+- the renewal ready gate is `upayxx.10010.com` + `broadordersdetail`, excluding `broadordersdetailinit`;
+- business detail uses `/udbh/rest/portal/qryEvaluateOrderInfoByOrderId` with `sourcePage = CJ_SOU_20000` and conditionally requests `/udbh/rest/portal/querySubProducts` with `pageSize = 100` for `businessType == 120`;
+- renewal detail uses `/npfwap/NpfMobAppQuery/broadRenewalOrderHandle/broaRenewalInfo` and preserves the source default `serviceType = 29` when the action does not supply one;
+- `MyOrderDetailParser` maps the business and renewal bridge payloads into Android model content while preserving server errors/empty-detail failures;
+- `MyOrderDetailStore` keeps the cookie out of ordinary state, requires the M5-owned credential lifecycle before hosted loading, and rejects stale bridge results whose request ID no longer matches the active request.
+
+### Credential boundary
+
+`MyOrderDetailCredentialLifecycle` remains in `core:login` and obtains the Cookie only through the existing M5 `CredentialStore`. M9-A2 does not persist or expose carrier credentials in business state, Compose state, tests or Git fixtures.
+
+### CI hardening discovered during A2
+
+The A2 full-regression gate exposed three compatibility/coverage defects and they were fixed before acceptance:
+
+- `5d9b17aa8b5673ca5f24a90c1d5924dc710f69a8` updated the balance-test fake to implement the newly extended `SettingsRepository` contract;
+- `ab93aa1e49c6374ac494e5f17f16f495e313ddd2` expanded the M9 workflow path coverage to include `app/**` and `data/balance/**`, so downstream settings consumers and the upcoming App wiring cannot bypass the M9 gate;
+- `d9c864fb3675320a62ed29b765117088b696b173` added `core:security` only to the `data:myorder` **test** classpath because the test fake implements `CredentialStore`; the production module dependency boundary was not widened.
+
+### M9-A2 accepted implementation / CI
+
+Primary A2 implementation commit:
+
+`0b5101e752cc46f87cf38c93c57ff5f7e3e2200d`
+
+Accepted verified repository head:
+
+`d9c864fb3675320a62ed29b765117088b696b173`
+
+Android M9 Other Business run `32973038127` completed successfully:
+
+- `Verify M9-A1/A2 My Order source boundary` — success;
+- `Run M9-A2 regression` — success;
+- `Publish M9-A2 status` — success;
+- failure gate — skipped as expected;
+- complete job — success.
+
+Therefore `M9-A2_RESULT = PASS / CLOSED`.
+
+## Deferred after M9-A2
+
+M9-A2 intentionally does not yet implement:
+
+- Other Business Compose entry for My Order;
+- My Order account selector/list/pagination UI wiring;
+- Android WebView adapter for the frozen detail bridge contract;
+- business/renewal order-detail functional destination rendering;
 - real-device My Order functional evidence;
 - final visual parity.
 
-These are ordered into M9-A2 → M9-A4 so bottom/business behavior remains complete before page refinement.
+These remain ordered as M9-A3 → M9-A4. Final app-owned visual refinement stays deferred until the later page-by-page pass.
 
 ## Next
 
-`NEXT = Android-M9-A2 — My Order Settings / Detail Core`
+`NEXT = Android-M9-A3 — My Order Rough Functional Entry / List / Detail Wiring`

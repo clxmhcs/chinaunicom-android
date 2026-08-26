@@ -112,7 +112,16 @@ The production-onboarding/single-launcher head `8fb6e96bedecf005357684863ae151c4
 
 M8 contains no final visual refinement. Final comprehensive-page visual parity remains deferred until the later page-by-page visual pass.
 
-`NEXT = Android-M9 — Other Business Complete Migration (start with M9-A)`
+`Android-M9 — Other Business Complete Migration` is `IN_PROGRESS`.
+
+`Android-M9-A — 我的订单` is `IN_PROGRESS`:
+
+- `M9-A1 — My Order Client + Store Core` is `PASS / CLOSED`; it supplies the real order-list client, M5 credential lifecycle and source-equivalent in-memory account/pagination store without inventing an order-list disk cache;
+- `M9-A2 — My Order Settings / Detail Core` is `PASS / CLOSED`; it persists `orders.refreshOnEntry` in the single tolerant `SettingsRepository`, adds the source-derived business/renewal order-detail request/bridge/parser/store core, keeps Cookie access behind M5, and explicitly rejects unsupported detail types instead of inventing a fallback;
+- M9-A2 primary implementation commit `0b5101e752cc46f87cf38c93c57ff5f7e3e2200d`, accepted verified head `d9c864fb3675320a62ed29b765117088b696b173`, passed Android M9 Other Business run `32973038127` with source/static boundary, full regression and status publication all successful; the failure gate was skipped as expected;
+- final visual styling remains deferred. M9-A3 will wire the rough functional Other Business entry, My Order list/pagination and Android hosted-detail destination before real-device validation in M9-A4.
+
+`NEXT = Android-M9-A3 — My Order Rough Functional Entry / List / Detail Wiring`
 
 M0 is closed for progression by explicit migration decision. Deferred real iOS/Android screenshot evidence remains mandatory when the final page-by-page visual parity pass begins.
 
@@ -128,4 +137,5 @@ See:
 - [`docs/migration/M6_BASELINE.md`](docs/migration/M6_BASELINE.md)
 - [`docs/migration/M7_BASELINE.md`](docs/migration/M7_BASELINE.md)
 - [`docs/migration/M8_BASELINE.md`](docs/migration/M8_BASELINE.md)
+- [`docs/migration/M9_BASELINE.md`](docs/migration/M9_BASELINE.md)
 - [`docs/migration/MIGRATION_RULES.md`](docs/migration/MIGRATION_RULES.md)
