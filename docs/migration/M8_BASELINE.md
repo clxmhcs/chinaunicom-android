@@ -2,7 +2,7 @@
 
 ## Status
 
-`M8_RESULT = IN_PROGRESS`
+`M8_RESULT = PASS / CLOSED`
 
 Substages:
 
@@ -10,9 +10,9 @@ Substages:
 - `M8-B_RESULT = PASS / CLOSED`
 - `M8-C_RESULT = PASS / CLOSED`
 - `M8-D_RESULT = PASS / CLOSED`
-- `M8-E_RESULT = IN_PROGRESS`
+- `M8-E_RESULT = PASS / CLOSED`
   - `M8-E1_RESULT = PASS / CLOSED`
-  - `M8-E2_RESULT = NOT_STARTED`
+  - `M8-E2_RESULT = PASS / CLOSED`
 
 Minimum supported Android version remains **Android 11 / API 30**.
 
@@ -24,6 +24,7 @@ Accepted implementation heads:
 - M8-D: `c091cb87036fa620bc0289312ec08e122e106ed9`
 - M8-E1 implementation: `fc1e0053f03509f07e9083012cfa57e83e437a03`
 - M8-E1 accepted repository head after forward-compatible M7 CI repair: `b7e040f451a2cbe80be41ff679442501fa8ece96`
+- M8-E2 production onboarding / installable runtime head: `8fb6e96bedecf005357684863ae151c4e8c7b317`
 
 ## Source-derived M8 boundary
 
@@ -35,9 +36,9 @@ M8 is therefore split as:
 2. **M8-B — ordered business client + cache + store — PASS / CLOSED**
 3. **M8-C — phone bill client + cache + store — PASS / CLOSED**
 4. **M8-D — integral client + cache + store — PASS / CLOSED**
-5. **M8-E — comprehensive root aggregation / entries / final functional closure — IN_PROGRESS**
+5. **M8-E — comprehensive root aggregation / entries / final functional closure — PASS / CLOSED**
    - **M8-E1 — cached root aggregation + five business entries — PASS / CLOSED**
-   - **M8-E2 — real-device comprehensive business functional validation — NOT_STARTED**
+   - **M8-E2 — real-device comprehensive business functional validation — PASS / CLOSED**
 
 Visual refinement remains deferred until the later page-by-page visual pass.
 
@@ -228,7 +229,25 @@ Required Android real-device evidence before M8-E can close:
 6. integral overview opened from the comprehensive root;
 7. one integral month/detail page, or the real empty/error state when the account has no detail data.
 
-Final page-by-page visual parity with iOS remains deferred until the later visual pass.
+### M8-E2 accepted real-device evidence
+
+Real-device functional validation completed on 2026-08-26 with user-provided screenshots and direct runtime confirmation. No real mobile number or credential material is committed in this document.
+
+Accepted evidence:
+
+- production account onboarding persisted six real accounts and the same AppState was visible from flow, voice and comprehensive roots;
+- the flow root showed real balance, package/quota data and successful refresh timestamps;
+- the voice root and voice-detail destination showed real voice packages and remaining-minute values;
+- the comprehensive root showed real cached balance/flow/voice data and, after integral refresh, correctly projected cached integral points back into the root;
+- ordered business opened from the comprehensive package entry and returned a real main package plus additional subscribed products;
+- phone bill opened through the financial-representative route and returned a real current-month summary/member breakdown;
+- flow remaining detail opened from the comprehensive root and returned real categorized remaining-flow values;
+- voice remaining detail opened from the comprehensive root and returned real voice-package remaining values;
+- integral overview returned a real available-points snapshot and recent months;
+- an integral month/detail action returned real detail values, proving the overview -> month/detail network/cache/state chain;
+- installable runtime exposed only the normal `中国联通余量` launcher; the legacy `M4 联网验收` launcher no longer appeared on the device.
+
+M8-E2 therefore closes the functional comprehensive-business migration. Final page-by-page visual parity with iOS remains deferred until the later visual pass.
 
 ## CI acceptance
 
@@ -280,6 +299,20 @@ M8 Comprehensive Business run `32931819222` completed successfully:
 
 Repository head `b7e040f451a2cbe80be41ff679442501fa8ece96` contains the same accepted application implementation plus the M7 CI-only forward-compatibility correction. M7 run `32932152179` fully passed static/function regression and status publication.
 
+### M8-E2 runtime/onboarding regression
+
+Accepted runtime/onboarding head `8fb6e96bedecf005357684863ae151c4e8c7b317`.
+
+The production onboarding / single-launcher correction passed:
+
+- Android Main APK Build run `32963320050` — success;
+- Android M5 Login Security run `32963319964` — success;
+- Android M6 Persistence Refresh run `32963319952` — success;
+- Android M7 Flow Voice Functional run `32963319996` — success;
+- Android M8 Comprehensive Business run `32963320148` — success.
+
+Together with the accepted real-device evidence above, `Android-M8` is `PASS / CLOSED` for migration progression.
+
 ## Next
 
-`NEXT = Android-M8-E2 — Real-device Comprehensive Business Functional Validation`
+`NEXT = Android-M9 — Other Business Complete Migration (start with M9-A)`
