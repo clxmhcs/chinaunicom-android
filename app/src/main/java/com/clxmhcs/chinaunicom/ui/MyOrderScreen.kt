@@ -71,7 +71,7 @@ fun MyOrderScreen(
                     onClick = { selectedAccountID = account.id.toString() },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 ) {
-                    Text(account.displayTitle)
+                    Text(account.displayName)
                 }
             }
             return@Column
@@ -151,10 +151,10 @@ private fun OrderToolbar(
     Column(modifier = Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Column {
-                Button(onClick = { accountMenu = true }) { Text(account.displayTitle) }
+                Button(onClick = { accountMenu = true }) { Text(account.displayName) }
                 DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
                     accounts.forEach { value ->
-                        DropdownMenuItem(text = { Text(value.displayTitle) }, onClick = {
+                        DropdownMenuItem(text = { Text(value.displayName) }, onClick = {
                             accountMenu = false
                             onAccountChange(value)
                         })
