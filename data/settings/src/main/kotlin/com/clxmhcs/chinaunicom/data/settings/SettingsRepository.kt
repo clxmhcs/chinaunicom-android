@@ -336,7 +336,7 @@ class AppRefreshLogicPolicyCodec(
 
     private fun quotaElement(policy: QuotaRefreshPolicy) = JsonObject(linkedMapOf(
         AUTOMATIC_REFRESH_ENABLED_KEY to JsonPrimitive(policy.automaticRefreshEnabled),
-        REFRESH_ON_COLD_LAUNCHA_KEY to JsonPrimitive(policy.refreshOnColdLaunch),
+        REFRESH_ON_COLD_LAUNCH_KEY to JsonPrimitive(policy.refreshOnColdLaunch),
         REFRESH_ON_FOREGROUND_KEY to JsonPrimitive(policy.refreshOnForeground),
         MINIMUM_INTERVAL_MINUTES_KEY to JsonPrimitive(policy.minimumIntervalMinutes),
         ACCOUNT_GAP_SECONDS_KEY to JsonPrimitive(policy.accountGapSeconds),
@@ -394,7 +394,7 @@ class AppRefreshLogicPolicyCodec(
         private const val ORDERS_KEY = "orders"
 
         private const val AUTOMATIC_REFRESH_ENABLED_KEY = "automaticRefreshEnabled"
-        private const val REFRESH_ON_COLD_LAUNCHA_KEY = "refreshOnColdLaunch"
+        private const val REFRESH_ON_COLD_LAUNCH_KEY = "refreshOnColdLaunch"
         private const val REFRESH_ON_FOREGROUND_KEY = "refreshOnForeground"
         private const val MINIMUM_INTERVAL_MINUTES_KEY = "minimumIntervalMinutes"
         private const val ACCOUNT_GAP_SECONDS_KEY = "accountGapSeconds"
