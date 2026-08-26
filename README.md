@@ -72,12 +72,23 @@ Per the explicit project priority, **M7 final visual parity is deferred**. M7 cl
 - routes renewed Cookie/appID/token_online through the existing M5 `CredentialStore` and strips them before ordinary M8 state/cache;
 - adds app-private Android `AtomicFile` snapshot persistence at `ordered-business/ordered-business-snapshots.json`;
 - adds a multi-account `OrderedBusinessStore` with cachePreferred / refreshWhenExpired / everyEntry / manualOnly policies, same-account duplicate suppression, serial refresh-all gap, orphan reconciliation, old-cache retention on failure and warning state when local save fails;
-- keeps Android 11 / API 30 and `allowBackup=false` security boundaries unchanged;
-- accepted implementation head passed M1–M8 workflows, M8-B dedicated client/session/cache/store tests and Debug/Release assembly.
+- keeps Android 11 / API 30 and `allowBackup=false` security boundaries unchanged.
 
-M8-A/M8-B contain no visual refinement. Final comprehensive-page visual parity remains deferred until the later page-by-page visual pass.
+`Android-M8-C — Phone Bill Client + Cache + Store` is `PASS / CLOSED`:
 
-`NEXT = Android-M8-C — Phone Bill Client + Cache + Store`
+- implements the real `m.client.10010.com` months/detail requests and `/mobileService/onLine.htm` recovery path with source `iphone_c@9.0100` activation semantics;
+- preserves phone-bill parser version `4`, source money normalization and existing M4 HTTP/Cookie/session classification;
+- routes renewed Cookie/appID/token_online through the existing M5 `CredentialStore` and strips credential material before ordinary M8 state/cache;
+- adds app-private `AtomicFile` persistence at `phone-bill/phone-bill-snapshots.json` with synchronized read-modify-write and `fd.sync()`;
+- preserves the 13-month window, current-month 10-minute cache, historical 15-day cache and monthly day-2 08:00 recheck boundary in Asia/Shanghai;
+- keeps current-month cache account-local while allowing historical reuse only when the cached bill membership uniquely proves the target/source account relationship;
+- serializes network writes for the same historical month across store instances and preserves the latest queued month-selection intent;
+- keeps a successful network result visible if disk persistence fails and does not introduce a second credential/session authority;
+- accepted implementation head `8649aa57ecb970fe423956e6adaf31285abee2fa` passed the dedicated M8-C static gate, all core/data/app unit-test regression, Debug assembly and Release assembly in run `32924827574`.
+
+M8-A/M8-B/M8-C contain no final visual refinement. Final comprehensive-page visual parity remains deferred until the later page-by-page visual pass.
+
+`NEXT = Android-M8-D — Integral Client + Cache + Store`
 
 M0 is closed for progression by explicit migration decision. Deferred real iOS/Android screenshot evidence remains mandatory when the final page-by-page visual parity pass begins.
 

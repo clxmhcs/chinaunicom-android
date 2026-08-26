@@ -8,7 +8,7 @@ Substages:
 
 - `M8-A_RESULT = PASS / CLOSED`
 - `M8-B_RESULT = PASS / CLOSED`
-- `M8-C_RESULT = NOT_STARTED`
+- `M8-C_RESULT = PASS / CLOSED`
 - `M8-D_RESULT = NOT_STARTED`
 - `M8-E_RESULT = NOT_STARTED`
 
@@ -18,6 +18,7 @@ Accepted implementation heads:
 
 - M8-A: `896c923f8af877c16d73d94b2a620cb6f291f27c`
 - M8-B: `f8d74c6de77b57e729f02597c26306d0097d04e1`
+- M8-C: `8649aa57ecb970fe423956e6adaf31285abee2fa`
 
 ## Source-derived M8 boundary
 
@@ -27,7 +28,7 @@ M8 is therefore split as:
 
 1. **M8-A — comprehensive business model / refresh-policy / network-contract foundation — PASS / CLOSED**
 2. **M8-B — ordered business client + cache + store — PASS / CLOSED**
-3. **M8-C — phone bill client + cache + store**
+3. **M8-C — phone bill client + cache + store — PASS / CLOSED**
 4. **M8-D — integral client + cache + store**
 5. **M8-E — comprehensive root aggregation / entries / final functional closure**
 
@@ -150,6 +151,88 @@ Accepted source behavior:
 
 `AndroidOrderedBusinessStores.create(...)` composes the production M5 credential lifecycle, atomic disk cache, persisted settings policy and store without introducing UI or a second account/session repository.
 
+## M8-C accepted phone-bill semantics
+
+### Real client and session recovery
+
+`UnicomPhoneBillClient` reuses the existing M4 HTTP/Cookie/session stack and implements the source-defined phone-bill requests against `https://m.client.10010.com`:
+
+- POST `/serviceimportantbusiness/phoneBillNew/queryMonths` with the source blank compatibility form fields;
+- POST `/serviceimportantbusiness/phoneBillNew/queryDetail` with `month=<BillMonth.key>`;
+- 20-second transport timeout;
+- source session activation through `/mobileService/onLine.htm` with `appId`, `token_online` and `version=iphone_c@9.0100`;
+- activation applies returned `Set-Cookie` mutations to the existing business Cookie and preserves renewed appId/token_online;
+- activation is attempted only for source-equivalent session/login/cookie failures and is not used as a generic retry mechanism.
+
+The detail parser keeps `PhoneBillSnapshot.CURRENT_PARSER_VERSION = 4`, source field fallbacks, nested user/account sections, stable item identity and two-decimal monetary normalization.
+
+### M5 credential boundary
+
+`PhoneBillAccountCredentialLifecycle` is the only M8-C credential bridge:
+
+- reads credentials from the existing M5 `CredentialStore` by account UUID;
+- performs months/detail requests through the phone-bill client;
+- immediately saves any renewed Cookie/appID/token_online back to M5;
+- strips `updatedCredentials` before returning data to ordinary M8 state/cache;
+- fails before carrier access when credentials are absent.
+
+No phone-bill cache or store persists Cookie, appID, token_online, password, SMS code or captcha material.
+
+### Atomic cache and timing policy
+
+`AndroidPhoneBillDiskCache` stores account/month snapshots at:
+
+`filesDir/phone-bill/phone-bill-snapshots.json`
+
+Accepted persistence behavior:
+
+- account UUID -> month key -> `PhoneBillSnapshot` document shape;
+- Android `AtomicFile` with synchronized read-modify-write and `fd.sync()` before finish-write;
+- orphan account pruning and per-month removal;
+- decode failure fails closed to an empty cache rather than exposing partial data.
+
+`PhoneBillCachePolicy` preserves the source timing rules:
+
+- visible window: current month plus the preceding 12 months (`13` total);
+- current-month cache default: `10` minutes;
+- historical cache default: `15` days;
+- historical expiry is additionally capped by the next monthly recheck boundary, default day `2` at `08:00`;
+- month calculations use `Asia/Shanghai`;
+- future timestamps and parser-version mismatches are not considered fresh.
+
+### Current-month isolation and historical sharing
+
+Current-month snapshots are account-local. They are accepted only when the snapshot bill membership proves that it belongs to the selected account.
+
+Historical snapshots may be reused across local accounts only through `PhoneBillHistoricalCacheResolver` when all source conditions are satisfied:
+
+- the target/source local mobile identity is uniquely resolvable among local accounts;
+- the cached snapshot is fresh for the requested historical month;
+- the source identity appears exactly once in the bill-member list;
+- the target identity appears exactly once in the bill-member list;
+- current-month data is never shared;
+- when both own and shared candidates qualify, the newest qualifying snapshot wins.
+
+This sharing is based on the bill-member relationship returned by the phone-bill service; it does not reuse the M6 balance representative/grouping semantics.
+
+### Store / concurrency semantics
+
+`DefaultPhoneBillStore` owns a single `StateFlow<PhoneBillStoreState>` with months, selected/requested/failed month, snapshot and idle/loading/loaded/failed state.
+
+Accepted behavior:
+
+- load prunes orphan accounts and checks a fresh, account-owned current-month cache before carrier access;
+- otherwise it fetches the server month list, restricts it to the 13-month window, requires the current month and fetches current detail;
+- current-month selection uses only a valid own-account cache;
+- historical selection first resolves the best qualifying own/shared cache;
+- network writes for the same historical month are globally serialized across store instances by `PhoneBillHistoricalQueryCoordinator`;
+- manual historical refresh bypasses the pre-network shared-cache shortcut but still participates in the same-month serialization boundary;
+- while a request is active, only the latest queued month-selection intent is retained;
+- request failure leaves the previous successful snapshot available;
+- successful network data remains available in memory even when disk persistence fails.
+
+`AndroidPhoneBillStores.create(...)` composes the production M5 credential lifecycle, atomic disk cache, Settings-backed policy and existing `AccountRepository` without introducing another account/session authority.
+
 ## Security / persistence boundary
 
 - M5 Keystore remains the only account-credential authority;
@@ -160,7 +243,7 @@ Accepted source behavior:
 
 ## Visual / device boundary
 
-M8-A and M8-B contain no visual refinement and require **no real-device screenshots**.
+M8-A, M8-B and M8-C contain no final visual refinement and require **no real-device screenshots**.
 
 When M8-E later performs comprehensive functional-page acceptance, the exact screenshots needed will be stated before that substep. Final visual parity remains deferred until the page-by-page visual pass.
 
@@ -197,6 +280,29 @@ M8-B dedicated acceptance includes:
 - `android-m8-ordered-business` status publication;
 - failure gate skipped as expected after successful regression.
 
+### M8-C implementation head
+
+Initial implementation head `4c7621e6c404b0ccd748db8a466ac5a5835ed208` passed the M8-C static boundary but correctly failed the full regression because the new `data:phonebill` unit-test source set lacked a direct `:core:security` classpath dependency for `CredentialStore`. No M8-C closure was claimed from that run.
+
+The minimal classpath correction produced accepted implementation head `8649aa57ecb970fe423956e6adaf31285abee2fa`.
+
+M8-C Comprehensive Business run `32924827574` completed successfully and includes:
+
+- M8-C client/session/cache/store static gate;
+- phone-bill months/detail endpoint and compatibility-form tests;
+- `iphone_c@9.0100` session recovery, Cookie mutation and renewed-credential tests;
+- M5 credential save-and-strip tests;
+- parser-v4 detail/money/member tests;
+- atomic snapshot-codec/cache coverage;
+- 13-month, parser compatibility, historical-sharing and fresh-current-cache tests;
+- all existing `core:model`, `core:parser`, `core:network`, `core:security`, `core:login`, `core:storage`, `data:account`, `data:refresh`, `data:settings`, `data:balance`, `data:orderedbusiness`, `data:phonebill` and app unit tests;
+- Debug assembly;
+- Release assembly;
+- `android-m8-phone-bill` success status publication;
+- failure gate skipped as expected after the successful regression.
+
+The same accepted head also published successful M2, M6 and M7 status contexts on the workflows triggered by the classpath-only correction.
+
 ## Next
 
-`NEXT = Android-M8-C — Phone Bill Client + Cache + Store`
+`NEXT = Android-M8-D — Integral Client + Cache + Store`
