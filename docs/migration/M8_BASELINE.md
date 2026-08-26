@@ -10,7 +10,9 @@ Substages:
 - `M8-B_RESULT = PASS / CLOSED`
 - `M8-C_RESULT = PASS / CLOSED`
 - `M8-D_RESULT = PASS / CLOSED`
-- `M8-E_RESULT = NOT_STARTED`
+- `M8-E_RESULT = IN_PROGRESS`
+  - `M8-E1_RESULT = PASS / CLOSED`
+  - `M8-E2_RESULT = NOT_STARTED`
 
 Minimum supported Android version remains **Android 11 / API 30**.
 
@@ -20,6 +22,8 @@ Accepted implementation heads:
 - M8-B: `f8d74c6de77b57e729f02597c26306d0097d04e1`
 - M8-C: `8649aa57ecb970fe423956e6adaf31285abee2fa`
 - M8-D: `c091cb87036fa620bc0289312ec08e122e106ed9`
+- M8-E1 implementation: `fc1e0053f03509f07e9083012cfa57e83e437a03`
+- M8-E1 accepted repository head after forward-compatible M7 CI repair: `b7e040f451a2cbe80be41ff679442501fa8ece96`
 
 ## Source-derived M8 boundary
 
@@ -31,7 +35,9 @@ M8 is therefore split as:
 2. **M8-B — ordered business client + cache + store — PASS / CLOSED**
 3. **M8-C — phone bill client + cache + store — PASS / CLOSED**
 4. **M8-D — integral client + cache + store — PASS / CLOSED**
-5. **M8-E — comprehensive root aggregation / entries / final functional closure**
+5. **M8-E — comprehensive root aggregation / entries / final functional closure — IN_PROGRESS**
+   - **M8-E1 — cached root aggregation + five business entries — PASS / CLOSED**
+   - **M8-E2 — real-device comprehensive business functional validation — NOT_STARTED**
 
 Visual refinement remains deferred until the later page-by-page visual pass.
 
@@ -150,6 +156,54 @@ Accepted behavior:
 
 `AndroidIntegralStores.create(...)` composes the M5 request lifecycle, app-private cache and persisted Settings policy without introducing UI or a second account repository.
 
+## M8-E1 accepted comprehensive root semantics
+
+### Cache-only root aggregation
+
+`data:comprehensive` is the Android counterpart to the iOS comprehensive cached aggregation boundary. The root projection reads existing account/quota/balance/voice state plus persisted integral cache. It does not invoke the integral network client or trigger ordered-business / phone-bill carrier calls merely because the comprehensive root is opened.
+
+The cached-integral projection uses a request sequence so an older asynchronous read cannot overwrite a newer account set. Accounts removed from the current set are therefore not retained in the root projection.
+
+### Single existing repository / store authority
+
+The functional root wiring intentionally reuses established migration authorities:
+
+- quota / flow / voice / balance: M6 `FlowViewModel` and `UnicomRepository`;
+- ordered business: M8-B `OrderedBusinessStore`;
+- phone bill: M8-C `PhoneBillStore`;
+- integral: M8-D `IntegralStore`;
+- credentials: M5 `CredentialStoreProvider` only.
+
+No second HTTP stack, account repository, refresh coordinator or credential store is introduced.
+
+### Five business entries
+
+The comprehensive root exposes five functional destinations:
+
+1. ordered business;
+2. phone bill;
+3. flow remaining detail;
+4. voice remaining detail;
+5. integral overview/detail.
+
+The phone-bill entry resolves the existing M6 financial representative account. It does not select a random account and does not create a new balance/account grouping authority.
+
+The Compose layer in M8-E1 is functional wiring only. It is intentionally not final visual parity.
+
+### M8-E1 compile correction
+
+The first M8-E1 implementation commit `68b21cdf0494933afa93a597c4622ded68015314` passed the static gate but failed Kotlin compilation because account-route UUID parsing relied on an ambiguous inferred type. The minimal correction made the parsed route value explicitly nullable `UUID?`; no business semantics changed.
+
+Corrected implementation commit: `fc1e0053f03509f07e9083012cfa57e83e437a03`.
+
+### Forward-compatible M7 regression gate
+
+After M8-E1 passed its dedicated M8 workflow, the same implementation exposed a stale M7 CI assertion that required `versionName = "0.7.0-m7a"`. M8 had legitimately advanced the version to `0.8.0-m8e1`, so the old assertion was a CI-stage-version lock rather than a flow/voice functional regression.
+
+CI-only commit `b7e040f451a2cbe80be41ff679442501fa8ece96` changed that M7 assertion to require a valid version name without freezing later stages to the historical M7 version. No application business code changed.
+
+M7 run `32932152179` then completed successfully: static functional boundary, full M7 regression, status publication and Debug/Release assembly all passed; failure gate was skipped.
+
 ## Security / persistence boundary
 
 - M5 Keystore remains the only account-credential authority;
@@ -160,9 +214,21 @@ Accepted behavior:
 
 ## Visual / device boundary
 
-M8-A, M8-B, M8-C and M8-D contain no final visual refinement and require **no real-device screenshots**.
+M8-A, M8-B, M8-C, M8-D and M8-E1 contain no final visual refinement.
 
-M8-E is the comprehensive root functional integration stage. Before any M8-E substep that actually needs real-device evidence, the exact iOS/Android pages to capture must be stated explicitly. Final visual parity remains deferred until the later page-by-page visual pass.
+M8-E2 is the real-device functional validation stage. It validates that the comprehensive root and its five entries reach the correct real business states on an Android device. It is **not** the final visual-parity stage.
+
+Required Android real-device evidence before M8-E can close:
+
+1. comprehensive business root with at least one real account card and visible package/balance/flow/voice/integral fields;
+2. ordered-business page opened from the comprehensive root;
+3. phone-bill page opened from the comprehensive root, showing the resolved billing account and a real month/summary state;
+4. flow remaining detail opened from the comprehensive root;
+5. voice remaining detail opened from the comprehensive root;
+6. integral overview opened from the comprehensive root;
+7. one integral month/detail page, or the real empty/error state when the account has no detail data.
+
+Final page-by-page visual parity with iOS remains deferred until the later visual pass.
 
 ## CI acceptance
 
@@ -197,8 +263,23 @@ M8 Comprehensive Business run `32926493346` completed successfully:
 - `android-m8-integral` status publication — success;
 - failure gate — skipped as expected after successful verification.
 
-The same accepted implementation head also published successful M2, M5, M6 and M7 status contexts on the workflows triggered by the M8-D change.
+### M8-E1
+
+Corrected implementation head `fc1e0053f03509f07e9083012cfa57e83e437a03`.
+
+M8 Comprehensive Business run `32931819222` completed successfully:
+
+- M8-E1 comprehensive root aggregation / five-entry static gate — success;
+- `data:comprehensive` cache-projection tests — success;
+- all M8-B/M8-C/M8-D tests — success;
+- all existing core/data/app unit-test regression — success;
+- Debug assembly — success;
+- Release assembly — success;
+- `android-m8-comprehensive-root` publication — success;
+- failure gate — skipped.
+
+Repository head `b7e040f451a2cbe80be41ff679442501fa8ece96` contains the same accepted application implementation plus the M7 CI-only forward-compatibility correction. M7 run `32932152179` fully passed static/function regression and status publication.
 
 ## Next
 
-`NEXT = Android-M8-E — Comprehensive Root Aggregation / Entries / Final Functional Closure`
+`NEXT = Android-M8-E2 — Real-device Comprehensive Business Functional Validation`

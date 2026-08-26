@@ -49,8 +49,8 @@ M7-A functional flow/voice wiring is `PASS / CLOSED`:
 - flow remaining detail consumes `RemainingQuerySnapshot`, groups general/exclusive/other flow packages and implements source-derived two-item collapsed disclosure with `查看更多` / `收起`;
 - flow and voice detail can switch persisted accounts without creating another repository or refresh authority;
 - root lifecycle handling prevents duplicate quota/balance automatic work across tab changes;
-- app version is `0.7.0-m7a` and minimum Android remains API 30;
-- accepted implementation head passed M1/M2/M3/M4/M5/M6/M7 workflows, app unit tests and Debug/Release builds.
+- accepted M7 implementation was version `0.7.0-m7a`; later migration stages may advance the app version without invalidating the M7 functional boundary;
+- minimum Android remains API 30.
 
 Per the explicit project priority, **M7 final visual parity is deferred**. M7 closure here means functional/data/interaction migration is complete enough to progress to later business stages; it does not claim final app-owned spacing, card styling, typography, gradients, icons, progress bars or light/dark screenshot parity. Those will be refined page-by-page after the remaining business migration is complete.
 
@@ -80,9 +80,24 @@ M8-C implements the real phone-bill months/detail flow, parser version `4`, `iph
 - preserves a prior successful overview if network or disk persistence fails, while a detail disk-write failure keeps the newly fetched detail in memory and exposes an error;
 - accepted implementation head `c091cb87036fa620bc0289312ec08e122e106ed9` passed the dedicated M8-D static gate, integral client/lifecycle/store tests, all existing core/data/app unit-test regression, Debug assembly and Release assembly in run `32926493346`.
 
-M8-A/M8-B/M8-C/M8-D contain no final visual refinement. Final comprehensive-page visual parity remains deferred until the later page-by-page visual pass.
+`Android-M8-E — Comprehensive Root Aggregation / Entries / Final Functional Closure` is `IN_PROGRESS`.
 
-`NEXT = Android-M8-E — Comprehensive Root Aggregation / Entries / Final Functional Closure`
+`Android-M8-E1 — Cached Root Aggregation + Five Business Entries` is `PASS / CLOSED`:
+
+- adds `data:comprehensive` as a cache-only root aggregation boundary; the comprehensive root itself does not proactively refresh carrier data;
+- reuses M6 `FlowViewModel` / `UnicomRepository` for quota, voice and balance rather than introducing a second refresh authority;
+- reuses M8-B OrderedBusinessStore, M8-C PhoneBillStore and M8-D IntegralStore for their independent business flows;
+- routes the phone-bill entry through the existing M6 financial representative account instead of selecting a new representative;
+- wires five root entries: ordered business, phone bill, flow remaining, voice remaining and integral;
+- keeps all request credentials sourced only from M5 `CredentialStoreProvider`;
+- protects cached-integral projection against stale asynchronous account-set results;
+- keeps minimum Android at API 30 and intentionally performs only functional Compose wiring, not final visual refinement.
+
+M8-E1 implementation commit `fc1e0053f03509f07e9083012cfa57e83e437a03` passed the dedicated M8-E1 static gate, all core/data/app regression, Debug assembly and Release assembly in run `32931819222`. The follow-up CI-only commit `b7e040f451a2cbe80be41ff679442501fa8ece96` removed the obsolete M7 version-name lock; M7 static/function regression then fully passed in run `32932152179`.
+
+M8-A/M8-B/M8-C/M8-D/M8-E1 contain no final visual refinement. Final comprehensive-page visual parity remains deferred until the later page-by-page visual pass.
+
+`NEXT = Android-M8-E2 — Real-device Comprehensive Business Functional Validation`
 
 M0 is closed for progression by explicit migration decision. Deferred real iOS/Android screenshot evidence remains mandatory when the final page-by-page visual parity pass begins.
 
