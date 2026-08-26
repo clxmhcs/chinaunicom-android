@@ -14,10 +14,16 @@ import com.clxmhcs.chinaunicom.data.refresh.QuotaRefreshPolicyProvider
 import com.clxmhcs.chinaunicom.data.settings.AndroidSettingsRepositories
 import com.clxmhcs.chinaunicom.data.settings.BalanceRefreshIntervalSynchronizer
 
-/** Release wiring for M6 production repositories, shared AppState and shared balance gate. */
+/** Release wiring uses one process-wide production Repository/AppState authority. */
 object UnicomRepositoryProvider {
-    fun create(context: Context): UnicomRepository {
-        val appContext = context.applicationContext
+    @Volatile
+    private var instance: UnicomRepository? = null
+
+    fun create(context: Context): UnicomRepository = instance ?: synchronized(this) {
+        instance ?: build(context.applicationContext).also { instance = it }
+    }
+
+    private fun build(appContext: Context): UnicomRepository {
         val accountRepository = DefaultAccountRepository(
             store = AndroidAccountMetadataStores.accounts(appContext),
         )
@@ -48,6 +54,18 @@ object UnicomRepositoryProvider {
             configurationStore = AndroidBalanceConfigurationStore(appContext),
             settingsRepository = settingsRepository,
         )
-        return ProductionUnicomRepository(quotaRepository, balanceRepository)
+        return ProductionUnicomRepository(
+            quotaRepository = quotaRepository,
+            balanceRepository = balanceRepository,
+            reloadAccountsFromPersistenceAction = {
+                val persisted = accountRepository.loadAccounts()
+                refreshCoordinator.updateAccountsFromBalance { persisted }
+                if (balanceRepository.state.value.homeBalanceAccountID == null) {
+                    balanceRepository.setHomeBalanceAccountID(
+                        persisted.firstOrNull { it.isEnabled }?.id,
+                    )
+                }
+            },
+        )
     }
 }

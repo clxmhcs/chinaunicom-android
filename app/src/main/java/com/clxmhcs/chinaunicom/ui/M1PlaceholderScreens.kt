@@ -56,10 +56,7 @@ internal fun OtherBusinessPlaceholder() {
 
 @Composable
 internal fun SettingsPlaceholder() {
-    M1FeaturePlaceholder(
-        title = "设置",
-        message = "账户、刷新策略、Widget 与自动化配置将在对应阶段接入。",
-    )
+    SettingsAccountScreen()
 }
 
 @Composable

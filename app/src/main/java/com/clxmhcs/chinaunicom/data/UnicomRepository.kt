@@ -15,6 +15,9 @@ interface UnicomRepository {
     suspend fun refreshAccount(accountID: UUID)
     suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger)
 
+    /** Rehydrates the single production AppState after validated account metadata is created. */
+    suspend fun reloadAccountsFromPersistence() = Unit
+
     suspend fun runBalanceAutoRefreshLoop()
     suspend fun refreshHomeBalanceManually()
     suspend fun addBalanceAccountGroup()

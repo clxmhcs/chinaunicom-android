@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 class ProductionUnicomRepository(
     private val quotaRepository: QuotaRepository,
     private val balanceRepository: BalanceRepository,
+    private val reloadAccountsFromPersistenceAction: suspend () -> Unit = {},
 ) : UnicomRepository {
     override val appState: StateFlow<UnicomAppState> = quotaRepository.state
     override val balanceState: StateFlow<BalanceRepositoryState> = balanceRepository.state
@@ -19,6 +20,7 @@ class ProductionUnicomRepository(
     override suspend fun refreshAll() = quotaRepository.refreshAll()
     override suspend fun refreshAccount(accountID: UUID) = quotaRepository.refreshAccount(accountID)
     override suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger) = quotaRepository.autoRefreshIfNeeded(trigger)
+    override suspend fun reloadAccountsFromPersistence() = reloadAccountsFromPersistenceAction()
 
     override suspend fun runBalanceAutoRefreshLoop() = balanceRepository.runAutomaticRefreshLoop()
     override suspend fun refreshHomeBalanceManually() = balanceRepository.refreshHomeBalanceManually()
