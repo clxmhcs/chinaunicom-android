@@ -1,5 +1,6 @@
 package com.clxmhcs.chinaunicom.ui
 
+import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -32,6 +33,8 @@ private const val BILL_ROUTE = "comprehensive/bill/{accountId}"
 private const val FLOW_ROUTE = "comprehensive/flow/{accountId}"
 private const val VOICE_ROUTE = "comprehensive/voice/{accountId}"
 private const val INTEGRAL_ROUTE = "comprehensive/integral/{accountId}"
+private const val MY_ORDER_ROUTE = "other/my-order"
+private const val MY_ORDER_DETAIL_ROUTE = "other/my-order/detail/{accountId}/{orderId}"
 
 @Composable
 fun ChinaUnicomApp() {
@@ -39,6 +42,7 @@ fun ChinaUnicomApp() {
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val flowViewModel: FlowViewModel = viewModel()
     val comprehensiveViewModel: ComprehensiveBusinessViewModel = viewModel()
+    val myOrderViewModel: MyOrderViewModel = viewModel()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner, flowViewModel) {
@@ -64,27 +68,21 @@ fun ChinaUnicomApp() {
                 tonalElevation = 0.dp,
             ) {
                 RootTab.entries.forEach { tab ->
-                    val selected = if (tab == RootTab.Comprehensive) {
-                        currentRoute?.startsWith(RootTab.Comprehensive.route) == true ||
-                            currentRoute?.startsWith("comprehensive/") == true
-                    } else currentRoute == tab.route
+                    val selected = when (tab) {
+                        RootTab.Comprehensive -> currentRoute?.startsWith(RootTab.Comprehensive.route) == true || currentRoute?.startsWith("comprehensive/") == true
+                        RootTab.OtherBusiness -> currentRoute == tab.route || currentRoute?.startsWith("other/") == true
+                        else -> currentRoute == tab.route
+                    }
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
                             navController.navigate(tab.route) {
-                                popUpTo(RootTab.Flow.route) {
-                                    saveState = true
-                                }
+                                popUpTo(RootTab.Flow.route) { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
                             }
                         },
-                        icon = {
-                            Text(
-                                text = tab.glyph,
-                                fontSize = 19.sp,
-                            )
-                        },
+                        icon = { Text(text = tab.glyph, fontSize = 19.sp) },
                         label = { Text(text = tab.label) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
@@ -128,37 +126,46 @@ fun ChinaUnicomApp() {
             }
             composable(FLOW_ROUTE) { entry ->
                 BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
-                    ComprehensiveRemainingEntryScreen(
-                        initialAccount = account,
-                        accounts = accounts,
-                        initialVoice = false,
-                        flowViewModel = flowViewModel,
-                        onBack = { navController.popBackStack() },
-                    )
+                    ComprehensiveRemainingEntryScreen(account, accounts, false, flowViewModel) { navController.popBackStack() }
                 }
             }
             composable(VOICE_ROUTE) { entry ->
                 BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
-                    ComprehensiveRemainingEntryScreen(
-                        initialAccount = account,
-                        accounts = accounts,
-                        initialVoice = true,
-                        flowViewModel = flowViewModel,
-                        onBack = { navController.popBackStack() },
-                    )
+                    ComprehensiveRemainingEntryScreen(account, accounts, true, flowViewModel) { navController.popBackStack() }
                 }
             }
             composable(INTEGRAL_ROUTE) { entry ->
                 BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
-                    IntegralEntryScreen(
-                        account = account,
-                        allAccountIDs = accounts.map { it.id },
-                        businessViewModel = comprehensiveViewModel,
-                        onBack = { navController.popBackStack() },
-                    )
+                    IntegralEntryScreen(account, accounts.map { it.id }, comprehensiveViewModel) { navController.popBackStack() }
                 }
             }
-            composable(RootTab.OtherBusiness.route) { OtherBusinessPlaceholder() }
+            composable(RootTab.OtherBusiness.route) {
+                OtherBusinessScreen(onOpenMyOrder = { navController.navigate(MY_ORDER_ROUTE) })
+            }
+            composable(MY_ORDER_ROUTE) {
+                val flowState by flowViewModel.uiState.collectAsState()
+                val accounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                MyOrderScreen(
+                    accounts = accounts,
+                    viewModel = myOrderViewModel,
+                    onBack = { navController.popBackStack() },
+                    onOpenDetail = { account, order ->
+                        navController.navigate("other/my-order/detail/${account.id}/${Uri.encode(order.id)}")
+                    },
+                )
+            }
+            composable(MY_ORDER_DETAIL_ROUTE) { entry ->
+                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                    val orderState by myOrderViewModel.state.collectAsState()
+                    val orderID = entry.arguments?.getString("orderId")?.let(Uri::decode)
+                    val order = orderState.orders.firstOrNull { it.id == orderID }
+                    if (order == null) {
+                        Text("订单不存在，请返回列表重新加载")
+                    } else {
+                        MyOrderDetailScreen(account, order, myOrderViewModel) { navController.popBackStack() }
+                    }
+                }
+            }
             composable(RootTab.Settings.route) { SettingsPlaceholder() }
         }
     }
@@ -172,15 +179,7 @@ private fun BusinessAccountDestination(
 ) {
     val state by flowViewModel.uiState.collectAsState()
     val accounts = (state as? FlowUiState.Content)?.accounts.orEmpty()
-    val accountID: UUID? = rawAccountID?.let { raw ->
-        runCatching { UUID.fromString(raw) }.getOrNull()
-    }
-    val account: UnicomAccount? = accountID?.let { id ->
-        accounts.firstOrNull { it.id == id }
-    }
-    if (account == null) {
-        Text("号码不存在或尚未加载")
-    } else {
-        content(account, accounts)
-    }
+    val accountID: UUID? = rawAccountID?.let { raw -> runCatching { UUID.fromString(raw) }.getOrNull() }
+    val account: UnicomAccount? = accountID?.let { id -> accounts.firstOrNull { it.id == id } }
+    if (account == null) Text("号码不存在或尚未加载") else content(account, accounts)
 }
