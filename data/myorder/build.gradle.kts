@@ -20,6 +20,8 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:login"))
     implementation(project(":core:network"))
+    implementation(project(":data:settings"))
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit4)
 }

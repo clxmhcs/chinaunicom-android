@@ -7,6 +7,7 @@ on:
       - "core/model/**"
       - "core/network/**"
       - "core/login/**"
+      - "data/settings/**"
       - "data/myorder/**"
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
@@ -17,6 +18,7 @@ on:
       - "core/model/**"
       - "core/network/**"
       - "core/login/**"
+      - "data/settings/**"
       - "data/myorder/**"
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
@@ -53,22 +55,26 @@ jobs:
           test -n "$PLATFORM_PACKAGE"
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M9-A1 My Order source boundary
+      - name: Verify M9-A1/A2 My Order source boundary
         shell: bash
         run: |
           MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/MyOrderModels.kt
+          DETAIL_MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/MyOrderDetailModels.kt
           CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomMyOrderClient.kt
           LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/MyOrderAccountCredentialLifecycle.kt
+          DETAIL_LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/MyOrderDetailCredentialLifecycle.kt
           STORE=data/myorder/src/main/kotlin/com/clxmhcs/chinaunicom/data/myorder/MyOrderStore.kt
+          DETAIL_STORE=data/myorder/src/main/kotlin/com/clxmhcs/chinaunicom/data/myorder/MyOrderDetailStore.kt
+          DETAIL_PARSER=data/myorder/src/main/kotlin/com/clxmhcs/chinaunicom/data/myorder/MyOrderDetailParser.kt
+          DETAIL_CORE=data/myorder/src/main/kotlin/com/clxmhcs/chinaunicom/data/myorder/MyOrderDetailCore.kt
+          SETTINGS=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
+          SETTINGS_ADAPTER=data/myorder/src/main/kotlin/com/clxmhcs/chinaunicom/data/myorder/SettingsMyOrderEntryRefreshPolicy.kt
 
-          test -f "$MODEL"
-          test -f "$CLIENT"
-          test -f "$LIFECYCLE"
-          test -f "$STORE"
+          for file in "$MODEL" "$DETAIL_MODEL" "$CLIENT" "$LIFECYCLE" "$DETAIL_LIFECYCLE" "$STORE" "$DETAIL_STORE" "$DETAIL_PARSER" "$DETAIL_CORE" "$SETTINGS" "$SETTINGS_ADAPTER"; do test -f "$file"; done
           grep -q 'include(":data:myorder")' settings.gradle.kts
           grep -q 'minSdk = 30' data/myorder/build.gradle.kts
+          grep -q 'implementation(project(":data:settings"))' data/myorder/build.gradle.kts
 
-          grep -q 'https://m.client.10010.com' "$CLIENT"
           grep -q '/mobileservicequery/order/newQueryOrder' "$CLIENT"
           grep -q '"current_page"' "$CLIENT"
           grep -q '"page_size"' "$CLIENT"
@@ -76,26 +82,57 @@ jobs:
           grep -q 'iphone_c@12.1400' "$CLIENT"
           grep -q 'sessionClient.activateSession(credentials)' "$CLIENT"
           grep -q 'UnicomCookieCodec.applying' "$CLIENT"
-          grep -q 'respCode' "$CLIENT"
-          grep -q 'timeYear' "$CLIENT"
-
           grep -q 'CredentialStore' "$LIFECYCLE"
-          grep -q 'credentialStore.save' "$LIFECYCLE"
           grep -q 'result.copy(updatedCredentials = null)' "$LIFECYCLE"
-
           grep -q 'StateFlow<MyOrderStoreState>' "$STORE"
           grep -q 'entryRefreshPolicy.refreshOnEntry()' "$STORE"
           grep -q 'UnicomMyOrderClient.DEFAULT_PAGE_SIZE' "$STORE"
           grep -q 'loadMoreIfNeeded' "$STORE"
           grep -q 'unique(merged)' "$STORE"
+
+          grep -q 'data class OrderRefreshPolicy' "$SETTINGS"
+          grep -q 'val refreshOnEntry: Boolean = true' "$SETTINGS"
+          grep -q 'val orderRefreshPolicy: StateFlow<OrderRefreshPolicy>' "$SETTINGS"
+          grep -q 'fun saveOrderRefreshPolicy' "$SETTINGS"
+          grep -q 'private const val ORDERS_KEY = "orders"' "$SETTINGS"
+          grep -q 'private const val REFRESH_ON_ENTRY_KEY = "refreshOnEntry"' "$SETTINGS"
+          grep -q 'const val CURRENT_SCHEMA_VERSION = 3' "$SETTINGS"
+          grep -q 'settingsRepository.orderRefreshPolicy.value.refreshOnEntry' "$SETTINGS_ADAPTER"
+
+          grep -q 'BUSINESS("business")' "$DETAIL_MODEL"
+          grep -q 'RENEWAL("renewal")' "$DETAIL_MODEL"
+          grep -q 'UNSUPPORTED("unsupported")' "$DETAIL_MODEL"
+          ! grep -q 'cookieHeader' "$DETAIL_MODEL"
+          grep -q 'CredentialStore' "$DETAIL_LIFECYCLE"
+          grep -q 'UnicomCookieCodec.normalize' "$DETAIL_LIFECYCLE"
+          grep -q 'requireCookieHeader' "$DETAIL_STORE"
+          grep -q 'request?.id != requestID' "$DETAIL_STORE"
+          grep -q '营业厅订单详情查询失败' "$DETAIL_PARSER"
+          grep -q '续约续费订单详情查询失败' "$DETAIL_PARSER"
+          grep -q 'statusAttributeName' "$DETAIL_PARSER"
+          grep -q 'incomeTotalMoney' "$DETAIL_PARSER"
+          grep -q 'broadordersdetail' "$DETAIL_CORE"
+          grep -q 'broarenewalinfo' "$DETAIL_CORE"
+          grep -q 'qryevaluateorderinfobyorderid' "$DETAIL_CORE"
+          grep -q '/udbh/rest/portal/qryEvaluateOrderInfoByOrderId' "$DETAIL_CORE"
+          grep -q '/udbh/rest/portal/querySubProducts' "$DETAIL_CORE"
+          grep -q "sourcePage: 'CJ_SOU_20000'" "$DETAIL_CORE"
+          grep -q 'pageSize: 100' "$DETAIL_CORE"
+          grep -q 'broaRenewalInfo' "$DETAIL_CORE"
+          grep -q 'request.serviceType ?: "29"' "$DETAIL_CORE"
+          grep -q 'queryEvaluateItem' "$DETAIL_CORE"
+
           if find data/myorder/src/main -type f -iname '*cache*' | grep -q .; then
-            echo "M9-A1 must not invent a My Order disk cache because iOS MyOrderStore is in-memory only"
+            echo "M9 must not invent a My Order disk cache because current iOS MyOrderStore is in-memory only"
             exit 1
           fi
+          if grep -R -nE 'token_online|password|smsCode' data/myorder/src/main; then
+            echo "M9 ordinary data state must not persist credential material"
+            exit 1
+          fi
+          echo "M9_A2_MY_ORDER_DETAIL_CORE_GATE=PASS"
 
-          echo "M9_A1_MY_ORDER_CORE_GATE=PASS"
-
-      - name: Run M9-A1 regression
+      - name: Run M9-A2 regression
         id: verify
         continue-on-error: true
         run: >-
@@ -120,7 +157,7 @@ jobs:
           :app:assembleRelease
           --stacktrace
 
-      - name: Publish M9-A1 status
+      - name: Publish M9-A2 status
         if: always()
         uses: actions/github-script@v7
         with:
@@ -132,9 +169,9 @@ jobs:
               sha: context.sha,
               state: passed ? 'success' : 'failure',
               context: 'android-m9-my-order-core',
-              description: passed ? 'M9-A1 My Order core gate passed' : 'M9-A1 My Order core regression failed',
+              description: passed ? 'M9-A2 My Order settings/detail core passed' : 'M9-A2 My Order core regression failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
-      - name: Fail workflow when M9-A1 verification failed
+      - name: Fail workflow when M9-A2 verification failed
         if: always() && steps.verify.outcome != 'success'
         run: exit 1

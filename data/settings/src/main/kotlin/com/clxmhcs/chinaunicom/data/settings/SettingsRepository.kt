@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.contentOrNull
 
 data class BalanceRefreshPolicy(
     val automaticRefreshEnabled: Boolean = true,
@@ -62,39 +63,20 @@ data class IntegralRefreshPolicy(
     val checkOnEntry: Boolean = true,
 )
 
+data class OrderRefreshPolicy(
+    val refreshOnEntry: Boolean = true,
+)
+
 fun interface BalanceRefreshIntervalSynchronizer {
     fun setRefreshIntervalMinutes(minutes: Int): Boolean
 }
 
-data class QuotaRefreshPolicySaveResult(
-    val persisted: Boolean,
-    val changed: Boolean,
-    val policy: QuotaRefreshPolicy,
-)
-
-data class BalanceRefreshPolicySaveResult(
-    val persisted: Boolean,
-    val changed: Boolean,
-    val policy: BalanceRefreshPolicy,
-)
-
-data class OrderedBusinessRefreshPolicySaveResult(
-    val persisted: Boolean,
-    val changed: Boolean,
-    val policy: OrderedBusinessRefreshPolicy,
-)
-
-data class PhoneBillRefreshPolicySaveResult(
-    val persisted: Boolean,
-    val changed: Boolean,
-    val policy: PhoneBillRefreshPolicy,
-)
-
-data class IntegralRefreshPolicySaveResult(
-    val persisted: Boolean,
-    val changed: Boolean,
-    val policy: IntegralRefreshPolicy,
-)
+data class QuotaRefreshPolicySaveResult(val persisted: Boolean, val changed: Boolean, val policy: QuotaRefreshPolicy)
+data class BalanceRefreshPolicySaveResult(val persisted: Boolean, val changed: Boolean, val policy: BalanceRefreshPolicy)
+data class OrderedBusinessRefreshPolicySaveResult(val persisted: Boolean, val changed: Boolean, val policy: OrderedBusinessRefreshPolicy)
+data class PhoneBillRefreshPolicySaveResult(val persisted: Boolean, val changed: Boolean, val policy: PhoneBillRefreshPolicy)
+data class IntegralRefreshPolicySaveResult(val persisted: Boolean, val changed: Boolean, val policy: IntegralRefreshPolicy)
+data class OrderRefreshPolicySaveResult(val persisted: Boolean, val changed: Boolean, val policy: OrderRefreshPolicy)
 
 interface SettingsRepository {
     val quotaRefreshPolicy: StateFlow<QuotaRefreshPolicy>
@@ -102,18 +84,21 @@ interface SettingsRepository {
     val orderedBusinessRefreshPolicy: StateFlow<OrderedBusinessRefreshPolicy>
     val phoneBillRefreshPolicy: StateFlow<PhoneBillRefreshPolicy>
     val integralRefreshPolicy: StateFlow<IntegralRefreshPolicy>
+    val orderRefreshPolicy: StateFlow<OrderRefreshPolicy>
 
     fun loadQuotaRefreshPolicy(): QuotaRefreshPolicy
     fun loadBalanceRefreshPolicy(): BalanceRefreshPolicy
     fun loadOrderedBusinessRefreshPolicy(): OrderedBusinessRefreshPolicy
     fun loadPhoneBillRefreshPolicy(): PhoneBillRefreshPolicy
     fun loadIntegralRefreshPolicy(): IntegralRefreshPolicy
+    fun loadOrderRefreshPolicy(): OrderRefreshPolicy
 
     fun saveQuotaRefreshPolicy(policy: QuotaRefreshPolicy): QuotaRefreshPolicySaveResult
     fun saveBalanceRefreshPolicy(policy: BalanceRefreshPolicy): BalanceRefreshPolicySaveResult
     fun saveOrderedBusinessRefreshPolicy(policy: OrderedBusinessRefreshPolicy): OrderedBusinessRefreshPolicySaveResult
     fun savePhoneBillRefreshPolicy(policy: PhoneBillRefreshPolicy): PhoneBillRefreshPolicySaveResult
     fun saveIntegralRefreshPolicy(policy: IntegralRefreshPolicy): IntegralRefreshPolicySaveResult
+    fun saveOrderRefreshPolicy(policy: OrderRefreshPolicy): OrderRefreshPolicySaveResult
 }
 
 interface RefreshLogicPolicyStorage {
@@ -132,24 +117,26 @@ class DefaultSettingsRepository(
     private val _orderedBusinessRefreshPolicy = MutableStateFlow(initial.orderedBusiness)
     private val _phoneBillRefreshPolicy = MutableStateFlow(initial.phoneBill)
     private val _integralRefreshPolicy = MutableStateFlow(initial.integral)
+    private val _orderRefreshPolicy = MutableStateFlow(initial.orders)
 
     override val quotaRefreshPolicy: StateFlow<QuotaRefreshPolicy> = _quotaRefreshPolicy.asStateFlow()
     override val balanceRefreshPolicy: StateFlow<BalanceRefreshPolicy> = _balanceRefreshPolicy.asStateFlow()
     override val orderedBusinessRefreshPolicy: StateFlow<OrderedBusinessRefreshPolicy> = _orderedBusinessRefreshPolicy.asStateFlow()
     override val phoneBillRefreshPolicy: StateFlow<PhoneBillRefreshPolicy> = _phoneBillRefreshPolicy.asStateFlow()
     override val integralRefreshPolicy: StateFlow<IntegralRefreshPolicy> = _integralRefreshPolicy.asStateFlow()
+    override val orderRefreshPolicy: StateFlow<OrderRefreshPolicy> = _orderRefreshPolicy.asStateFlow()
 
     override fun loadQuotaRefreshPolicy(): QuotaRefreshPolicy = reload().quota
     override fun loadBalanceRefreshPolicy(): BalanceRefreshPolicy = reload().balance
     override fun loadOrderedBusinessRefreshPolicy(): OrderedBusinessRefreshPolicy = reload().orderedBusiness
     override fun loadPhoneBillRefreshPolicy(): PhoneBillRefreshPolicy = reload().phoneBill
     override fun loadIntegralRefreshPolicy(): IntegralRefreshPolicy = reload().integral
+    override fun loadOrderRefreshPolicy(): OrderRefreshPolicy = reload().orders
 
     override fun saveQuotaRefreshPolicy(policy: QuotaRefreshPolicy): QuotaRefreshPolicySaveResult {
         val previousRaw = storage.read()
         val previous = previousRaw?.let(codec::decode)?.quota
-        val encoded = codec.mergeQuotaPolicy(previousRaw, policy)
-        val persisted = storage.write(encoded)
+        val persisted = storage.write(codec.mergeQuotaPolicy(previousRaw, policy))
         if (persisted) _quotaRefreshPolicy.value = policy
         return QuotaRefreshPolicySaveResult(persisted, previous == null || previous != policy, policy)
     }
@@ -161,15 +148,12 @@ class DefaultSettingsRepository(
         if (!balanceIntervalSynchronizer.setRefreshIntervalMinutes(normalized.intervalMinutes)) {
             return BalanceRefreshPolicySaveResult(false, previous == null || previous != normalized, normalized)
         }
-        val encoded = codec.mergeBalancePolicy(previousRaw, normalized)
-        val persisted = storage.write(encoded)
+        val persisted = storage.write(codec.mergeBalancePolicy(previousRaw, normalized))
         if (persisted) _balanceRefreshPolicy.value = normalized
         return BalanceRefreshPolicySaveResult(persisted, previous == null || previous != normalized, normalized)
     }
 
-    override fun saveOrderedBusinessRefreshPolicy(
-        policy: OrderedBusinessRefreshPolicy,
-    ): OrderedBusinessRefreshPolicySaveResult {
+    override fun saveOrderedBusinessRefreshPolicy(policy: OrderedBusinessRefreshPolicy): OrderedBusinessRefreshPolicySaveResult {
         val normalized = policy.copy(
             cacheValidityHours = policy.cacheValidityHours.coerceAtLeast(1),
             refreshAllAccountGapSeconds = policy.refreshAllAccountGapSeconds.coerceAtLeast(0),
@@ -208,6 +192,14 @@ class DefaultSettingsRepository(
         return IntegralRefreshPolicySaveResult(persisted, previous == null || previous != normalized, normalized)
     }
 
+    override fun saveOrderRefreshPolicy(policy: OrderRefreshPolicy): OrderRefreshPolicySaveResult {
+        val previousRaw = storage.read()
+        val previous = previousRaw?.let(codec::decode)?.orders
+        val persisted = storage.write(codec.mergeOrderPolicy(previousRaw, policy))
+        if (persisted) _orderRefreshPolicy.value = policy
+        return OrderRefreshPolicySaveResult(persisted, previous == null || previous != policy, policy)
+    }
+
     private fun reload(): DecodedAppRefreshLogicPolicy {
         val value = loadFromStorage()
         _quotaRefreshPolicy.value = value.quota
@@ -215,6 +207,7 @@ class DefaultSettingsRepository(
         _orderedBusinessRefreshPolicy.value = value.orderedBusiness
         _phoneBillRefreshPolicy.value = value.phoneBill
         _integralRefreshPolicy.value = value.integral
+        _orderRefreshPolicy.value = value.orders
         return value
     }
 
@@ -236,6 +229,7 @@ data class DecodedAppRefreshLogicPolicy(
     val orderedBusiness: OrderedBusinessRefreshPolicy,
     val phoneBill: PhoneBillRefreshPolicy,
     val integral: IntegralRefreshPolicy,
+    val orders: OrderRefreshPolicy,
 ) {
     companion object {
         fun defaults() = DecodedAppRefreshLogicPolicy(
@@ -245,6 +239,7 @@ data class DecodedAppRefreshLogicPolicy(
             orderedBusiness = OrderedBusinessRefreshPolicy(),
             phoneBill = PhoneBillRefreshPolicy(),
             integral = IntegralRefreshPolicy(),
+            orders = OrderRefreshPolicy(),
         )
     }
 }
@@ -265,6 +260,8 @@ class AppRefreshLogicPolicyCodec(
         val bill = root[PHONE_BILL_KEY] as? JsonObject
         val integralDefaults = IntegralRefreshPolicy()
         val integral = root[INTEGRAL_KEY] as? JsonObject
+        val orderDefaults = OrderRefreshPolicy()
+        val orders = root[ORDERS_KEY] as? JsonObject
         val decodedInterval = intValue(balance?.get(BALANCE_INTERVAL_MINUTES_KEY)) ?: balanceDefaults.intervalMinutes
         val migratedInterval = if (schemaVersion < 3 && decodedInterval == 15) 60 else decodedInterval
 
@@ -287,49 +284,34 @@ class AppRefreshLogicPolicyCodec(
                 entryMode = CachedBusinessEntryMode.fromRawValue(stringValue(ordered?.get(ENTRY_MODE_KEY))) ?: orderedDefaults.entryMode,
                 cacheValidityHours = (intValue(ordered?.get(CACHE_VALIDITY_HOURS_KEY)) ?: orderedDefaults.cacheValidityHours).coerceAtLeast(1),
                 noCacheAutoQuery = boolValue(ordered?.get(NO_CACHE_AUTO_QUERY_KEY)) ?: orderedDefaults.noCacheAutoQuery,
-                refreshAllAccountGapSeconds = (intValue(ordered?.get(REFRESH_ALL_ACCOUNT_GAP_SECONDS_KEY))
-                    ?: orderedDefaults.refreshAllAccountGapSeconds).coerceAtLeast(0),
+                refreshAllAccountGapSeconds = (intValue(ordered?.get(REFRESH_ALL_ACCOUNT_GAP_SECONDS_KEY)) ?: orderedDefaults.refreshAllAccountGapSeconds).coerceAtLeast(0),
             ),
             phoneBill = PhoneBillRefreshPolicy(
-                currentMonthCacheMinutes = (intValue(bill?.get(CURRENT_MONTH_CACHE_MINUTES_KEY))
-                    ?: billDefaults.currentMonthCacheMinutes).coerceAtLeast(1),
-                historicalCacheDays = (intValue(bill?.get(HISTORICAL_CACHE_DAYS_KEY))
-                    ?: billDefaults.historicalCacheDays).coerceAtLeast(1),
-                monthlyRecheckDay = (intValue(bill?.get(MONTHLY_RECHECK_DAY_KEY))
-                    ?: billDefaults.monthlyRecheckDay).coerceIn(1, 28),
-                monthlyRecheckHour = (intValue(bill?.get(MONTHLY_RECHECK_HOUR_KEY))
-                    ?: billDefaults.monthlyRecheckHour).coerceIn(0, 23),
+                currentMonthCacheMinutes = (intValue(bill?.get(CURRENT_MONTH_CACHE_MINUTES_KEY)) ?: billDefaults.currentMonthCacheMinutes).coerceAtLeast(1),
+                historicalCacheDays = (intValue(bill?.get(HISTORICAL_CACHE_DAYS_KEY)) ?: billDefaults.historicalCacheDays).coerceAtLeast(1),
+                monthlyRecheckDay = (intValue(bill?.get(MONTHLY_RECHECK_DAY_KEY)) ?: billDefaults.monthlyRecheckDay).coerceIn(1, 28),
+                monthlyRecheckHour = (intValue(bill?.get(MONTHLY_RECHECK_HOUR_KEY)) ?: billDefaults.monthlyRecheckHour).coerceIn(0, 23),
             ),
             integral = IntegralRefreshPolicy(
-                automaticRefreshEnabled = boolValue(integral?.get(AUTOMATIC_REFRESH_ENABLED_KEY))
-                    ?: integralDefaults.automaticRefreshEnabled,
-                cycleMode = IntegralRefreshCycleMode.fromRawValue(stringValue(integral?.get(CYCLE_MODE_KEY)))
-                    ?: integralDefaults.cycleMode,
-                monthlyRefreshDay = (intValue(integral?.get(MONTHLY_REFRESH_DAY_KEY))
-                    ?: integralDefaults.monthlyRefreshDay).coerceIn(1, 28),
-                monthlyRefreshHour = (intValue(integral?.get(MONTHLY_REFRESH_HOUR_KEY))
-                    ?: integralDefaults.monthlyRefreshHour).coerceIn(0, 23),
-                fixedIntervalHours = (intValue(integral?.get(FIXED_INTERVAL_HOURS_KEY))
-                    ?: integralDefaults.fixedIntervalHours).coerceAtLeast(1),
+                automaticRefreshEnabled = boolValue(integral?.get(AUTOMATIC_REFRESH_ENABLED_KEY)) ?: integralDefaults.automaticRefreshEnabled,
+                cycleMode = IntegralRefreshCycleMode.fromRawValue(stringValue(integral?.get(CYCLE_MODE_KEY))) ?: integralDefaults.cycleMode,
+                monthlyRefreshDay = (intValue(integral?.get(MONTHLY_REFRESH_DAY_KEY)) ?: integralDefaults.monthlyRefreshDay).coerceIn(1, 28),
+                monthlyRefreshHour = (intValue(integral?.get(MONTHLY_REFRESH_HOUR_KEY)) ?: integralDefaults.monthlyRefreshHour).coerceIn(0, 23),
+                fixedIntervalHours = (intValue(integral?.get(FIXED_INTERVAL_HOURS_KEY)) ?: integralDefaults.fixedIntervalHours).coerceAtLeast(1),
                 checkOnEntry = boolValue(integral?.get(CHECK_ON_ENTRY_KEY)) ?: integralDefaults.checkOnEntry,
+            ),
+            orders = OrderRefreshPolicy(
+                refreshOnEntry = boolValue(orders?.get(REFRESH_ON_ENTRY_KEY)) ?: orderDefaults.refreshOnEntry,
             ),
         )
     }
 
-    fun mergeQuotaPolicy(existingRaw: String?, policy: QuotaRefreshPolicy): String =
-        mergeDomain(existingRaw, QUOTA_KEY, quotaElement(policy))
-
-    fun mergeBalancePolicy(existingRaw: String?, policy: BalanceRefreshPolicy): String =
-        mergeDomain(existingRaw, BALANCE_KEY, balanceElement(policy))
-
-    fun mergeOrderedBusinessPolicy(existingRaw: String?, policy: OrderedBusinessRefreshPolicy): String =
-        mergeDomain(existingRaw, ORDERED_BUSINESS_KEY, orderedBusinessElement(policy))
-
-    fun mergePhoneBillPolicy(existingRaw: String?, policy: PhoneBillRefreshPolicy): String =
-        mergeDomain(existingRaw, PHONE_BILL_KEY, phoneBillElement(policy))
-
-    fun mergeIntegralPolicy(existingRaw: String?, policy: IntegralRefreshPolicy): String =
-        mergeDomain(existingRaw, INTEGRAL_KEY, integralElement(policy))
+    fun mergeQuotaPolicy(existingRaw: String?, policy: QuotaRefreshPolicy): String = mergeDomain(existingRaw, QUOTA_KEY, quotaElement(policy))
+    fun mergeBalancePolicy(existingRaw: String?, policy: BalanceRefreshPolicy): String = mergeDomain(existingRaw, BALANCE_KEY, balanceElement(policy))
+    fun mergeOrderedBusinessPolicy(existingRaw: String?, policy: OrderedBusinessRefreshPolicy): String = mergeDomain(existingRaw, ORDERED_BUSINESS_KEY, orderedBusinessElement(policy))
+    fun mergePhoneBillPolicy(existingRaw: String?, policy: PhoneBillRefreshPolicy): String = mergeDomain(existingRaw, PHONE_BILL_KEY, phoneBillElement(policy))
+    fun mergeIntegralPolicy(existingRaw: String?, policy: IntegralRefreshPolicy): String = mergeDomain(existingRaw, INTEGRAL_KEY, integralElement(policy))
+    fun mergeOrderPolicy(existingRaw: String?, policy: OrderRefreshPolicy): String = mergeDomain(existingRaw, ORDERS_KEY, orderElement(policy))
 
     fun mergeAll(existingRaw: String?, decoded: DecodedAppRefreshLogicPolicy): String {
         val existing = existingRaw?.let(::parseRoot) ?: JsonObject(emptyMap())
@@ -340,6 +322,7 @@ class AppRefreshLogicPolicyCodec(
         merged[ORDERED_BUSINESS_KEY] = orderedBusinessElement(decoded.orderedBusiness)
         merged[PHONE_BILL_KEY] = phoneBillElement(decoded.phoneBill)
         merged[INTEGRAL_KEY] = integralElement(decoded.integral)
+        merged[ORDERS_KEY] = orderElement(decoded.orders)
         return JsonObject(merged).toString()
     }
 
@@ -353,7 +336,7 @@ class AppRefreshLogicPolicyCodec(
 
     private fun quotaElement(policy: QuotaRefreshPolicy) = JsonObject(linkedMapOf(
         AUTOMATIC_REFRESH_ENABLED_KEY to JsonPrimitive(policy.automaticRefreshEnabled),
-        REFRESH_ON_COLD_LAUNCH_KEY to JsonPrimitive(policy.refreshOnColdLaunch),
+        REFRESH_ON_COLD_LAUNCHA_KEY to JsonPrimitive(policy.refreshOnColdLaunch),
         REFRESH_ON_FOREGROUND_KEY to JsonPrimitive(policy.refreshOnForeground),
         MINIMUM_INTERVAL_MINUTES_KEY to JsonPrimitive(policy.minimumIntervalMinutes),
         ACCOUNT_GAP_SECONDS_KEY to JsonPrimitive(policy.accountGapSeconds),
@@ -389,6 +372,10 @@ class AppRefreshLogicPolicyCodec(
         CHECK_ON_ENTRY_KEY to JsonPrimitive(policy.checkOnEntry),
     ))
 
+    private fun orderElement(policy: OrderRefreshPolicy) = JsonObject(linkedMapOf(
+        REFRESH_ON_ENTRY_KEY to JsonPrimitive(policy.refreshOnEntry),
+    ))
+
     private fun parseRoot(raw: String): JsonObject? = runCatching { json.parseToJsonElement(raw) as? JsonObject }.getOrNull()
     private fun boolValue(value: JsonElement?): Boolean? = (value as? JsonPrimitive)?.booleanOrNull
     private fun intValue(value: JsonElement?): Int? = (value as? JsonPrimitive)?.intOrNull
@@ -404,9 +391,10 @@ class AppRefreshLogicPolicyCodec(
         private const val ORDERED_BUSINESS_KEY = "orderedBusiness"
         private const val PHONE_BILL_KEY = "phoneBill"
         private const val INTEGRAL_KEY = "integral"
+        private const val ORDERS_KEY = "orders"
 
         private const val AUTOMATIC_REFRESH_ENABLED_KEY = "automaticRefreshEnabled"
-        private const val REFRESH_ON_COLD_LAUNCH_KEY = "refreshOnColdLaunch"
+        private const val REFRESH_ON_COLD_LAUNCHA_KEY = "refreshOnColdLaunch"
         private const val REFRESH_ON_FOREGROUND_KEY = "refreshOnForeground"
         private const val MINIMUM_INTERVAL_MINUTES_KEY = "minimumIntervalMinutes"
         private const val ACCOUNT_GAP_SECONDS_KEY = "accountGapSeconds"
@@ -431,5 +419,6 @@ class AppRefreshLogicPolicyCodec(
         private const val MONTHLY_REFRESH_HOUR_KEY = "monthlyRefreshHour"
         private const val FIXED_INTERVAL_HOURS_KEY = "fixedIntervalHours"
         private const val CHECK_ON_ENTRY_KEY = "checkOnEntry"
+        private const val REFRESH_ON_ENTRY_KEY = "refreshOnEntry"
     }
 }
