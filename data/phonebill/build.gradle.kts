@@ -23,5 +23,6 @@ dependencies {
     implementation(project(":data:settings"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
+    testImplementation(project(":core:security"))
     testImplementation(libs.junit4)
 }
