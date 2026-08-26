@@ -55,66 +55,73 @@ jobs:
           test -n "$PLATFORM_PACKAGE"
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M8-B ordered business client cache store boundary
+      - name: Verify M8-C phone bill client cache store boundary
         shell: bash
         run: |
-          ORDERED_MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/OrderedBusinessModels.kt
+          MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/PhoneBillModels.kt
           NETWORK_CONTRACT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/ComprehensiveBusinessNetworkContracts.kt
-          CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomOrderedBusinessClient.kt
-          LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/OrderedBusinessAccountCredentialLifecycle.kt
-          STORE=data/orderedbusiness/src/main/kotlin/com/clxmhcs/chinaunicom/data/orderedbusiness/OrderedBusinessStore.kt
-          CACHE=data/orderedbusiness/src/main/kotlin/com/clxmhcs/chinaunicom/data/orderedbusiness/AndroidOrderedBusinessDiskCache.kt
-          FACTORY=data/orderedbusiness/src/main/kotlin/com/clxmhcs/chinaunicom/data/orderedbusiness/AndroidOrderedBusinessStores.kt
+          CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPhoneBillClient.kt
+          LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/PhoneBillAccountCredentialLifecycle.kt
+          CACHE=data/phonebill/src/main/kotlin/com/clxmhcs/chinaunicom/data/phonebill/AndroidPhoneBillDiskCache.kt
+          SHARING=data/phonebill/src/main/kotlin/com/clxmhcs/chinaunicom/data/phonebill/PhoneBillHistoricalSharing.kt
+          STORE=data/phonebill/src/main/kotlin/com/clxmhcs/chinaunicom/data/phonebill/PhoneBillStore.kt
+          FACTORY=data/phonebill/src/main/kotlin/com/clxmhcs/chinaunicom/data/phonebill/AndroidPhoneBillStores.kt
           SETTINGS=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
 
-          test -f "$ORDERED_MODEL"
+          test -f "$MODEL"
           test -f "$NETWORK_CONTRACT"
           test -f "$CLIENT"
           test -f "$LIFECYCLE"
-          test -f "$STORE"
           test -f "$CACHE"
+          test -f "$SHARING"
+          test -f "$STORE"
           test -f "$FACTORY"
           grep -q 'include(":data:orderedbusiness")' settings.gradle.kts
+          grep -q 'include(":data:phonebill")' settings.gradle.kts
 
-          grep -q 'mxx.client.10010.com' "$NETWORK_CONTRACT"
-          grep -q 'loginxx.10010.com/mobileService/onLine.htm' "$NETWORK_CONTRACT"
-          grep -q 'servicebusiness/newOrdered/provincialAlloc' "$NETWORK_CONTRACT"
-          grep -q 'servicebusiness/newOrdered/queryOrderRelationship' "$NETWORK_CONTRACT"
+          grep -q 'CURRENT_PARSER_VERSION = 4' "$MODEL"
+          grep -q 'm.client.10010.com' "$NETWORK_CONTRACT"
+          grep -q 'serviceimportantbusiness/phoneBillNew/queryMonths' "$NETWORK_CONTRACT"
+          grep -q 'serviceimportantbusiness/phoneBillNew/queryDetail' "$NETWORK_CONTRACT"
 
           grep -q 'OkHttpUnicomTransport(20_000L)' "$CLIENT"
-          grep -q 'iphone_c@12.1300' "$CLIENT"
-          grep -q 'Origin.*imgxx.client.10010.com' "$CLIENT"
-          grep -q '已订业务 loginxx 会话恢复成功，但业务会话仍未建立' "$CLIENT"
-          grep -q 'credentialsChanged\|val changed' "$CLIENT"
+          grep -q 'iphone_c@9.0100' "$CLIENT"
+          grep -q 'ticketChannel' "$CLIENT"
+          grep -q 'PhoneBillSnapshot.CURRENT_PARSER_VERSION' "$CLIENT"
+          grep -q 'fetchMonthsOnce(activated.cookie)' "$CLIENT"
           grep -q 'UnicomCookieCodec.applying' "$CLIENT"
 
           grep -q 'credentialStore.read(accountID)' "$LIFECYCLE"
           grep -q 'credentialStore.save(accountID, it)' "$LIFECYCLE"
-          grep -q 'result.copy(updatedCredentials = null)' "$LIFECYCLE"
+          grep -q 'copy(updatedCredentials = null)' "$LIFECYCLE"
 
           grep -q 'AtomicFile' "$CACHE"
-          grep -q 'ordered-business-snapshots.json' "$CACHE"
+          grep -q 'phone-bill-snapshots.json' "$CACHE"
           grep -q 'stream.fd.sync()' "$CACHE"
+          grep -q 'VISIBLE_MONTH_COUNT = 13' "$CACHE"
+          grep -q 'currentMonthCacheMinutes' "$CACHE"
+          grep -q 'historicalCacheDays' "$CACHE"
+          grep -q 'monthlyRecheckDay' "$CACHE"
           ! grep -Eiq 'cookie|token_online|appid|password|verificationcode|resulttoken' "$CACHE"
 
-          grep -q 'CACHE_PREFERRED' "$STORE"
-          grep -q 'REFRESH_WHEN_EXPIRED' "$STORE"
-          grep -q 'EVERY_ENTRY' "$STORE"
-          grep -q 'MANUAL_ONLY' "$STORE"
-          grep -q 'refreshAllAccountGapSeconds' "$STORE"
-          grep -q '查询成功，但本地保存失败' "$STORE"
-          grep -q 'DefaultOrderedBusinessStore' "$FACTORY"
+          grep -q 'snapshotBelongsToAccount' "$SHARING"
+          grep -q 'withMonthLock' "$SHARING"
+          grep -q 'reuseSharedCacheBeforeNetwork' "$STORE"
+          grep -q 'refreshSelectedMonth' "$STORE"
+          grep -q 'DefaultPhoneBillStore' "$FACTORY"
 
-          grep -q 'cacheValidityHours: Int = 12' "$SETTINGS"
-          grep -q 'noCacheAutoQuery: Boolean = false' "$SETTINGS"
-          grep -q 'refreshAllAccountGapSeconds: Int = 1' "$SETTINGS"
+          grep -q 'currentMonthCacheMinutes: Int = 10' "$SETTINGS"
+          grep -q 'historicalCacheDays: Int = 15' "$SETTINGS"
+          grep -q 'monthlyRecheckDay: Int = 2' "$SETTINGS"
+          grep -q 'monthlyRecheckHour: Int = 8' "$SETTINGS"
 
           grep -q 'minSdk = 30' app/build.gradle.kts
           grep -q 'minSdk = 30' data/orderedbusiness/build.gradle.kts
+          grep -q 'minSdk = 30' data/phonebill/build.gradle.kts
           grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
-          echo "M8_B_ORDERED_BUSINESS_GATE=PASS"
+          echo "M8_C_PHONE_BILL_GATE=PASS"
 
-      - name: Run M8-B regression
+      - name: Run M8-C regression
         id: verify
         continue-on-error: true
         run: >-
@@ -130,12 +137,13 @@ jobs:
           :data:settings:testDebugUnitTest
           :data:balance:testDebugUnitTest
           :data:orderedbusiness:testDebugUnitTest
+          :data:phonebill:testDebugUnitTest
           :app:testDebugUnitTest
           :app:assembleDebug
           :app:assembleRelease
           --stacktrace
 
-      - name: Publish M8-B status
+      - name: Publish M8-C status
         if: always()
         uses: actions/github-script@v7
         with:
@@ -146,10 +154,10 @@ jobs:
               repo: context.repo.repo,
               sha: context.sha,
               state: passed ? 'success' : 'failure',
-              context: 'android-m8-ordered-business',
-              description: passed ? 'M8-B ordered business gate passed' : 'M8-B ordered business regression failed',
+              context: 'android-m8-phone-bill',
+              description: passed ? 'M8-C phone bill gate passed' : 'M8-C phone bill regression failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
-      - name: Fail workflow when M8-B verification failed
+      - name: Fail workflow when M8-C verification failed
         if: always() && steps.verify.outcome != 'success'
         run: exit 1
