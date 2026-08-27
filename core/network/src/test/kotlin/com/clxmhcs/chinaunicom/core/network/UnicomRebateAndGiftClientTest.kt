@@ -2,6 +2,7 @@ package com.clxmhcs.chinaunicom.core.network
 
 import com.clxmhcs.chinaunicom.core.model.AccountCredentials
 import com.clxmhcs.chinaunicom.core.model.RebateQueryScope
+import java.util.ArrayDeque
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -68,7 +69,7 @@ class UnicomRebateAndGiftClientTest {
     }
 
     private class QueueTransport(vararg bodies: String) : UnicomTransport {
-        private val responses = bodies.map { it.encodeToByteArray() }.toMutableList()
+        private val responses = ArrayDeque(bodies.map { it.encodeToByteArray() })
         val requests = mutableListOf<UnicomRequest>()
 
         override fun post(request: UnicomRequest): UnicomRawResponse {
