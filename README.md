@@ -78,53 +78,45 @@ M8-C implements the real phone-bill months/detail flow, parser version `4`, `iph
 - preserves monthly day-2 08:00 Asia/Shanghai refresh cycles, fixed 24-hour mode, manual-only mode, check-on-entry and clock-rollback refresh behavior;
 - keeps overview and per-query detail caches separate; a successful overview refresh clears stale details while detail cache writes remain query-keyed;
 - preserves a prior successful overview if network or disk persistence fails, while a detail disk-write failure keeps the newly fetched detail in memory and exposes an error;
-- accepted implementation head `c091cb87036fa620bc0289312ec08e122e106ed9` passed the dedicated M8-D static gate, integral client/lifecycle/store tests, all existing core/data/app unit-test regression, Debug assembly and Release assembly in run `32926493346`.
+- accepted implementation head `c091cb87036fa620bc0289312ec08e122e106ed9` passed run `32926493346`.
 
 `Android-M8-E — Comprehensive Root Aggregation / Entries / Final Functional Closure` is `PASS / CLOSED`.
 
-`Android-M8-E1 — Cached Root Aggregation + Five Business Entries` is `PASS / CLOSED`:
+`Android-M8-E1 — Cached Root Aggregation + Five Business Entries` is `PASS / CLOSED` and reuses M6 quota/voice/balance plus the M8 independent business stores without introducing a second refresh authority. Accepted implementation `fc1e0053f03509f07e9083012cfa57e83e437a03` passed run `32931819222`.
 
-- adds `data:comprehensive` as a cache-only root aggregation boundary; the comprehensive root itself does not proactively refresh carrier data;
-- reuses M6 `FlowViewModel` / `UnicomRepository` for quota, voice and balance rather than introducing a second refresh authority;
-- reuses M8-B OrderedBusinessStore, M8-C PhoneBillStore and M8-D IntegralStore for their independent business flows;
-- routes the phone-bill entry through the existing M6 financial representative account instead of selecting a new representative;
-- wires five root entries: ordered business, phone bill, flow remaining, voice remaining and integral;
-- keeps all request credentials sourced only from M5 `CredentialStoreProvider`;
-- protects cached-integral projection against stale asynchronous account-set results;
-- keeps minimum Android at API 30 and intentionally performs only functional Compose wiring, not final visual refinement.
+`Android-M8-E2 — Real-device Comprehensive Business Functional Validation` is `PASS / CLOSED`. Real-device evidence verified production account persistence, real flow/voice/balance, ordered business, bill, remaining details, integral overview/detail/cache projection, and a single normal `中国联通余量` launcher.
 
-M8-E1 implementation commit `fc1e0053f03509f07e9083012cfa57e83e437a03` passed the dedicated M8-E1 static gate, all core/data/app regression, Debug assembly and Release assembly in run `32931819222`. The follow-up CI-only commit `b7e040f451a2cbe80be41ff679442501fa8ece96` removed the obsolete M7 version-name lock; M7 static/function regression then fully passed in run `32932152179`.
-
-`Android-M8-E2 — Real-device Comprehensive Business Functional Validation` is `PASS / CLOSED`.
-
-Accepted real-device evidence on 2026-08-26 verified, using real accounts without committing credentials or unmasked account identifiers:
-
-- six production accounts persisted and appeared through the shared production AppState;
-- real flow, voice and balance data were visible and refreshable;
-- comprehensive root aggregated real cached balance/flow/voice data;
-- ordered business returned the real main package and additional subscribed products;
-- phone bill returned a real current-month bill/member breakdown through the existing financial-representative route;
-- flow and voice remaining-detail destinations returned real categorized package data;
-- integral overview, cached projection back to the comprehensive root, and a real month/detail query all worked;
-- the installable app exposed only the normal `中国联通余量` launcher; the legacy `M4 联网验收` launcher was no longer present.
-
-The production-onboarding/single-launcher head `8fb6e96bedecf005357684863ae151c4e8c7b317` also passed Android Main APK Build run `32963320050`, M5 run `32963319964`, M6 run `32963319952`, M7 run `32963319996`, and M8 run `32963320148`.
-
-M8 contains no final visual refinement. Final comprehensive-page visual parity remains deferred until the later page-by-page visual pass.
+M8 contains no final visual refinement. Final comprehensive-page visual parity remains deferred.
 
 `Android-M9 — Other Business Complete Migration` is `IN_PROGRESS`.
 
-`Android-M9-A — 我的订单` is `IN_PROGRESS`:
+### M9-A — 我的订单
 
-- `M9-A1 — My Order Client + Store Core` is `PASS / CLOSED`; it supplies the real order-list client, M5 credential lifecycle and source-equivalent in-memory account/pagination store without inventing an order-list disk cache;
-- `M9-A2 — My Order Settings / Detail Core` is `PASS / CLOSED`; it persists `orders.refreshOnEntry` in the single tolerant `SettingsRepository`, adds the source-derived business/renewal order-detail request/bridge/parser/store core, keeps Cookie access behind M5, and explicitly rejects unsupported detail types instead of inventing a fallback;
-- `M9-A3 — My Order Rough Functional Entry / List / Detail Wiring` is `PASS / CLOSED`; it wires the Other Business entry, production account selector, real list refresh/search/filter/pagination and the Android hosted-detail WebView/bridge while keeping carrier Cookie access behind M5 and restricting hosted navigation to `10010.com`;
-- accepted A3 head `1f32584c9856f0afe84d2b01fc98085efc120e3b` passed Android M9 run `33024157050`, Android M2 run `33024157038`, Android M8 run `33024157045`, and Android Main APK Build run `33024157051`;
-- the accepted installable artifact is `chinaunicom-debug-apk` id `9627813189`, SHA-256 digest `6efc8b05e27dd66f1d645aa0505af96369214ba10bcda31e2c7717eaf4267308`;
-- `M9-A4 — My Order Real-device Functional Validation` is now `IN_PROGRESS`;
-- final visual styling remains deferred until the later page-by-page visual pass.
+`Android-M9-A — 我的订单` is `PASS / CLOSED`:
 
-`NEXT = Android-M9-A4 — My Order Real-device Functional Validation`
+- A1 real order-list client + M5 credential lifecycle + source-equivalent in-memory pagination store — `PASS / CLOSED`;
+- A2 `orders.refreshOnEntry` + current-source business/renewal detail core — `PASS / CLOSED`;
+- A3 Other Business entry + production account selection + real refresh/search/filter/pagination + hosted detail WebView — `PASS / CLOSED`;
+- A4 real-device validation on 2026-08-27 — `PASS / CLOSED`; a production account returned real carrier order records, cancellation state was rendered, and current payment orders correctly exposed `暂无可用详情` rather than an invented detail fallback;
+- accepted A3 head `1f32584c9856f0afe84d2b01fc98085efc120e3b` passed Android M9 run `33024157050` and Main APK run `33024157051`.
+
+### M9-B — 我的套餐
+
+`Android-M9-B — 我的套餐` is `IN_PROGRESS`:
+
+- `M9-B1 — My Package Core` is `PASS / CLOSED`;
+- M2 `MyPackageModels.kt` remains the single model authority;
+- the real `mxx.client.10010.com` primary package endpoint plus optional resource/member/pretty-number enhancement endpoints are migrated;
+- member payload URL/Base64/AES-128-CBC/zero-padding decoding matches current iOS source;
+- primary success survives non-session optional enhancement failures;
+- session renewal reuses M4 activation and M5 remains the credential authority;
+- per-account app-private `AtomicFile` cache preserves schema version 1 snapshot + timestamp and contains no credential material;
+- the single tolerant `SettingsRepository` now owns source-equivalent `myPackage` refresh policy with exactly `everyEntry`, `refreshWhenExpired`, `manualOnly`, default 30-minute validity;
+- accepted B1 head `2a6cc6a3dc03f0d1f8ca4979863c06470c1b3d0b` passed Android M9 Other Business run `33030539003` and Android M2 run `33030538968`.
+
+`NEXT = Android-M9-B2 — My Package Rough Functional App Wiring`
+
+Final visual styling remains deferred until the later page-by-page visual pass.
 
 M0 is closed for progression by explicit migration decision. Deferred real iOS/Android screenshot evidence remains mandatory when the final page-by-page visual parity pass begins.
 
