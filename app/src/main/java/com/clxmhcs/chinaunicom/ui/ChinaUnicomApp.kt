@@ -43,6 +43,7 @@ private const val OTHER_PHONE_BILL_ROUTE = "other/phone-bill"
 private const val OTHER_PHONE_BILL_DETAIL_ROUTE = "other/phone-bill/{accountId}"
 private const val OTHER_REBATE_GIFT_ROUTE = "other/rebate-gift"
 private const val OTHER_REBATE_GIFT_DETAIL_ROUTE = "other/rebate-gift/{accountId}"
+private const val OTHER_TARIFF_ZONE_ROUTE = "other/tariff-zone"
 
 @Composable
 fun ChinaUnicomApp() {
@@ -53,6 +54,7 @@ fun ChinaUnicomApp() {
     val myOrderViewModel: MyOrderViewModel = viewModel()
     val broadbandAccountViewModel: BroadbandAccountViewModel = viewModel()
     val rebateAndGiftViewModel: RebateAndGiftViewModel = viewModel()
+    val tariffZoneViewModel: TariffZoneViewModel = viewModel()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner, flowViewModel) {
@@ -157,6 +159,7 @@ fun ChinaUnicomApp() {
                     onOpenIntegral = { navController.navigate(OTHER_INTEGRAL_ROUTE) },
                     onOpenPhoneBill = { navController.navigate(OTHER_PHONE_BILL_ROUTE) },
                     onOpenRebateAndGift = { navController.navigate(OTHER_REBATE_GIFT_ROUTE) },
+                    onOpenTariffZone = { navController.navigate(OTHER_TARIFF_ZONE_ROUTE) },
                 )
             }
             composable(ORDERED_BUSINESS_HUB_ROUTE) {
@@ -261,6 +264,15 @@ fun ChinaUnicomApp() {
                         onBack = { navController.popBackStack() },
                     )
                 }
+            }
+            composable(OTHER_TARIFF_ZONE_ROUTE) {
+                val flowState by flowViewModel.uiState.collectAsState()
+                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                TariffZoneScreen(
+                    accounts = mobileAccounts,
+                    viewModel = tariffZoneViewModel,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(RootTab.Settings.route) {
                 SettingsAccountScreen(
