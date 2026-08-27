@@ -76,7 +76,7 @@ class ServiceHallViewModel(application: Application) : AndroidViewModel(applicat
         if (bootstrappedForAccount == account.id && _state.value.cities.isNotEmpty()) return
         bootstrappedForAccount = account.id
         _state.value = ServiceHallUiState(accountID = account.id, maskedMobile = mask(account.mobile), isLoading = true)
-        loadCities(account, null)
+        loadCities(account)
     }
 
     fun onLocationPermissionResult(granted: Boolean) {
@@ -159,7 +159,7 @@ class ServiceHallViewModel(application: Application) : AndroidViewModel(applicat
         fetchPage(accountID, city, coordinate, next, append = true)
     }
 
-    private fun loadCities(account: UnicomAccount, location: ServiceHallCoordinate?) {
+    private fun loadCities(account: UnicomAccount) {
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
                 val stored = credentials.read(account.id) ?: error("账号缺少登录凭据")
@@ -168,7 +168,7 @@ class ServiceHallViewModel(application: Application) : AndroidViewModel(applicat
                 val cookie = UnicomCookieCodec.normalize(result.updatedCredentials?.cookie ?: stored.cookie)
                 Triple(result.cities, cityCodeFromCookie(cookie), provinceCodeFromCookie(cookie))
             }.onSuccess { (cities, cookieCity, cookieProvince) ->
-                val coordinate = location ?: _state.value.coordinate
+                val coordinate = _state.value.coordinate
                 val selected = when {
                     coordinate != null -> cities.minByOrNull { it.distanceTo(coordinate) }
                     cookieCity != null -> cities.firstOrNull { it.cityCode == cookieCity && (cookieProvince == null || it.provinceCode == cookieProvince) }
@@ -240,8 +240,11 @@ class ServiceHallViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    private fun ServiceHallCity.coordinateOrNull(): ServiceHallCoordinate? =
-        if (longitude != null && latitude != null) ServiceHallCoordinate(longitude, latitude) else null
+    private fun ServiceHallCity.coordinateOrNull(): ServiceHallCoordinate? {
+        val cityLongitude = longitude ?: return null
+        val cityLatitude = latitude ?: return null
+        return ServiceHallCoordinate(cityLongitude, cityLatitude)
+    }
 
     private fun ServiceHallCity.distanceTo(target: ServiceHallCoordinate): Double {
         val source = coordinateOrNull() ?: return Double.MAX_VALUE
