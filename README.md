@@ -102,27 +102,31 @@ M8 contains no final visual refinement. Final comprehensive-page visual parity r
 
 ### M9-B — 我的套餐
 
-`Android-M9-B — 我的套餐` remains `IN_PROGRESS` only because independent saved-broadband-account parity is still missing:
+`Android-M9-B — 我的套餐` remains `IN_PROGRESS` **only for B4-C independent-broadband real-device validation**:
 
 - `M9-B1 — My Package Core` is `PASS / CLOSED`;
 - `M9-B2 — My Package Rough Functional App Wiring` is `PASS / CLOSED`;
-- `M9-B3 — My Package Real-device Functional Validation` is `PASS / CLOSED`;
-- M2 `MyPackageModels.kt` remains the single model authority;
+- `M9-B3 — My Package Real-device Functional Validation for persisted mobile accounts` is `PASS / CLOSED`;
+- `M9-B4-A — Independent Broadband Persistence / Security Core` is `PASS / CLOSED`;
+- `M9-B4-B — Settings + Mobile/Broadband MyPackage Selection Wiring` is `PASS / CLOSED`;
+- `M9-B4-C — Independent Broadband Real-device Functional Validation` is `NOT_STARTED`;
+- M2 `MyPackageModels.kt` remains the single MyPackage model authority;
 - the real primary package request and optional resource/member/pretty-number enhancement requests are migrated, with M4 session recovery and M5 as the credential authority;
 - member URL/Base64/AES-128-CBC/zero-padding decoding matches current iOS source;
 - per-account app-private `AtomicFile` cache and the single `SettingsRepository` three-state `myPackage` refresh policy are active;
-- `其它业务 -> 我的套餐` routes to the real B1 store using existing persisted production mobile accounts;
-- the functional page renders real main package/month fee/effective time, `移网` charging rules, associated `宽带` resources, package/business rules, contracts, masked members with collapse/expand, pretty-number state, manual refresh and failure/warning states;
-- B3 real-device evidence on 2026-08-27 verified a real package response, real contract data, real member data including mobile/broadband members, expanded-member behavior, and the `查看完整号码` SMS-verification requirement dialog; the user explicitly confirmed all requested B3 checks passed;
-- raw carrier `null` values observed in outside-package rules are accepted as legitimate missing data for functional validation and will be made friendlier only during later UI/content polish;
-- current Android still lacks the iOS-equivalent independent `BroadbandAccountInfoStore` persistence/onboarding/selection path; associated broadband resources under a mobile account do not satisfy this separate parity requirement;
-- accepted B1 head `2a6cc6a3dc03f0d1f8ca4979863c06470c1b3d0b` passed M9 run `33030539003`;
-- accepted B2 head `04e56d2bde802d9c32638f01825763ca37e05c1b` passed M9 run `33032941768` and Main APK run `33032941829`;
-- accepted B2 artifact `chinaunicom-debug-apk` id `9630992097`, SHA-256 `1dc4f95fd6b740f2305cac1a5a2fd7be11c3b99c4c548dc9ed50ea4ec5a8df74`.
+- B3 verified real mobile-account package/contract/member/resource behavior and the SMS-verification requirement for complete member numbers;
+- B4 now adds an iOS-equivalent independent broadband metadata authority without inserting those targets into the M6 home flow/voice/balance account list;
+- independent broadband ordinary metadata is persisted app-privately with schema version 1 + `AtomicFile` + `fd.sync()`, while Cookie/appID/token remain exclusively in the existing M5 credential store;
+- broadband add/update is accepted only after real `fetchQuota` validation; renewed credentials are saved and metadata-write failure restores the previous credential state;
+- Settings can locally validate/save/overwrite/remove a broadband account, and sensitive credential input is transient rather than saveable Compose state;
+- MyPackage combines persisted mobile accounts and independent broadband adapters while continuing to reuse the same B1 store/client; broadband selection defaults to `宽带`, mobile selection defaults to `移网`;
+- B4-A implementation `7063ed6e560229495211953c2fea03aba97ad24c` passed dedicated run `33043641687`;
+- B4-B implementation `71902e553a01b9e1106be62119a7c191831219e2` passed dedicated run `33044224569`, M2 run `33044224545`, and Main APK run `33044224544`;
+- B4-C test artifact is `chinaunicom-debug-apk`, id `9635060913`, SHA-256 `8f7c3b121e040bf557063d6fdc1b0b69061f57867c932f53dbfc1efd4ee962f2`;
+- the M9 permanent workflow was made forward-compatible and expanded to cover the broadband module; after correcting its path typo, fixed head `af9afaed81a3afa99bf2cd55cac7f2d880fd9cb6` passed Android M9 run `33047972578` and M2 run `33047972549` completely;
+- app version is `0.9.0-m9b4`; minimum Android remains API 30.
 
-`M9-B4 — Independent Broadband Account Persistence / Selection Parity` is `NOT_STARTED`.
-
-`NEXT = Android-M9-B4 — Independent Broadband Account Persistence / Selection Parity`
+`NEXT = Android-M9-B4-C — Independent Broadband Account Real-device Functional Validation`
 
 Final visual styling remains deferred until the later page-by-page visual pass.
 
