@@ -5,24 +5,22 @@ import java.util.ArrayDeque
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UnicomVideoRingClientTest {
+    private val clientUID = "0123456789abcdef0123456789abcdefabcd"
+
     @Test
-    fun sourceChainUsesNativeTicketAnd10155SessionHeaders() {
+    fun activeInlineChainUsesSigned10155HeadersAndMemberStateEndpoint() {
         val transport = QueueVideoRingTransport(
             response("""{"rsp_code":"0000","ticket":"ticket-A"}"""),
-            response("""{"success":true,"code":"200","result":{"userid":123,"caller":"18600001234"},"accessToken":"abc"}"""),
-            response("""{"code":"200","result":1}"""),
-            response("""{"code":"200","result":[{"memberName":"铂金会员","memberType":"15","isMember":1},{"memberName":"AI彩铃升级版","memberType":"76","isMember":0}]}"""),
-            response("""{"code":"200","result":{"productlist":[{"spuId":"p1","spuName":"爱奇艺会员","spuImgurl":"https://example.invalid/a.png","rightNum":1,"received":1}]}}"""),
+            response("""{"code":"200","result":{"userid":"server-user","caller":"18600001234"},"accessToken":"abc"}"""),
+            response("""{"code":"200","result":[{"memberName":"AI彩铃视听剧场会员","memberType":"87","isMember":0},{"memberName":"铂金会员","memberType":"15","isMember":0},{"memberName":"AI彩铃升级版","memberType":"76","isMember":0}]}"""),
+            response("""{"code":"200","result":[{"memberName":"铂金会员","memberType":"15","status":1,"startTime":"20260801000000","endTime":"20270901000000"},{"memberName":"AI彩铃视听剧场会员","memberType":"87","status":0}]}"""),
         )
-        val client = UnicomVideoRingClient(
-            transport = transport,
-            activateSession = { error("activation not expected") },
-            testOnly = Unit,
-        )
+        val client = testClient(transport)
 
         val result = client.fetchMemberState(
             AccountCredentials("ecs_token=ecsA; other=1", "app", "token"),
@@ -30,34 +28,46 @@ class UnicomVideoRingClientTest {
         )
 
         assertEquals("18600001234", result.state.phoneNumber)
-        assertTrue(result.state.isEnabled)
-        assertEquals(2, result.state.members.size)
-        assertTrue(result.state.members.first().isMember)
-        assertEquals("爱奇艺会员", result.state.benefits.single().name)
-        assertEquals("1沃券", result.state.benefits.single().price)
-        assertTrue(result.state.benefits.single().received == true)
-        assertEquals("GET", transport.requests[0].method)
+        assertEquals(3, result.state.members.size)
+        assertFalse(result.state.members.first { it.memberType == "87" }.isMember)
+        val platinum = result.state.members.first { it.memberType == "15" }
+        assertTrue(platinum.isMember)
+        assertEquals("20260801000000", platinum.startTime)
+        assertEquals("20270901000000", platinum.endTime)
+        assertFalse(result.state.members.first { it.memberType == "76" }.isMember)
+        assertNull(result.updatedCredentials)
+
+        assertEquals(4, transport.requests.size)
         assertTrue(transport.requests[0].url.contains("getTicketByNative"))
-        assertTrue(transport.requests[0].url.contains("appId=edop_unicom_c43eac06"))
         assertEquals("ecs_token=ecsA; other=1", transport.requests[0].headers["Cookie"])
-        assertTrue(transport.requests[1].body.decodeToString().contains("appid=edop_unicom_c43eac06"))
-        assertEquals("3000013947", transport.requests[2].headers["appid"])
-        assertEquals("123", transport.requests[2].headers["uid"])
+        assertTrue(transport.requests[1].url.endsWith(UnicomVideoRingClient.LOGIN))
+        assertTrue(transport.requests[2].url.endsWith(UnicomVideoRingClient.MEMBER_INFO))
+        assertTrue(transport.requests[3].url.endsWith(UnicomVideoRingClient.MEMBER_STATE))
+
+        for (request in transport.requests.drop(1)) {
+            assertEquals("3000013947", request.headers["appid"])
+            assertEquals(clientUID, request.headers["uid"])
+            assertEquals("1700000000000", request.headers["timestamp"])
+            assertEquals("0.0000000000000001", request.headers["nonce"])
+            assertEquals("73FBD1A1B1FFA192BEF433CAF736ADA9", request.headers["sign"])
+            assertEquals("1018", request.headers["oswoversion"])
+            assertEquals("zh-Hans-CN;q=1.0", request.headers["Accept-Language"])
+            assertEquals(UnicomVideoRingClient.USER_AGENT, request.headers["User-Agent"])
+        }
+        assertNull(transport.requests[1].headers["accessToken"])
         assertEquals("Bearer abc", transport.requests[2].headers["accessToken"])
-        assertEquals("Bearer abc", transport.requests[2].headers["Authorization"])
-        assertTrue(transport.requests[3].body.decodeToString().contains("includeAllConfigure"))
-        assertTrue(transport.requests[4].body.decodeToString().contains("\"memberType\":\"15\""))
+        assertEquals("Bearer abc", transport.requests[3].headers["accessToken"])
+        assertNull(transport.requests[2].headers["Authorization"])
     }
 
     @Test
-    fun failedNativeTicketRefreshesOnlySelectedAccountCredentialsThenRetries() {
+    fun failedNativeTicketRefreshesOnlySelectedCredentialsThenRetries() {
         val transport = QueueVideoRingTransport(
             response("""{"rsp_code":"9998","rsp_desc":"expired"}"""),
             response("""{"rsp_code":"0000","ticket":"ticket-B"}"""),
-            response("""{"code":"200","result":{"userid":"u2","caller":"18600001234"},"accessToken":"Bearer zzz"}"""),
-            response("""{"code":"200","result":0}"""),
+            response("""{"code":"200","result":{"caller":"18600001234"},"accessToken":"Bearer zzz"}"""),
             response("""{"code":"200","result":[{"memberName":"铂金会员","memberType":"15","isMember":0}]}"""),
-            response("""{"code":"200","result":{"productlist":[]}}"""),
+            response("""{"code":"200","result":[]}"""),
         )
         val renewed = AccountCredentials("ecs_token=newEcs; renewed=1", "app2", "token2")
         var activationCount = 0
@@ -67,6 +77,9 @@ class UnicomVideoRingClientTest {
                 activationCount += 1
                 renewed
             },
+            clientUID = clientUID,
+            clockMillis = { 1_700_000_000_000L },
+            nonceProvider = { "0.0000000000000001" },
             testOnly = Unit,
         )
 
@@ -78,20 +91,17 @@ class UnicomVideoRingClientTest {
         assertEquals(1, activationCount)
         assertEquals(renewed, result.updatedCredentials)
         assertTrue(transport.requests[1].url.contains("token=newEcs"))
-        assertFalse(result.state.isEnabled)
+        assertEquals(3, result.state.members.size)
+        assertTrue(result.state.members.none { it.isMember })
     }
 
     @Test
-    fun callerMismatchIsHardFailureAndNeverReturnsCrossAccountData() {
+    fun callerMismatchIsHardFailureBeforeMemberQueries() {
         val transport = QueueVideoRingTransport(
             response("""{"rsp_code":"0000","ticket":"ticket-C"}"""),
-            response("""{"code":"200","result":{"userid":"u3","caller":"18500005678"},"accessToken":"abc"}"""),
+            response("""{"code":"200","result":{"caller":"18500005678"},"accessToken":"abc"}"""),
         )
-        val client = UnicomVideoRingClient(
-            transport = transport,
-            activateSession = { it },
-            testOnly = Unit,
-        )
+        val client = testClient(transport)
 
         val error = runCatching {
             client.fetchMemberState(AccountCredentials("ecs_token=ecs", "app", "token"), "18600001234")
@@ -103,6 +113,15 @@ class UnicomVideoRingClientTest {
         assertTrue(error?.message?.contains("185****5678") == true)
         assertEquals(2, transport.requests.size)
     }
+
+    private fun testClient(transport: VideoRingTransport) = UnicomVideoRingClient(
+        transport = transport,
+        activateSession = { error("activation not expected") },
+        clientUID = clientUID,
+        clockMillis = { 1_700_000_000_000L },
+        nonceProvider = { "0.0000000000000001" },
+        testOnly = Unit,
+    )
 
     private fun response(body: String) = UnicomRawResponse(200, body.encodeToByteArray())
 
