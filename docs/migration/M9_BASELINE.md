@@ -14,7 +14,8 @@ Substages:
 - `M9-B_RESULT = IN_PROGRESS` — 我的套餐
   - `M9-B1_RESULT = PASS / CLOSED` — model reuse + crypto + client + M5 lifecycle + disk cache + store + settings
   - `M9-B2_RESULT = PASS / CLOSED` — rough functional app wiring
-  - `M9-B3_RESULT = IN_PROGRESS` — real-device functional validation
+  - `M9-B3_RESULT = PASS / CLOSED` — real-device functional validation for persisted mobile accounts
+  - `M9-B4_RESULT = NOT_STARTED` — independent broadband-account persistence/selection parity
 - `M9-C_RESULT = NOT_STARTED` — 已订业务
 - `M9-D_RESULT = NOT_STARTED` — 积分
 - `M9-E_RESULT = NOT_STARTED` — 账单
@@ -121,7 +122,7 @@ Therefore `M9-B1_RESULT = PASS / CLOSED`.
 
 B2 wires the B1 core into the installable Android app while intentionally keeping presentation rough:
 
-- `其它业务` now exposes `我的套餐` as an active destination;
+- `其它业务` exposes `我的套餐` as an active destination;
 - `other/my-package` is a real Navigation route;
 - `MyPackageViewModel` owns one `DefaultMyPackageStore` and reuses the existing M5 `CredentialStoreProvider`, B1 credential lifecycle, account-scoped disk cache and single `SettingsRepository` policy authority;
 - the page selects from the already-persisted, enabled production mobile accounts and calls the source-equivalent entry load for the chosen account;
@@ -129,69 +130,44 @@ B2 wires the B1 core into the installable Android app while intentionally keepin
 - manual `刷新` calls the existing B1 store refresh path;
 - the main package section renders product name, month fee, product start time, refresh time and promotion metadata when returned;
 - the `移网` resource tab renders source-derived outside-package charging rules;
-- the `宽带` resource tab renders broadband resources returned by the package API, including broadband number, package/actual speed, start/end time and tips;
+- the `宽带` resource tab renders broadband resources returned by the package API;
 - package description, business rules and month-fee description are retained;
 - contract activities, contract rules and non-cancellable prompt are retained;
-- member groups preserve the source group-type `05` behavior, primary members, masked numbers, and the source two-member collapsed/`查看更多`/`收起` interaction;
-- `查看完整号码` does **not** expose or fabricate a full number; it currently shows the source-derived requirement that full-number access needs SMS verification;
-- the pretty-number section appears only when `isPrettyNumber` is true;
+- member groups preserve source grouping, primary members, masked numbers, and the two-member collapsed/`查看更多`/`收起` interaction;
+- `查看完整号码` does not expose or fabricate a full number; it explains the source SMS-verification requirement;
+- the pretty-number section appears only when returned;
 - no Cookie, token, password or SMS code enters ViewModel/Compose ordinary state;
 - app version is `0.9.0-m9b2`; minimum Android remains API 30.
 
-### Independent broadband-account parity boundary
-
-The frozen iOS MyPackage account selector can also consume saved `BroadbandAccountInfoStore` targets. The current Android account system does not yet contain an equivalent independent broadband-account persistence/onboarding authority.
-
-B2 therefore deliberately **does not invent or fake broadband accounts**. It uses the real persisted mobile-account authority and renders any associated broadband resources returned by the real MyPackage response. Independent saved-broadband-account selection remains a known account-system parity gap and must be completed before full broadband-account parity can be claimed.
-
-### M9-B2 accepted implementation / CI
-
-Accepted B2 implementation head:
-
-`04e56d2bde802d9c32638f01825763ca37e05c1b`
-
-Android M9 Other Business run `33032941768` completed successfully:
-
-- M9-A My Order permanent boundary — success;
-- M9-B1 MyPackage permanent core boundary — success;
-- M9-B2 rough functional wiring boundary — success;
-- all core/data/app regression tests — success;
-- Debug assembly — success;
-- Release assembly — success;
-- `android-m9-other-business` status publication — success;
-- failure gate — skipped as expected;
-- complete job — success.
-
-Android Main APK Build run `33032941829` completed successfully, including artifact upload.
-
-Accepted installable artifact:
-
-- name: `chinaunicom-debug-apk`;
-- artifact id: `9630992097`;
-- SHA-256 digest: `1dc4f95fd6b740f2305cac1a5a2fd7be11c3b99c4c548dc9ed50ea4ec5a8df74`;
-- source head: `04e56d2bde802d9c32638f01825763ca37e05c1b`.
+Accepted B2 implementation head: `04e56d2bde802d9c32638f01825763ca37e05c1b`.
+Android M9 run `33032941768` — complete success.
+Android Main APK run `33032941829` — complete success, including artifact upload.
+Accepted artifact `chinaunicom-debug-apk`, id `9630992097`, digest `1dc4f95fd6b740f2305cac1a5a2fd7be11c3b99c4c548dc9ed50ea4ec5a8df74`.
 
 Therefore `M9-B2_RESULT = PASS / CLOSED`.
 
-## M9-B3 real-device acceptance scope
+## M9-B3 — real-device acceptance
 
-Use the installable B2 artifact with the user's existing local credentials. No credential export/upload is required.
+Accepted real-device evidence on **2026-08-27** plus the user's explicit confirmation that all requested B3 checks passed verifies the persisted-mobile-account path:
 
-Required evidence:
+- a real production mobile account loaded a real carrier package, including package name, monthly price, effective time and refresh timestamp;
+- real package description/business text rendered from the carrier response;
+- real contract data rendered with contract name, effective date, expiry date and remaining days;
+- real member data rendered with masked mobile and broadband member numbers;
+- the member list could expose the expanded state for more than two members;
+- tapping `查看完整号码` produced the expected SMS-verification requirement dialog and did not leak/fabricate a full member number;
+- `移网` and `宽带` resource states, manual refresh, account selection, and the `其它业务 -> 我的套餐` route were explicitly confirmed by the user as accepted on the same installable build;
+- carrier-null outside-package fields observed in the real response are accepted as legitimate data absence for functional validation; replacing raw `null` presentation with friendlier UI text remains part of later visual/content polish and does not block B3;
+- no credential export was required and no unmasked production identifier is recorded in Git.
 
-1. `其它业务` root showing `我的套餐` as `已接入`;
-2. `我的套餐` account-selection page showing at least one saved production account; account identifiers may be masked;
-3. one selected real account with the returned main-package section visible, including product name and month fee plus effective/refresh time where returned;
-4. the same account's `移网` resource tab showing real outside-package rules or the legitimate carrier-empty state;
-5. the same account's `宽带` resource tab showing real associated broadband data when returned, or the legitimate `当前套餐未返回关联宽带资源` state;
-6. the `我的合约` section showing real contract data or the legitimate empty state;
-7. the `我的成员` section showing real masked members or the legitimate empty state; when more than two ordinary members exist, `查看更多` should expand them;
-8. if `我的靓号` appears for the selected account, capture it; if it does not appear, do not manufacture a condition solely for acceptance.
+Therefore `M9-B3_RESULT = PASS / CLOSED`.
 
-Also press `刷新` once on a selected real account and confirm the page does not crash. A screenshot is only additionally required if refresh produces a warning/error that needs evaluation.
+### Independent broadband-account parity gap
 
-Visual spacing, typography, icons and card polish are explicitly outside B3 acceptance.
+The frozen iOS MyPackage account selector can also consume independently saved `BroadbandAccountInfoStore` targets. Android still lacks an equivalent independent broadband-account persistence/onboarding/selection authority.
+
+This gap is **not** satisfied by associated broadband resources returned under a saved mobile account, and the B3 mobile-account acceptance does not close it. Android must implement this parity path before `M9-B_RESULT` can become `PASS / CLOSED`.
 
 ## Next
 
-`NEXT = Android-M9-B3 — My Package Real-device Functional Validation`
+`NEXT = Android-M9-B4 — Independent Broadband Account Persistence / Selection Parity`
