@@ -32,7 +32,7 @@ M5 supplies Android Keystore AES-256-GCM account credentials, SMS login, passwor
 M6 includes:
 
 - ordinary account metadata persistence separated from M5 Keystore credentials;
-- `AccountRepository`, `SettingsRepository`, `QuotaRepository`, `BalanceRepository`, `QuotaRefreshCoordinator` and `StateFlow<UnicomAppState>`;
+- `AccountRepository`, `SettingsRepository`, `QuotaRepository`, `BalanceRepository`, `RefreshCoordinator` and `StateFlow<UnicomAppState>`;
 - cold-launch/foreground/manual quota refresh orchestration, per-account/global mutual exclusion and persisted quota refresh policy;
 - M5-owned credential renewal for quota and balance;
 - source-equivalent `SharedBalanceCacheStore` freshness, persistent lease/in-flight protection, failure retry cooldown and financial representative selection;
@@ -102,31 +102,47 @@ M8 contains no final visual refinement. Final comprehensive-page visual parity r
 
 ### M9-B — 我的套餐
 
-`Android-M9-B — 我的套餐` remains `IN_PROGRESS` **only for B4-C independent-broadband real-device validation**:
+`Android-M9-B — 我的套餐` is `PASS / CLOSED`:
 
 - `M9-B1 — My Package Core` is `PASS / CLOSED`;
 - `M9-B2 — My Package Rough Functional App Wiring` is `PASS / CLOSED`;
 - `M9-B3 — My Package Real-device Functional Validation for persisted mobile accounts` is `PASS / CLOSED`;
 - `M9-B4-A — Independent Broadband Persistence / Security Core` is `PASS / CLOSED`;
 - `M9-B4-B — Settings + Mobile/Broadband MyPackage Selection Wiring` is `PASS / CLOSED`;
-- `M9-B4-C — Independent Broadband Real-device Functional Validation` is `NOT_STARTED`;
+- `M9-B4-C — Independent Broadband Real-device Functional Validation` is `PASS / CLOSED`;
 - M2 `MyPackageModels.kt` remains the single MyPackage model authority;
 - the real primary package request and optional resource/member/pretty-number enhancement requests are migrated, with M4 session recovery and M5 as the credential authority;
 - member URL/Base64/AES-128-CBC/zero-padding decoding matches current iOS source;
 - per-account app-private `AtomicFile` cache and the single `SettingsRepository` three-state `myPackage` refresh policy are active;
 - B3 verified real mobile-account package/contract/member/resource behavior and the SMS-verification requirement for complete member numbers;
-- B4 now adds an iOS-equivalent independent broadband metadata authority without inserting those targets into the M6 home flow/voice/balance account list;
+- B4 adds an iOS-equivalent independent broadband metadata authority without inserting those targets into the M6 home flow/voice/balance account list;
 - independent broadband ordinary metadata is persisted app-privately with schema version 1 + `AtomicFile` + `fd.sync()`, while Cookie/appID/token remain exclusively in the existing M5 credential store;
 - broadband add/update is accepted only after real `fetchQuota` validation; renewed credentials are saved and metadata-write failure restores the previous credential state;
 - Settings can locally validate/save/overwrite/remove a broadband account, and sensitive credential input is transient rather than saveable Compose state;
 - MyPackage combines persisted mobile accounts and independent broadband adapters while continuing to reuse the same B1 store/client; broadband selection defaults to `宽带`, mobile selection defaults to `移网`;
 - B4-A implementation `7063ed6e560229495211953c2fea03aba97ad24c` passed dedicated run `33043641687`;
 - B4-B implementation `71902e553a01b9e1106be62119a7c191831219e2` passed dedicated run `33044224569`, M2 run `33044224545`, and Main APK run `33044224544`;
-- B4-C test artifact is `chinaunicom-debug-apk`, id `9635060913`, SHA-256 `8f7c3b121e040bf557063d6fdc1b0b69061f57867c932f53dbfc1efd4ee962f2`;
-- the M9 permanent workflow was made forward-compatible and expanded to cover the broadband module; after correcting its path typo, fixed head `af9afaed81a3afa99bf2cd55cac7f2d880fd9cb6` passed Android M9 run `33047972578` and M2 run `33047972549` completely;
-- app version is `0.9.0-m9b4`; minimum Android remains API 30.
+- B4-C test artifact was `chinaunicom-debug-apk`, id `9635060913`, SHA-256 `8f7c3b121e040bf557063d6fdc1b0b69061f57867c932f53dbfc1efd4ee962f2`;
+- B4-C real-device acceptance on 2026-08-27 verified successful real quota validation/save, persistence after completely ending and reopening the app, independent-broadband MyPackage selection, a real broadband package response with the `宽带` resource tab selected by default, and strict separation from the M6 home mobile-account list; later local deletion also removed the saved broadband entry as expected;
+- no raw Cookie/appID/token_online/identity suffix or unmasked production identifier is recorded in Git;
+- app version at B4 acceptance was `0.9.0-m9b4`; minimum Android remains API 30.
 
-`NEXT = Android-M9-B4-C — Independent Broadband Account Real-device Functional Validation`
+### M9-C — 已订业务
+
+`Android-M9-C — 已订业务` is `IN_PROGRESS`.
+
+`M9-C1 — M8 OrderedBusiness reuse + Other Business functional wiring` is `PASS` for code/CI and awaits real-device closure:
+
+- the iOS source route is preserved semantically: `其它业务 -> 已订业务` reuses the same ordered-business authority rather than introducing another carrier client/store;
+- Android reuses the existing M8 `OrderedBusinessStore`, client, cache, M5 credential lifecycle and refresh policy;
+- the Other Business target list combines persisted mobile accounts with the separate independent-broadband metadata adapters without publishing broadband into M6 home state;
+- per-account entry loading, manual refresh, refresh-all, retained cache/warning/failure states and section/item rendering reuse the M8 store;
+- implementation head `e9f3eb67833d3504ebac3f850f4f8e28252419d0` passed dedicated M9-C run `33053999151`;
+- Main APK run `33053999122` passed and produced `chinaunicom-debug-apk` artifact id `9638893042`, SHA-256 `11b636d1c638a925db212d7c1220853496b4f8da2813aa273625177c7422ea81`;
+- the M9 permanent regression for the same implementation completed its verification steps successfully;
+- app version is `0.9.0-m9c1`; minimum Android remains API 30.
+
+`NEXT = Android-M9-C2 — Ordered Business Real-device Functional Validation`
 
 Final visual styling remains deferred until the later page-by-page visual pass.
 
