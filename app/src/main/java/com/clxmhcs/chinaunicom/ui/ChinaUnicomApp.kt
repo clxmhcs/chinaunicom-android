@@ -39,6 +39,8 @@ private const val MY_ORDER_DETAIL_ROUTE = "other/my-order/detail/{accountId}/{or
 private const val MY_PACKAGE_ROUTE = "other/my-package"
 private const val OTHER_INTEGRAL_ROUTE = "other/integral"
 private const val OTHER_INTEGRAL_DETAIL_ROUTE = "other/integral/{accountId}"
+private const val OTHER_PHONE_BILL_ROUTE = "other/phone-bill"
+private const val OTHER_PHONE_BILL_DETAIL_ROUTE = "other/phone-bill/{accountId}"
 
 @Composable
 fun ChinaUnicomApp() {
@@ -150,6 +152,7 @@ fun ChinaUnicomApp() {
                     onOpenMyOrder = { navController.navigate(MY_ORDER_ROUTE) },
                     onOpenMyPackage = { navController.navigate(MY_PACKAGE_ROUTE) },
                     onOpenIntegral = { navController.navigate(OTHER_INTEGRAL_ROUTE) },
+                    onOpenPhoneBill = { navController.navigate(OTHER_PHONE_BILL_ROUTE) },
                 )
             }
             composable(ORDERED_BUSINESS_HUB_ROUTE) {
@@ -213,6 +216,25 @@ fun ChinaUnicomApp() {
                     IntegralEntryScreen(
                         account = account,
                         allAccountIDs = accounts.map { it.id },
+                        businessViewModel = comprehensiveViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+            }
+            composable(OTHER_PHONE_BILL_ROUTE) {
+                val flowState by flowViewModel.uiState.collectAsState()
+                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                OtherPhoneBillAccountSelectionScreen(
+                    accounts = mobileAccounts,
+                    representativeAccountID = flowViewModel::financialRepresentativeAccountID,
+                    onBack = { navController.popBackStack() },
+                    onOpenAccount = { navController.navigate("other/phone-bill/$it") },
+                )
+            }
+            composable(OTHER_PHONE_BILL_DETAIL_ROUTE) { entry ->
+                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                    PhoneBillEntryScreen(
+                        account = account,
                         businessViewModel = comprehensiveViewModel,
                         onBack = { navController.popBackStack() },
                     )
