@@ -129,20 +129,45 @@ M8 contains no final visual refinement. Final comprehensive-page visual parity r
 
 ### M9-C — 已订业务
 
-`Android-M9-C — 已订业务` is `IN_PROGRESS`.
+`Android-M9-C — 已订业务` is `PASS / CLOSED`.
 
-`M9-C1 — M8 OrderedBusiness reuse + Other Business functional wiring` is `PASS` for code/CI and awaits real-device closure:
+M9-C reuses the existing M8 OrderedBusiness client/store/cache/settings authority rather than creating a duplicate business stack. The Other Business route preserves production target selection and the existing refresh/error/cache semantics. Code implementation began at `e9f3eb67833d3504ebac3f850f4f8e28252419d0`; real-device validation was accepted before progression to M9-D.
 
-- the iOS source route is preserved semantically: `其它业务 -> 已订业务` reuses the same ordered-business authority rather than introducing another carrier client/store;
-- Android reuses the existing M8 `OrderedBusinessStore`, client, cache, M5 credential lifecycle and refresh policy;
-- the Other Business target list combines persisted mobile accounts with the separate independent-broadband metadata adapters without publishing broadband into M6 home state;
-- per-account entry loading, manual refresh, refresh-all, retained cache/warning/failure states and section/item rendering reuse the M8 store;
-- implementation head `e9f3eb67833d3504ebac3f850f4f8e28252419d0` passed dedicated M9-C run `33053999151`;
-- Main APK run `33053999122` passed and produced `chinaunicom-debug-apk` artifact id `9638893042`, SHA-256 `11b636d1c638a925db212d7c1220853496b4f8da2813aa273625177c7422ea81`;
-- the M9 permanent regression for the same implementation completed its verification steps successfully;
-- app version is `0.9.0-m9c1`; minimum Android remains API 30.
+### M9-D — 积分
 
-`NEXT = Android-M9-C2 — Ordered Business Real-device Functional Validation`
+`Android-M9-D — 积分` is `PASS / CLOSED`.
+
+M9-D reuses the existing M8 Integral client/store/cache/settings authority for the Other Business route. Implementation head `1f6e9f517115e94d2bb120e99ab53c4f41280aa9` added the functional route, and real-device validation was formally closed by `743eac90ad2beb51092fef0c68118f3327444044`.
+
+### M9-E — 话费 / 账单
+
+`Android-M9-E — 话费 / 账单` is `PASS / CLOSED`.
+
+M9-E reuses the existing M8 PhoneBill authority rather than duplicating the billing stack. Implementation head `7c14ce0f34ba8931245ff024a1a10385b09c388e` added the Other Business route and representative-account selector; real-device validation was formally closed by `8f10eaf9766638479eecc36e15bcc337a2438d3f` after current-month and historical-month carrier queries were accepted.
+
+### M9-F — 返费 / 赠费
+
+`Android-M9-F — 返费 / 赠费` is `IN_PROGRESS`.
+
+`M9-F1 — source-derived core + cache + unified refresh settings + rough functional wiring + CI` is `PASS / CLOSED`:
+
+- native real-carrier implementation; no WebView placeholder;
+- `合约返赠` preserves account `qrytype=0` and user `qrytype=1` scopes;
+- `赠款记录` uses the second source carrier endpoint;
+- session expiry reuses M4 activation and renewed credentials remain M5 `CredentialStore` authority;
+- app-private rebate/gift cache uses `AtomicFile + fd.sync()` and stores no credential material;
+- source refresh policy is part of the existing unified schema-3 settings document: automatic monthly day 2 at 08:00 `Asia/Shanghai`, immediate query when no cache, manual refresh available;
+- `其它业务 -> 返费 / 赠费` is active and selects only persisted enabled mobile accounts; independent broadband is not inserted into this business target list;
+- implementation/CI head `d32cc1c965d5ad7a5d6f98fa7b5bfed6d942ff1f` passed dedicated M9-F run `33068256957`, M2 run `33068256805`, Main APK run `33068256856`, and Action Test run `33068256814`;
+- the preceding app-wiring head also passed M5/M6/M7/M8/M9-B4/M9-C/M9-D/M9-E/permanent-M9 historical regression workflows;
+- real-device candidate artifact is `chinaunicom-debug-apk`, id `9644724113`, digest `87296388e6b80bb584584503a95698ac31f7fdb2d4b3951231b2fad8d44e0514`;
+- app version is `0.9.0-m9f1`; minimum Android remains API 30.
+
+`M9-F2 — Rebate / Gift Real-device Functional Validation` is `NOT_STARTED`.
+
+`NEXT = Android-M9-F2 — Rebate / Gift Real-device Functional Validation`
+
+M9-G `资费专区` and M9-H `视频彩铃` remain after M9-F and will be entered only in order after M9-F closes.
 
 Final visual styling remains deferred until the later page-by-page visual pass.
 
@@ -161,4 +186,7 @@ See:
 - [`docs/migration/M7_BASELINE.md`](docs/migration/M7_BASELINE.md)
 - [`docs/migration/M8_BASELINE.md`](docs/migration/M8_BASELINE.md)
 - [`docs/migration/M9_BASELINE.md`](docs/migration/M9_BASELINE.md)
+- [`docs/migration/M9_D_INTEGRAL.md`](docs/migration/M9_D_INTEGRAL.md)
+- [`docs/migration/M9_E_PHONE_BILL.md`](docs/migration/M9_E_PHONE_BILL.md)
+- [`docs/migration/M9_F_REBATE_GIFT.md`](docs/migration/M9_F_REBATE_GIFT.md)
 - [`docs/migration/MIGRATION_RULES.md`](docs/migration/MIGRATION_RULES.md)
