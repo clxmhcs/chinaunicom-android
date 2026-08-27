@@ -27,7 +27,7 @@ private val otherBusinessEntries = listOf(
     OtherBusinessEntry("视频彩铃会员"),
     OtherBusinessEntry("电子受理单"),
     OtherBusinessEntry("我的订单", enabled = true),
-    OtherBusinessEntry("我的套餐"),
+    OtherBusinessEntry("我的套餐", enabled = true),
     OtherBusinessEntry("积分"),
     OtherBusinessEntry("话费 / 账单"),
     OtherBusinessEntry("返费 / 赠费"),
@@ -37,7 +37,10 @@ private val otherBusinessEntries = listOf(
 
 /** M9 functional shell. Remaining entries are enabled only when their later substages land. */
 @Composable
-fun OtherBusinessScreen(onOpenMyOrder: () -> Unit) {
+fun OtherBusinessScreen(
+    onOpenMyOrder: () -> Unit,
+    onOpenMyPackage: () -> Unit,
+) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
             text = "其它业务",
@@ -65,7 +68,10 @@ fun OtherBusinessScreen(onOpenMyOrder: () -> Unit) {
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable(enabled = entry.enabled) {
-                                    if (entry.title == "我的订单") onOpenMyOrder()
+                                    when (entry.title) {
+                                        "我的订单" -> onOpenMyOrder()
+                                        "我的套餐" -> onOpenMyPackage()
+                                    }
                                 },
                             shape = MaterialTheme.shapes.medium,
                             tonalElevation = 1.dp,

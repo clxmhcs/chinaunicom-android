@@ -35,6 +35,7 @@ private const val VOICE_ROUTE = "comprehensive/voice/{accountId}"
 private const val INTEGRAL_ROUTE = "comprehensive/integral/{accountId}"
 private const val MY_ORDER_ROUTE = "other/my-order"
 private const val MY_ORDER_DETAIL_ROUTE = "other/my-order/detail/{accountId}/{orderId}"
+private const val MY_PACKAGE_ROUTE = "other/my-package"
 
 @Composable
 fun ChinaUnicomApp() {
@@ -140,7 +141,10 @@ fun ChinaUnicomApp() {
                 }
             }
             composable(RootTab.OtherBusiness.route) {
-                OtherBusinessScreen(onOpenMyOrder = { navController.navigate(MY_ORDER_ROUTE) })
+                OtherBusinessScreen(
+                    onOpenMyOrder = { navController.navigate(MY_ORDER_ROUTE) },
+                    onOpenMyPackage = { navController.navigate(MY_PACKAGE_ROUTE) },
+                )
             }
             composable(MY_ORDER_ROUTE) {
                 val flowState by flowViewModel.uiState.collectAsState()
@@ -165,6 +169,16 @@ fun ChinaUnicomApp() {
                         MyOrderDetailScreen(account, order, myOrderViewModel) { navController.popBackStack() }
                     }
                 }
+            }
+            composable(MY_PACKAGE_ROUTE) {
+                val flowState by flowViewModel.uiState.collectAsState()
+                val accounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                val myPackageViewModel: MyPackageViewModel = viewModel()
+                MyPackageScreen(
+                    accounts = accounts,
+                    viewModel = myPackageViewModel,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(RootTab.Settings.route) { SettingsPlaceholder() }
         }

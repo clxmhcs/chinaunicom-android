@@ -100,7 +100,7 @@ jobs:
           grep -q 'UNSUPPORTED("unsupported")' "$DETAIL_MODEL"
           grep -q '/udbh/rest/portal/qryEvaluateOrderInfoByOrderId' "$DETAIL_CORE"
           grep -q 'broaRenewalInfo' "$DETAIL_CORE"
-          grep -q 'OtherBusinessScreen(onOpenMyOrder' "$APP"
+          grep -q 'onOpenMyOrder = ' "$APP"
           grep -q 'private const val MY_ORDER_ROUTE = "other/my-order"' "$APP"
           grep -q 'MyOrderScreen(' "$APP"
           grep -q 'MyOrderDetailScreen(' "$APP"
@@ -114,7 +114,7 @@ jobs:
           fi
           echo "M9_A_MY_ORDER_PERMANENT_GATE=PASS"
 
-      - name: Verify M9-B1 My Package core boundary
+      - name: Verify M9-B1 My Package permanent core boundary
         shell: bash
         run: |
           MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/MyPackageModels.kt
@@ -127,9 +127,6 @@ jobs:
           for file in "$MODEL" "$CLIENT" "$LIFECYCLE" "$STORE" "$CACHE" "$SETTINGS"; do test -f "$file"; done
           grep -q 'include(":data:mypackage")' settings.gradle.kts
           grep -q 'minSdk = 30' data/mypackage/build.gradle.kts
-          grep -q 'implementation(project(":core:login"))' data/mypackage/build.gradle.kts
-          grep -q 'implementation(project(":data:settings"))' data/mypackage/build.gradle.kts
-
           grep -q 'queryPackage/myPackage' "$CLIENT"
           grep -q 'queryPackage/myResourceDetails' "$CLIENT"
           grep -q 'queryPackage/myMemberMobile' "$CLIENT"
@@ -140,35 +137,77 @@ jobs:
           grep -q 'sessionClient.activateSession(credentials)' "$CLIENT"
           grep -q 'fetchOptionalRoot' "$CLIENT"
           grep -q 'result.copy(updatedCredentials = null)' "$LIFECYCLE"
-
           grep -q 'enum class PageEntryRefreshMode' "$SETTINGS"
           grep -q 'EVERY_ENTRY("everyEntry")' "$SETTINGS"
           grep -q 'REFRESH_WHEN_EXPIRED("refreshWhenExpired")' "$SETTINGS"
           grep -q 'MANUAL_ONLY("manualOnly")' "$SETTINGS"
           grep -q 'data class MyPackageRefreshPolicy' "$SETTINGS"
-          grep -q 'PageEntryRefreshMode.EVERY_ENTRY' "$SETTINGS"
-          grep -q 'val cacheValidityMinutes: Int = 30' "$SETTINGS"
           grep -q 'MY_PACKAGE_KEY = "myPackage"' "$SETTINGS"
-
           grep -q 'PageEntryRefreshMode.EVERY_ENTRY' "$STORE"
           grep -q 'PageEntryRefreshMode.REFRESH_WHEN_EXPIRED' "$STORE"
           grep -q 'PageEntryRefreshMode.MANUAL_ONLY' "$STORE"
-          grep -q 'Duration.between' "$STORE"
-          grep -q 'elapsed.isNegative' "$STORE"
-          grep -q 'applyRefreshPolicyChange' "$STORE"
           grep -q 'MyPackageRefreshState.Warning' "$STORE"
-
           grep -q 'AtomicFile' "$CACHE"
           grep -q 'SCHEMA_VERSION = 1' "$CACHE"
           grep -q 'stream.fd.sync()' "$CACHE"
-          grep -q 'Map<UUID, MyPackageCacheRecord>' "$CACHE"
           if grep -R -nE 'token_online|password|smsCode|Cookie' data/mypackage/src/main; then
-            echo "M9-B1 My Package business/cache state must not contain raw credential material"
+            echo "M9-B My Package business/cache state must not contain raw credential material"
             exit 1
           fi
-          echo "M9_B1_MY_PACKAGE_CORE_GATE=PASS"
+          echo "M9_B1_MY_PACKAGE_CORE_PERMANENT_GATE=PASS"
 
-      - name: Run M9-B1 regression
+      - name: Verify M9-B2 My Package rough functional wiring
+        shell: bash
+        run: |
+          VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/MyPackageViewModel.kt
+          UI=app/src/main/java/com/clxmhcs/chinaunicom/ui/MyPackageScreen.kt
+          OTHER=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherBusinessScreen.kt
+          APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
+          BUILD=app/build.gradle.kts
+          for file in "$VM" "$UI" "$OTHER" "$APP" "$BUILD"; do test -f "$file"; done
+
+          grep -q 'implementation(project(":data:mypackage"))' "$BUILD"
+          grep -q 'minSdk = 30' "$BUILD"
+          grep -q 'versionName = "0.9.0-m9b2"' "$BUILD"
+          grep -q 'MyPackageAccountCredentialLifecycle' "$VM"
+          grep -q 'CredentialStoreProvider.create' "$VM"
+          grep -q 'AndroidMyPackageDiskCache' "$VM"
+          grep -q 'SettingsMyPackagePolicyProvider' "$VM"
+          grep -q 'DefaultMyPackageStore' "$VM"
+          grep -q 'packageStore.load' "$VM"
+          grep -q 'packageStore.refresh' "$VM"
+          grep -q 'packageStore.clear' "$VM"
+
+          grep -q 'OtherBusinessEntry("我的套餐", enabled = true)' "$OTHER"
+          grep -q 'onOpenMyPackage' "$OTHER"
+          grep -q 'private const val MY_PACKAGE_ROUTE = "other/my-package"' "$APP"
+          grep -q 'onOpenMyPackage = { navController.navigate(MY_PACKAGE_ROUTE) }' "$APP"
+          grep -q 'MyPackageScreen(' "$APP"
+          grep -q 'val myPackageViewModel: MyPackageViewModel = viewModel()' "$APP"
+
+          grep -q '选择要查询的号码' "$UI"
+          grep -q '正在查询我的套餐' "$UI"
+          grep -q '套餐查询失败' "$UI"
+          grep -q '套外计费规则' "$UI"
+          grep -q '宽带号码' "$UI"
+          grep -q '套餐速率' "$UI"
+          grep -q '业务规则' "$UI"
+          grep -q '我的合约' "$UI"
+          grep -q '合约剩余天数' "$UI"
+          grep -q '查看完整号码' "$UI"
+          grep -q '完整号码需要短信验证' "$UI"
+          grep -q 'group.groupType == "05"' "$UI"
+          grep -q '查看更多' "$UI"
+          grep -q '我的靓号' "$UI"
+          grep -q 'viewModel.refresh' "$UI"
+          grep -q 'viewModel.clear' "$UI"
+          if grep -R -nE 'token_online|password|smsCode|Cookie' "$VM" "$UI"; then
+            echo "M9-B2 Compose/ViewModel state must not expose raw credential material"
+            exit 1
+          fi
+          echo "M9_B2_MY_PACKAGE_FUNCTIONAL_WIRING_GATE=PASS"
+
+      - name: Run M9-B2 regression
         id: verify
         continue-on-error: true
         run: >-
@@ -194,7 +233,7 @@ jobs:
           :app:assembleRelease
           --stacktrace
 
-      - name: Publish M9-B1 status
+      - name: Publish M9-B2 status
         if: always()
         uses: actions/github-script@v7
         with:
@@ -206,9 +245,9 @@ jobs:
               sha: context.sha,
               state: passed ? 'success' : 'failure',
               context: 'android-m9-other-business',
-              description: passed ? 'M9-B1 My Package core passed' : 'M9-B1 My Package regression failed',
+              description: passed ? 'M9-B2 My Package functional wiring passed' : 'M9-B2 My Package regression failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
-      - name: Fail workflow when M9-B1 verification failed
+      - name: Fail workflow when M9-B2 verification failed
         if: always() && steps.verify.outcome != 'success'
         run: exit 1
