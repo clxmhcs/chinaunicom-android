@@ -12,7 +12,7 @@ android {
         minSdk = 30
         targetSdk = 36
         versionCode = 1
-        versionName = "0.9.0-m9b2"
+        versionName = "0.9.0-m9b4"
     }
 
     buildTypes {
@@ -59,6 +59,7 @@ dependencies {
     implementation(project(":data:comprehensive"))
     implementation(project(":data:myorder"))
     implementation(project(":data:mypackage"))
+    implementation(project(":data:broadbandaccount"))
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

@@ -32,6 +32,8 @@ data class BroadbandAccountInfo(
     /**
      * Source-equivalent temporary adapter used by business modules such as MyPackage.
      * This does not insert broadband accounts into the M6 mobile-account repository.
+     * A maximal sortOrder keeps the existing mobile ordering first while preserving
+     * the repository's updatedAt ordering among appended broadband targets.
      */
     fun toUnicomAccount(): UnicomAccount {
         val normalizedName = displayName.trim()
@@ -45,6 +47,7 @@ data class BroadbandAccountInfo(
             mobile = serviceNumber.trim(),
             packageName = "宽带账号",
             isEnabled = true,
+            sortOrder = Int.MAX_VALUE,
         )
     }
 }

@@ -43,10 +43,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * M9-B2 functional My Package destination.
- *
- * It intentionally keeps the Compose treatment simple while preserving the source business states,
- * cache/refresh behavior and all data sections returned by the B1 core.
+ * M9-B4 functional My Package destination.
+ * Presentation remains intentionally rough while mobile and independent broadband targets share the B1 store.
  */
 @Composable
 fun MyPackageScreen(
@@ -101,7 +99,11 @@ fun MyPackageScreen(
             selectedAccount == null -> MyPackageAccountSelection(
                 accounts = enabledAccounts,
                 onSelect = { account ->
-                    selectedTabName = MyPackageResourceTab.MOBILE.name
+                    selectedTabName = if (account.isBroadbandTarget()) {
+                        MyPackageResourceTab.BROADBAND.name
+                    } else {
+                        MyPackageResourceTab.MOBILE.name
+                    }
                     selectedAccountID = account.id.toString()
                 },
             )
@@ -136,7 +138,7 @@ private fun MyPackageHeader(
                 Column {
                     Text("我的套餐", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                     selectedAccount?.let {
-                        Text(maskMobile(it.mobile), style = MaterialTheme.typography.bodySmall)
+                        Text(maskBusinessNumber(it), style = MaterialTheme.typography.bodySmall)
                     }
                 }
                 Row {
@@ -156,7 +158,7 @@ private fun EmptyMyPackageAccounts() {
     ) {
         Text("暂无号码", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
-        Text("请先在设置中保存联通号码凭据。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("请先在设置中保存联通手机或独立宽带账号。", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -174,7 +176,7 @@ private fun MyPackageAccountSelection(
                 Text("选择要查询的号码", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "我的套餐按号码分别查询。当前 Android 先使用已保存的联通手机号码；套餐返回的关联宽带资源会在详情中展示。",
+                    "我的套餐按号码分别查询。已保存的联通手机账号和独立宽带账号都会出现在这里；宽带账号不会加入首页流量、语音或余额卡片。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -189,7 +191,7 @@ private fun MyPackageAccountSelection(
                 tonalElevation = 1.dp,
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(maskMobile(account.mobile), style = MaterialTheme.typography.titleMedium)
+                    Text(maskBusinessNumber(account), style = MaterialTheme.typography.titleMedium)
                     if (account.displayName.isNotBlank()) {
                         Text(account.displayName, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -443,7 +445,13 @@ private fun KeyValueLine(label: String, value: String) {
     }
 }
 
-private fun maskMobile(value: String): String {
+private fun UnicomAccount.isBroadbandTarget(): Boolean = packageName == "宽带账号"
+
+private fun maskBusinessNumber(account: UnicomAccount): String {
+    val value = account.mobile.trim()
+    if (account.isBroadbandTarget()) {
+        return if (value.length > 8) value.take(4) + "****" + value.takeLast(4) else value
+    }
     val digits = value.filter(Char::isDigit)
     return if (digits.length >= 7) "${digits.take(3)}****${digits.takeLast(4)}" else digits.ifBlank { value }
 }

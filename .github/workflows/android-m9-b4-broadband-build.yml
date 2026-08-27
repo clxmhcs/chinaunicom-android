@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - "data/broadbandaccount/**"
+      - "app/**"
       - "settings.gradle.kts"
       - ".github/workflows/android-m9-b4-broadband-build.yml"
   push:
     branches: [main]
     paths:
       - "data/broadbandaccount/**"
+      - "app/**"
       - "settings.gradle.kts"
       - ".github/workflows/android-m9-b4-broadband-build.yml"
 
@@ -66,5 +68,28 @@ jobs:
           ! grep -Eq 'val (cookie|appID|tokenOnline)' "$INFO"
           ! grep -Eqi 'cookie|token_online|appId' "$REPO"
 
-      - name: Run M9-B4-A regression
-        run: ./gradlew :data:broadbandaccount:testDebugUnitTest :core:security:testDebugUnitTest :core:network:testDebugUnitTest :app:assembleDebug :app:assembleRelease
+      - name: Verify M9-B4-B settings and MyPackage wiring
+        shell: bash
+        run: |
+          VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/BroadbandAccountViewModel.kt
+          SETTINGS=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsAccountScreen.kt
+          APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
+          PACKAGE=app/src/main/java/com/clxmhcs/chinaunicom/ui/MyPackageScreen.kt
+          for file in "$VM" "$SETTINGS" "$APP" "$PACKAGE"; do test -f "$file"; done
+          grep -q 'implementation(project(":data:broadbandaccount"))' app/build.gradle.kts
+          grep -q 'versionName = "0.9.0-m9b4"' app/build.gradle.kts
+          grep -q 'BroadbandAccountLifecycle' "$VM"
+          grep -q 'CredentialStoreProvider.create' "$VM"
+          grep -q 'Dispatchers.IO' "$VM"
+          grep -q 'BroadbandAccountDraft' "$SETTINGS"
+          grep -q 'PasswordVisualTransformation' "$SETTINGS"
+          grep -q 'broadbandState.accounts.map { it.toUnicomAccount() }' "$APP"
+          grep -q 'broadbandAccountViewModel: BroadbandAccountViewModel = viewModel()' "$APP"
+          grep -q 'account.isBroadbandTarget()' "$PACKAGE"
+          grep -q 'MyPackageResourceTab.BROADBAND.name' "$PACKAGE"
+          grep -q '手机账号和独立宽带账号' "$PACKAGE"
+          ! grep -Eq 'broadband(Cookie|AppID|TokenOnline).*rememberSaveable' "$SETTINGS"
+          ! grep -Eq 'cookie|tokenOnline|appID' data/broadbandaccount/src/main/kotlin/com/clxmhcs/chinaunicom/data/broadbandaccount/BroadbandAccountInfo.kt
+
+      - name: Run M9-B4 regression
+        run: ./gradlew :data:broadbandaccount:testDebugUnitTest :core:security:testDebugUnitTest :core:network:testDebugUnitTest :data:mypackage:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease

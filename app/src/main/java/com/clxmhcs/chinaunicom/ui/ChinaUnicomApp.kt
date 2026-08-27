@@ -44,6 +44,7 @@ fun ChinaUnicomApp() {
     val flowViewModel: FlowViewModel = viewModel()
     val comprehensiveViewModel: ComprehensiveBusinessViewModel = viewModel()
     val myOrderViewModel: MyOrderViewModel = viewModel()
+    val broadbandAccountViewModel: BroadbandAccountViewModel = viewModel()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner, flowViewModel) {
@@ -172,7 +173,9 @@ fun ChinaUnicomApp() {
             }
             composable(MY_PACKAGE_ROUTE) {
                 val flowState by flowViewModel.uiState.collectAsState()
-                val accounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                val broadbandState by broadbandAccountViewModel.state.collectAsState()
+                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                val accounts = mobileAccounts + broadbandState.accounts.map { it.toUnicomAccount() }
                 val myPackageViewModel: MyPackageViewModel = viewModel()
                 MyPackageScreen(
                     accounts = accounts,
@@ -180,7 +183,12 @@ fun ChinaUnicomApp() {
                     onBack = { navController.popBackStack() },
                 )
             }
-            composable(RootTab.Settings.route) { SettingsPlaceholder() }
+            composable(RootTab.Settings.route) {
+                SettingsAccountScreen(
+                    flowViewModel = flowViewModel,
+                    broadbandViewModel = broadbandAccountViewModel,
+                )
+            }
         }
     }
 }
