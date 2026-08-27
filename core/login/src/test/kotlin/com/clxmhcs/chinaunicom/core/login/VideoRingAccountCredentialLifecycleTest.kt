@@ -20,7 +20,7 @@ class VideoRingAccountCredentialLifecycleTest {
             validator = object : VideoRingCredentialValidator {
                 override fun fetchMemberState(credentials: AccountCredentials, expectedPhoneNumber: String) =
                     VideoRingMemberFetchResult(
-                        VideoRingMemberState(expectedPhoneNumber, emptyList(), emptyList()),
+                        VideoRingMemberState(expectedPhoneNumber, emptyList()),
                         renewed,
                     )
             },
