@@ -33,6 +33,7 @@ private const val BILL_ROUTE = "comprehensive/bill/{accountId}"
 private const val FLOW_ROUTE = "comprehensive/flow/{accountId}"
 private const val VOICE_ROUTE = "comprehensive/voice/{accountId}"
 private const val INTEGRAL_ROUTE = "comprehensive/integral/{accountId}"
+private const val ORDERED_BUSINESS_HUB_ROUTE = "other/ordered-business"
 private const val MY_ORDER_ROUTE = "other/my-order"
 private const val MY_ORDER_DETAIL_ROUTE = "other/my-order/detail/{accountId}/{orderId}"
 private const val MY_PACKAGE_ROUTE = "other/my-package"
@@ -143,8 +144,20 @@ fun ChinaUnicomApp() {
             }
             composable(RootTab.OtherBusiness.route) {
                 OtherBusinessScreen(
+                    onOpenOrderedBusiness = { navController.navigate(ORDERED_BUSINESS_HUB_ROUTE) },
                     onOpenMyOrder = { navController.navigate(MY_ORDER_ROUTE) },
                     onOpenMyPackage = { navController.navigate(MY_PACKAGE_ROUTE) },
+                )
+            }
+            composable(ORDERED_BUSINESS_HUB_ROUTE) {
+                val flowState by flowViewModel.uiState.collectAsState()
+                val broadbandState by broadbandAccountViewModel.state.collectAsState()
+                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                val accounts = mobileAccounts + broadbandState.accounts.map { it.toUnicomAccount() }
+                OtherOrderedBusinessScreen(
+                    accounts = accounts,
+                    businessViewModel = comprehensiveViewModel,
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable(MY_ORDER_ROUTE) {

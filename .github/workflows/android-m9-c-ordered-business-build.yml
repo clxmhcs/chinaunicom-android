@@ -1,0 +1,76 @@
+name: Android M9 C Ordered Business
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "data/orderedbusiness/**"
+      - "data/broadbandaccount/**"
+      - ".github/workflows/android-m9-c-ordered-business-build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "data/orderedbusiness/**"
+      - "data/broadbandaccount/**"
+      - ".github/workflows/android-m9-c-ordered-business-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  m9-c-ordered-business:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+      - name: Ensure Android API 37 SDK
+        shell: bash
+        run: |
+          PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && $1 ~ /android-37/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
+          test -n "$PLATFORM_PACKAGE"
+          sdkmanager --channel=3 "$PLATFORM_PACKAGE"
+
+      - name: Verify M9-C1 reuse boundary
+        shell: bash
+        run: |
+          OTHER=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherBusinessScreen.kt
+          HUB=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherOrderedBusinessScreen.kt
+          APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
+          BUILD=app/build.gradle.kts
+          STORE=data/orderedbusiness/src/main/kotlin/com/clxmhcs/chinaunicom/data/orderedbusiness/OrderedBusinessStore.kt
+          for file in "$OTHER" "$HUB" "$APP" "$BUILD" "$STORE"; do test -f "$file"; done
+
+          grep -q 'minSdk = 30' "$BUILD"
+          grep -q 'versionName = "0.9.0-m9c1"' "$BUILD"
+          grep -q 'OtherBusinessEntry("已订业务", enabled = true)' "$OTHER"
+          grep -q 'onOpenOrderedBusiness' "$OTHER"
+          grep -q 'ORDERED_BUSINESS_HUB_ROUTE = "other/ordered-business"' "$APP"
+          grep -q 'broadbandState.accounts.map { it.toUnicomAccount() }' "$APP"
+          grep -q 'OtherOrderedBusinessScreen(' "$APP"
+          grep -q 'orderedBusinessStore.reconcileAccounts' "$HUB"
+          grep -q 'orderedBusinessStore.refreshAll(accounts)' "$HUB"
+          grep -q 'orderedBusinessStore.refresh(account)' "$HUB"
+          grep -q 'snapshot.sections.forEach' "$HUB"
+          grep -q 'packageName == "宽带账号"' "$HUB"
+          grep -q 'suspend fun reconcileAccounts(accountIDs: List<UUID>)' "$STORE"
+          grep -q 'suspend fun refreshAll(accounts: List<UnicomAccount>)' "$STORE"
+          ! grep -Eqi 'cookie|token_online|appId|idCardLastSix' "$HUB"
+
+      - name: Run M9-C1 regression
+        run: ./gradlew :data:orderedbusiness:testDebugUnitTest :data:broadbandaccount:testDebugUnitTest :core:login:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease

@@ -23,7 +23,7 @@ private data class OtherBusinessEntry(
 )
 
 private val otherBusinessEntries = listOf(
-    OtherBusinessEntry("已订业务"),
+    OtherBusinessEntry("已订业务", enabled = true),
     OtherBusinessEntry("视频彩铃会员"),
     OtherBusinessEntry("电子受理单"),
     OtherBusinessEntry("我的订单", enabled = true),
@@ -38,6 +38,7 @@ private val otherBusinessEntries = listOf(
 /** M9 functional shell. Remaining entries are enabled only when their later substages land. */
 @Composable
 fun OtherBusinessScreen(
+    onOpenOrderedBusiness: () -> Unit,
     onOpenMyOrder: () -> Unit,
     onOpenMyPackage: () -> Unit,
 ) {
@@ -69,6 +70,7 @@ fun OtherBusinessScreen(
                                 .weight(1f)
                                 .clickable(enabled = entry.enabled) {
                                     when (entry.title) {
+                                        "已订业务" -> onOpenOrderedBusiness()
                                         "我的订单" -> onOpenMyOrder()
                                         "我的套餐" -> onOpenMyPackage()
                                     }
