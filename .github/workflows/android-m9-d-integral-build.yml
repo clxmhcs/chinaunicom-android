@@ -1,0 +1,99 @@
+name: Android M9 D Integral
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/model/**"
+      - "core/network/**"
+      - "core/login/**"
+      - "data/integral/**"
+      - "data/comprehensive/**"
+      - ".github/workflows/android-m9-d-integral-build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/model/**"
+      - "core/network/**"
+      - "core/login/**"
+      - "data/integral/**"
+      - "data/comprehensive/**"
+      - ".github/workflows/android-m9-d-integral-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  m9-d-integral:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+      - name: Ensure Android API 37 SDK
+        shell: bash
+        run: |
+          PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && $1 ~ /android-37/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
+          test -n "$PLATFORM_PACKAGE"
+          sdkmanager --channel=3 "$PLATFORM_PACKAGE"
+
+      - name: Verify M9-D1 Integral reuse boundary
+        shell: bash
+        run: |
+          OTHER=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherBusinessScreen.kt
+          SELECTOR=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherIntegralAccountSelectionScreen.kt
+          ENTRY=app/src/main/java/com/clxmhcs/chinaunicom/ui/ComprehensiveBusinessScreen.kt
+          VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/ComprehensiveBusinessViewModel.kt
+          APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
+          BUILD=app/build.gradle.kts
+          CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomIntegralClient.kt
+          STORE=data/integral/src/main/kotlin/com/clxmhcs/chinaunicom/data/integral/IntegralStore.kt
+          CACHE=data/integral/src/main/kotlin/com/clxmhcs/chinaunicom/data/integral/AndroidIntegralDiskCache.kt
+          for file in "$OTHER" "$SELECTOR" "$ENTRY" "$VM" "$APP" "$BUILD" "$CLIENT" "$STORE" "$CACHE"; do test -f "$file"; done
+
+          grep -q 'minSdk = 30' "$BUILD"
+          grep -q 'versionName = "0.9.0-m9d1"' "$BUILD"
+          grep -q 'OtherBusinessEntry("积分", enabled = true)' "$OTHER"
+          grep -q 'onOpenIntegral' "$OTHER"
+          grep -q 'OTHER_INTEGRAL_ROUTE = "other/integral"' "$APP"
+          grep -q 'OTHER_INTEGRAL_DETAIL_ROUTE = "other/integral/{accountId}"' "$APP"
+          grep -q 'OtherIntegralAccountSelectionScreen(' "$APP"
+          grep -q 'IntegralEntryScreen(' "$APP"
+
+          grep -q 'account.isEnabled && account.mobile.count { it.isDigit() } == 11' "$SELECTOR"
+          grep -q 'sortedBy { it.sortOrder }' "$SELECTOR"
+          grep -q 'onOpenAccount(account.id)' "$SELECTOR"
+          grep -q '当前 App 已保存的手机号码' "$SELECTOR"
+          ! grep -Eqi 'broadband|cookie|token_online|appid|idcardlastsix' "$SELECTOR"
+
+          grep -q 'businessViewModel.loadIntegral(account)' "$ENTRY"
+          grep -q 'businessViewModel.refreshIntegral(account, allAccountIDs)' "$ENTRY"
+          grep -q 'businessViewModel.loadIntegralDetails' "$ENTRY"
+          grep -q 'IntegralSection.entries' "$ENTRY"
+          grep -q 'snapshot.months.forEach' "$ENTRY"
+          grep -q 'AndroidIntegralStores.create' "$VM"
+          grep -q 'IntegralAccountCredentialLifecycle' "$VM"
+          grep -q 'validateAccount(mobile, originalCookie)' "$CLIENT"
+          grep -q 'validateAccount(mobile, renewedCookie)' "$CLIENT"
+          grep -q 'IntegralSnapshot.CURRENT_PARSER_VERSION' "$CLIENT"
+          grep -q 'AtomicFile' "$CACHE"
+          grep -q 'stream.fd.sync()' "$CACHE"
+          echo "M9_D1_INTEGRAL_REUSE_GATE=PASS"
+
+      - name: Run M9-D1 regression
+        run: ./gradlew :core:model:testDebugUnitTest :core:network:testDebugUnitTest :core:login:testDebugUnitTest :data:integral:testDebugUnitTest :data:comprehensive:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease

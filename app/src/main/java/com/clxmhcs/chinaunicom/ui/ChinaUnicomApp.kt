@@ -37,6 +37,8 @@ private const val ORDERED_BUSINESS_HUB_ROUTE = "other/ordered-business"
 private const val MY_ORDER_ROUTE = "other/my-order"
 private const val MY_ORDER_DETAIL_ROUTE = "other/my-order/detail/{accountId}/{orderId}"
 private const val MY_PACKAGE_ROUTE = "other/my-package"
+private const val OTHER_INTEGRAL_ROUTE = "other/integral"
+private const val OTHER_INTEGRAL_DETAIL_ROUTE = "other/integral/{accountId}"
 
 @Composable
 fun ChinaUnicomApp() {
@@ -147,6 +149,7 @@ fun ChinaUnicomApp() {
                     onOpenOrderedBusiness = { navController.navigate(ORDERED_BUSINESS_HUB_ROUTE) },
                     onOpenMyOrder = { navController.navigate(MY_ORDER_ROUTE) },
                     onOpenMyPackage = { navController.navigate(MY_PACKAGE_ROUTE) },
+                    onOpenIntegral = { navController.navigate(OTHER_INTEGRAL_ROUTE) },
                 )
             }
             composable(ORDERED_BUSINESS_HUB_ROUTE) {
@@ -195,6 +198,25 @@ fun ChinaUnicomApp() {
                     viewModel = myPackageViewModel,
                     onBack = { navController.popBackStack() },
                 )
+            }
+            composable(OTHER_INTEGRAL_ROUTE) {
+                val flowState by flowViewModel.uiState.collectAsState()
+                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                OtherIntegralAccountSelectionScreen(
+                    accounts = mobileAccounts,
+                    onBack = { navController.popBackStack() },
+                    onOpenAccount = { navController.navigate("other/integral/$it") },
+                )
+            }
+            composable(OTHER_INTEGRAL_DETAIL_ROUTE) { entry ->
+                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
+                    IntegralEntryScreen(
+                        account = account,
+                        allAccountIDs = accounts.map { it.id },
+                        businessViewModel = comprehensiveViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
             }
             composable(RootTab.Settings.route) {
                 SettingsAccountScreen(

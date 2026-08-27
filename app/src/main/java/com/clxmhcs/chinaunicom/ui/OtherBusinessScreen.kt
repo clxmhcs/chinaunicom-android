@@ -28,7 +28,7 @@ private val otherBusinessEntries = listOf(
     OtherBusinessEntry("电子受理单"),
     OtherBusinessEntry("我的订单", enabled = true),
     OtherBusinessEntry("我的套餐", enabled = true),
-    OtherBusinessEntry("积分"),
+    OtherBusinessEntry("积分", enabled = true),
     OtherBusinessEntry("话费 / 账单"),
     OtherBusinessEntry("返费 / 赠费"),
     OtherBusinessEntry("资费专区"),
@@ -41,6 +41,7 @@ fun OtherBusinessScreen(
     onOpenOrderedBusiness: () -> Unit,
     onOpenMyOrder: () -> Unit,
     onOpenMyPackage: () -> Unit,
+    onOpenIntegral: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
@@ -73,6 +74,7 @@ fun OtherBusinessScreen(
                                         "已订业务" -> onOpenOrderedBusiness()
                                         "我的订单" -> onOpenMyOrder()
                                         "我的套餐" -> onOpenMyPackage()
+                                        "积分" -> onOpenIntegral()
                                     }
                                 },
                             shape = MaterialTheme.shapes.medium,
