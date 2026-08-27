@@ -34,6 +34,8 @@ private const val FLOW_ROUTE = "comprehensive/flow/{accountId}"
 private const val VOICE_ROUTE = "comprehensive/voice/{accountId}"
 private const val INTEGRAL_ROUTE = "comprehensive/integral/{accountId}"
 private const val ORDERED_BUSINESS_HUB_ROUTE = "other/ordered-business"
+private const val OTHER_VIDEO_RING_ROUTE = "other/video-ring"
+private const val OTHER_VIDEO_RING_DETAIL_ROUTE = "other/video-ring/{accountId}"
 private const val MY_ORDER_ROUTE = "other/my-order"
 private const val MY_ORDER_DETAIL_ROUTE = "other/my-order/detail/{accountId}/{orderId}"
 private const val MY_PACKAGE_ROUTE = "other/my-package"
@@ -55,6 +57,7 @@ fun ChinaUnicomApp() {
     val broadbandAccountViewModel: BroadbandAccountViewModel = viewModel()
     val rebateAndGiftViewModel: RebateAndGiftViewModel = viewModel()
     val tariffZoneViewModel: TariffZoneViewModel = viewModel()
+    val videoRingViewModel: VideoRingViewModel = viewModel()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner, flowViewModel) {
@@ -154,6 +157,7 @@ fun ChinaUnicomApp() {
             composable(RootTab.OtherBusiness.route) {
                 OtherBusinessScreen(
                     onOpenOrderedBusiness = { navController.navigate(ORDERED_BUSINESS_HUB_ROUTE) },
+                    onOpenVideoRing = { navController.navigate(OTHER_VIDEO_RING_ROUTE) },
                     onOpenMyOrder = { navController.navigate(MY_ORDER_ROUTE) },
                     onOpenMyPackage = { navController.navigate(MY_PACKAGE_ROUTE) },
                     onOpenIntegral = { navController.navigate(OTHER_INTEGRAL_ROUTE) },
@@ -172,6 +176,24 @@ fun ChinaUnicomApp() {
                     businessViewModel = comprehensiveViewModel,
                     onBack = { navController.popBackStack() },
                 )
+            }
+            composable(OTHER_VIDEO_RING_ROUTE) {
+                val flowState by flowViewModel.uiState.collectAsState()
+                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                VideoRingAccountSelectionScreen(
+                    accounts = mobileAccounts,
+                    onBack = { navController.popBackStack() },
+                    onOpenAccount = { navController.navigate("other/video-ring/$it") },
+                )
+            }
+            composable(OTHER_VIDEO_RING_DETAIL_ROUTE) { entry ->
+                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                    VideoRingMemberCenterScreen(
+                        account = account,
+                        viewModel = videoRingViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
             }
             composable(MY_ORDER_ROUTE) {
                 val flowState by flowViewModel.uiState.collectAsState()
