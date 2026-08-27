@@ -36,6 +36,7 @@ private const val INTEGRAL_ROUTE = "comprehensive/integral/{accountId}"
 private const val ORDERED_BUSINESS_HUB_ROUTE = "other/ordered-business"
 private const val OTHER_VIDEO_RING_ROUTE = "other/video-ring"
 private const val OTHER_VIDEO_RING_DETAIL_ROUTE = "other/video-ring/{accountId}"
+private const val OTHER_ELECTRONIC_RECEIPT_ROUTE = "other/electronic-receipt"
 private const val MY_ORDER_ROUTE = "other/my-order"
 private const val MY_ORDER_DETAIL_ROUTE = "other/my-order/detail/{accountId}/{orderId}"
 private const val MY_PACKAGE_ROUTE = "other/my-package"
@@ -46,6 +47,7 @@ private const val OTHER_PHONE_BILL_DETAIL_ROUTE = "other/phone-bill/{accountId}"
 private const val OTHER_REBATE_GIFT_ROUTE = "other/rebate-gift"
 private const val OTHER_REBATE_GIFT_DETAIL_ROUTE = "other/rebate-gift/{accountId}"
 private const val OTHER_TARIFF_ZONE_ROUTE = "other/tariff-zone"
+private const val OTHER_SERVICE_HALL_ROUTE = "other/service-hall"
 
 @Composable
 fun ChinaUnicomApp() {
@@ -58,6 +60,8 @@ fun ChinaUnicomApp() {
     val rebateAndGiftViewModel: RebateAndGiftViewModel = viewModel()
     val tariffZoneViewModel: TariffZoneViewModel = viewModel()
     val videoRingViewModel: VideoRingViewModel = viewModel()
+    val electronicReceiptViewModel: ElectronicReceiptViewModel = viewModel()
+    val serviceHallViewModel: ServiceHallViewModel = viewModel()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner, flowViewModel) {
@@ -158,12 +162,14 @@ fun ChinaUnicomApp() {
                 OtherBusinessScreen(
                     onOpenOrderedBusiness = { navController.navigate(ORDERED_BUSINESS_HUB_ROUTE) },
                     onOpenVideoRing = { navController.navigate(OTHER_VIDEO_RING_ROUTE) },
+                    onOpenElectronicReceipt = { navController.navigate(OTHER_ELECTRONIC_RECEIPT_ROUTE) },
                     onOpenMyOrder = { navController.navigate(MY_ORDER_ROUTE) },
                     onOpenMyPackage = { navController.navigate(MY_PACKAGE_ROUTE) },
                     onOpenIntegral = { navController.navigate(OTHER_INTEGRAL_ROUTE) },
                     onOpenPhoneBill = { navController.navigate(OTHER_PHONE_BILL_ROUTE) },
                     onOpenRebateAndGift = { navController.navigate(OTHER_REBATE_GIFT_ROUTE) },
                     onOpenTariffZone = { navController.navigate(OTHER_TARIFF_ZONE_ROUTE) },
+                    onOpenNearbyServiceHall = { navController.navigate(OTHER_SERVICE_HALL_ROUTE) },
                 )
             }
             composable(ORDERED_BUSINESS_HUB_ROUTE) {
@@ -194,6 +200,17 @@ fun ChinaUnicomApp() {
                         onBack = { navController.popBackStack() },
                     )
                 }
+            }
+            composable(OTHER_ELECTRONIC_RECEIPT_ROUTE) {
+                val flowState by flowViewModel.uiState.collectAsState()
+                val broadbandState by broadbandAccountViewModel.state.collectAsState()
+                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                ElectronicReceiptScreen(
+                    mobileAccounts = mobileAccounts,
+                    broadbandAccounts = broadbandState.accounts,
+                    viewModel = electronicReceiptViewModel,
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable(MY_ORDER_ROUTE) {
                 val flowState by flowViewModel.uiState.collectAsState()
@@ -293,6 +310,16 @@ fun ChinaUnicomApp() {
                 TariffZoneScreen(
                     accounts = mobileAccounts,
                     viewModel = tariffZoneViewModel,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(OTHER_SERVICE_HALL_ROUTE) {
+                val flowState by flowViewModel.uiState.collectAsState()
+                val content = flowState as? FlowUiState.Content
+                NearbyServiceHallScreen(
+                    accounts = content?.accounts.orEmpty(),
+                    preferredAccountID = content?.homeBalanceAccount?.id,
+                    viewModel = serviceHallViewModel,
                     onBack = { navController.popBackStack() },
                 )
             }

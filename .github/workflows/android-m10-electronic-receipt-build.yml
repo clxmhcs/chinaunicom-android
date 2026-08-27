@@ -1,0 +1,94 @@
+name: Android M10 Electronic Receipt
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/network/**"
+      - "data/broadbandaccount/**"
+      - ".github/workflows/android-m10-electronic-receipt-build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/network/**"
+      - "data/broadbandaccount/**"
+      - ".github/workflows/android-m10-electronic-receipt-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  m10-electronic-receipt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+      - name: Ensure Android API 37 SDK
+        shell: bash
+        run: |
+          PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && $1 ~ /android-37/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
+          test -n "$PLATFORM_PACKAGE"
+          sdkmanager --channel=3 "$PLATFORM_PACKAGE"
+
+      - name: Verify M10 electronic-receipt local/WebView/PDF boundary
+        shell: bash
+        run: |
+          MODEL=app/src/main/java/com/clxmhcs/chinaunicom/ui/ElectronicReceiptModels.kt
+          STORAGE=app/src/main/java/com/clxmhcs/chinaunicom/ui/ElectronicReceiptStorage.kt
+          VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/ElectronicReceiptViewModel.kt
+          UI=app/src/main/java/com/clxmhcs/chinaunicom/ui/ElectronicReceiptScreen.kt
+          OTHER=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherBusinessScreen.kt
+          APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
+          BUILD=app/build.gradle.kts
+          for file in "$MODEL" "$STORAGE" "$VM" "$UI" "$OTHER" "$APP" "$BUILD"; do test -f "$file"; done
+
+          grep -q 'minSdk = 30' "$BUILD"
+          grep -Eq 'versionName = "0\.9\.0-m9[a-z0-9.-]*"' "$BUILD"
+          grep -q 'OtherBusinessEntry("电子受理单", enabled = true)' "$OTHER"
+          grep -q 'OTHER_ELECTRONIC_RECEIPT_ROUTE = "other/electronic-receipt"' "$APP"
+          grep -q 'ElectronicReceiptScreen(' "$APP"
+          grep -q 'https://imgxx.client.10010.com/dianzishoulidan/index.html' "$VM"
+          grep -q 'ElectronicReceiptTargetKind.BROADBAND' "$VM"
+          grep -q 'api.activateSession(stored)' "$VM"
+          grep -q 'api.fetchQuota(stored).updatedCredentials' "$VM"
+          grep -q 'loginType: String get() = if (kind == ElectronicReceiptTargetKind.BROADBAND) "03" else "01"' "$MODEL"
+          grep -q 'unicomMallUid' "$VM"
+          grep -q 'c_mobile' "$VM"
+          grep -q 'u_account' "$VM"
+          grep -q 'login_type' "$VM"
+          grep -q 'iphone_c@12.1300' "$VM"
+          grep -q 'AtomicFile' "$STORAGE"
+          grep -q 'stream.fd.sync()' "$STORAGE"
+          grep -q 'PdfRenderer' "$UI"
+          grep -q 'ActivityResultContracts.OpenDocumentTree' "$UI"
+          grep -q 'defaultValue != "MsJSBridge"' "$UI"
+          grep -q 'getClientInfo' "$UI"
+          grep -q '/servicequerybusiness/queryNoPaper/noPaperDetailPdfByUser' "$MODEL"
+          ! grep -Eqi 'cookie|token_online|appid|idcardlastsix' "$STORAGE"
+          ! grep -Eqi 'cookie|token_online|appid|idcardlastsix' "$MODEL"
+          echo "M10_ELECTRONIC_RECEIPT_BOUNDARY=PASS"
+
+      - name: Run M10 regression
+        run: >-
+          gradle
+          :core:network:testDebugUnitTest
+          :app:testDebugUnitTest
+          :app:assembleDebug
+          :app:assembleRelease
+          --stacktrace

@@ -1,0 +1,96 @@
+name: Android M9 I Service Hall
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/model/**"
+      - "core/network/**"
+      - ".github/workflows/android-m9-i-service-hall-build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/model/**"
+      - "core/network/**"
+      - ".github/workflows/android-m9-i-service-hall-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  m9-i-service-hall:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+      - name: Ensure Android API 37 SDK
+        shell: bash
+        run: |
+          PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && $1 ~ /android-37/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
+          test -n "$PLATFORM_PACKAGE"
+          sdkmanager --channel=3 "$PLATFORM_PACKAGE"
+
+      - name: Verify M9-I nearby-service-hall boundary
+        shell: bash
+        run: |
+          MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/ServiceHallModels.kt
+          CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomServiceHallClient.kt
+          VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/ServiceHallViewModel.kt
+          UI=app/src/main/java/com/clxmhcs/chinaunicom/ui/NearbyServiceHallScreen.kt
+          OTHER=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherBusinessScreen.kt
+          APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
+          BUILD=app/build.gradle.kts
+          MANIFEST=app/src/main/AndroidManifest.xml
+          for file in "$MODEL" "$CLIENT" "$VM" "$UI" "$OTHER" "$APP" "$BUILD" "$MANIFEST"; do test -f "$file"; done
+
+          grep -q 'minSdk = 30' "$BUILD"
+          grep -Eq 'versionName = "0\.9\.0-m9[a-z0-9.-]*"' "$BUILD"
+          grep -q 'ACCESS_COARSE_LOCATION' "$MANIFEST"
+          grep -q 'ACCESS_FINE_LOCATION' "$MANIFEST"
+          grep -q 'SELF_OPERATED("zyt", "自营厅")' "$MODEL"
+          grep -q 'PARTNER("hzt", "合作厅")' "$MODEL"
+          grep -q '/mobileService/customerService/getDefaultAddress.htm' "$CLIENT"
+          grep -q '/nearhall/customerService/getEhallListH5.do' "$CLIENT"
+          grep -q '/nearhall/customerService/getCityBusinessH5.do' "$CLIENT"
+          grep -q 'iphone_c@12.1500' "$CLIENT"
+          grep -q 'reqPosition" to "sth5"' "$CLIENT"
+          grep -q 'sessionClient.activateSession(credentials)' "$CLIENT"
+          grep -q 'CredentialStoreProvider.create' "$VM"
+          grep -q 'homeBalanceAccount' "$APP"
+          grep -q 'OtherBusinessEntry("附近营业厅", enabled = true)' "$OTHER"
+          grep -q 'OTHER_SERVICE_HALL_ROUTE = "other/service-hall"' "$APP"
+          grep -q 'NearbyServiceHallScreen(' "$APP"
+          grep -q 'ActivityResultContracts.RequestMultiplePermissions' "$UI"
+          grep -q 'eSIM办理' "$UI"
+          grep -q '导航到营业厅' "$UI"
+          if grep -Eqi 'cookie|token_online|appid|password' "$UI"; then
+            echo "M9-I UI must not expose credential material"
+            exit 1
+          fi
+          echo "M9_I_SERVICE_HALL_BOUNDARY=PASS"
+
+      - name: Run M9-I regression
+        run: >-
+          gradle
+          :core:model:testDebugUnitTest
+          :core:network:testDebugUnitTest
+          :app:testDebugUnitTest
+          :app:assembleDebug
+          :app:assembleRelease
+          --stacktrace

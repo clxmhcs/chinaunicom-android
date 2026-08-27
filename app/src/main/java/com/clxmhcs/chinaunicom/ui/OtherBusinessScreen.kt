@@ -25,27 +25,29 @@ private data class OtherBusinessEntry(
 private val otherBusinessEntries = listOf(
     OtherBusinessEntry("已订业务", enabled = true),
     OtherBusinessEntry("视频彩铃会员", enabled = true),
-    OtherBusinessEntry("电子受理单"),
+    OtherBusinessEntry("电子受理单", enabled = true),
     OtherBusinessEntry("我的订单", enabled = true),
     OtherBusinessEntry("我的套餐", enabled = true),
     OtherBusinessEntry("积分", enabled = true),
     OtherBusinessEntry("话费 / 账单", enabled = true),
     OtherBusinessEntry("返费 / 赠费", enabled = true),
     OtherBusinessEntry("资费专区", enabled = true),
-    OtherBusinessEntry("附近营业厅"),
+    OtherBusinessEntry("附近营业厅", enabled = true),
 )
 
-/** M9 functional shell. Remaining entries are enabled only when their later substages land. */
+/** M9/M10 functional shell. Visual refinement remains deferred until business parity closes. */
 @Composable
 fun OtherBusinessScreen(
     onOpenOrderedBusiness: () -> Unit,
     onOpenVideoRing: () -> Unit,
+    onOpenElectronicReceipt: () -> Unit,
     onOpenMyOrder: () -> Unit,
     onOpenMyPackage: () -> Unit,
     onOpenIntegral: () -> Unit,
     onOpenPhoneBill: () -> Unit,
     onOpenRebateAndGift: () -> Unit,
     onOpenTariffZone: () -> Unit,
+    onOpenNearbyServiceHall: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
@@ -77,12 +79,14 @@ fun OtherBusinessScreen(
                                     when (entry.title) {
                                         "已订业务" -> onOpenOrderedBusiness()
                                         "视频彩铃会员" -> onOpenVideoRing()
+                                        "电子受理单" -> onOpenElectronicReceipt()
                                         "我的订单" -> onOpenMyOrder()
                                         "我的套餐" -> onOpenMyPackage()
                                         "积分" -> onOpenIntegral()
                                         "话费 / 账单" -> onOpenPhoneBill()
                                         "返费 / 赠费" -> onOpenRebateAndGift()
                                         "资费专区" -> onOpenTariffZone()
+                                        "附近营业厅" -> onOpenNearbyServiceHall()
                                     }
                                 },
                             shape = MaterialTheme.shapes.medium,
