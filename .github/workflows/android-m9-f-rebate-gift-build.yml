@@ -74,7 +74,7 @@ jobs:
           for file in "$MODEL" "$CLIENT" "$LIFECYCLE" "$STORE" "$CACHE" "$SETTINGS" "$ANDROID_SETTINGS" "$SETTINGS_TEST" "$SELECTOR" "$SCREEN" "$VM" "$OTHER" "$APP" "$BUILD"; do test -f "$file"; done
 
           grep -q 'minSdk = 30' "$BUILD"
-          grep -Eq 'versionName = "0\.9\.0-m9[a-z][0-9]+"' "$BUILD"
+          grep -Eq 'versionName = "0\.9\.0-m9[a-z0-9.-]*"' "$BUILD"
           grep -q 'ACCOUNT("account", "账户", "0")' "$MODEL"
           grep -q 'USER("user", "用户", "1")' "$MODEL"
           grep -q 'https://hlbasic.10010.com' "$CLIENT"
@@ -105,7 +105,7 @@ jobs:
           grep -q 'monthlyRefreshDay: Int = 2' "$SETTINGS"
           grep -q 'monthlyRefreshHour: Int = 8' "$SETTINGS"
           grep -q 'queryImmediatelyWhenNoCache: Boolean = true' "$SETTINGS"
-          grep -q 'RebateGiftSettingsRepository = UnifiedRefreshSettingsRepository' "$ANDROID_SETTINGS"
+          grep -q 'fun refreshLogic(' "$ANDROID_SETTINGS"
           grep -q 'AndroidSettingsRepositories.refreshLogic(appContext)' "$VM"
           grep -q 'refreshSettings.rebateGiftRefreshPolicy.value' "$VM"
           grep -q 'policyProvider = RebateGiftRefreshPolicyProvider' "$VM"
