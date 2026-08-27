@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.clxmhcs.chinaunicom.core.model.AppointmentTicketSlot
 import com.clxmhcs.chinaunicom.core.model.ServiceHallCategory
 import com.clxmhcs.chinaunicom.core.model.ServiceHallListItem
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
@@ -50,8 +51,10 @@ fun NearbyServiceHallScreen(
     onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
+    val appointmentState by viewModel.appointmentState.collectAsState()
     val context = LocalContext.current
     var selectedHall by remember { mutableStateOf<ServiceHallListItem?>(null) }
+    var appointmentHall by remember { mutableStateOf<ServiceHallListItem?>(null) }
     var cityMenuExpanded by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -71,6 +74,21 @@ fun NearbyServiceHallScreen(
         else permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
     }
 
+    appointmentHall?.let { hall ->
+        ServiceHallAppointmentContent(
+            hall = hall,
+            state = appointmentState,
+            onBack = {
+                viewModel.clearAppointment()
+                appointmentHall = null
+            },
+            onSelectSlot = viewModel::selectAppointmentSlot,
+            onSubmit = { viewModel.submitAppointment(hall) },
+            onRetry = { viewModel.openAppointment(hall) },
+        )
+        return
+    }
+
     if (selectedHall != null) {
         ServiceHallDetailContent(
             hall = selectedHall!!,
@@ -85,9 +103,9 @@ fun NearbyServiceHallScreen(
                 uri?.let { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, it)) } }
             },
             onAppointment = {
-                selectedHall?.appointmentURL?.let { url ->
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                }
+                val hall = selectedHall ?: return@ServiceHallDetailContent
+                appointmentHall = hall
+                viewModel.openAppointment(hall)
             },
         )
         return
@@ -237,11 +255,92 @@ private fun ServiceHallDetailContent(
         Button(onClick = onNavigate, enabled = hall.address.isNotBlank() || (hall.latitude != null && hall.longitude != null)) {
             Text("导航到营业厅")
         }
-        Button(onClick = onAppointment, enabled = hall.appointmentURL != null && hall.supportsAppointment != false) {
+        Button(onClick = onAppointment, enabled = hall.supportsAppointment != false) {
             Text("预约取号")
         }
-        Text("预约入口使用联通官方 H5；界面视觉后续统一精修。", style = MaterialTheme.typography.bodySmall)
+        Text("预约取号使用联通原生预约接口，不再跳转外部浏览器。", style = MaterialTheme.typography.bodySmall)
     }
+}
+
+@Composable
+private fun ServiceHallAppointmentContent(
+    hall: ServiceHallListItem,
+    state: ServiceHallAppointmentUiState,
+    onBack: () -> Unit,
+    onSelectSlot: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            OutlinedButton(onClick = onBack) { Text("返回") }
+            Column(modifier = Modifier.weight(1f)) {
+                Text("线下预约", style = MaterialTheme.typography.titleLarge)
+                Text(hall.name, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        if (hall.address.isNotBlank()) Text("地址：${hall.address}", modifier = Modifier.padding(horizontal = 16.dp))
+        if (hall.businessHours.isNotBlank()) Text("营业时间：${hall.businessHours}", modifier = Modifier.padding(horizontal = 16.dp))
+        if (state.business.isNotBlank()) Text("预约业务：${state.business}", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        state.orderDescription?.takeIf { it.isNotBlank() }?.let {
+            Text(it, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall)
+        }
+        state.successMessage?.let {
+            Text(it, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.primary)
+        }
+        state.errorMessage?.let {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(it, color = MaterialTheme.colorScheme.error)
+                if (state.slots.isEmpty()) OutlinedButton(onClick = onRetry) { Text("重试") }
+            }
+        }
+        if (state.isLoading) {
+            Text("正在查询可预约时间…", modifier = Modifier.padding(20.dp))
+        } else {
+            Text("预约到厅时间", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.titleMedium)
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                items(state.slots, key = { it.id }) { slot ->
+                    AppointmentSlotRow(
+                        slot = slot,
+                        selected = state.selectedSlotID == slot.id,
+                        onClick = { onSelectSlot(slot.id) },
+                    )
+                }
+                item { Spacer(Modifier.height(8.dp)) }
+            }
+            Button(
+                onClick = onSubmit,
+                enabled = state.selectedSlot != null && !state.isSubmitting,
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+            ) {
+                Text(if (state.isSubmitting) "正在提交预约…" else "提交预约")
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppointmentSlotRow(
+    slot: AppointmentTicketSlot,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        enabled = slot.isAvailable,
+        label = {
+            val remaining = slot.remainingCount?.let { " · 剩余 $it 个" }.orEmpty()
+            Text("${slot.day} ${slot.timeText}$remaining")
+        },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    )
 }
 
 private fun distanceText(meters: Double): String = if (meters >= 1000) {

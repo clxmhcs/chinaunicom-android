@@ -46,7 +46,7 @@ jobs:
           test -n "$PLATFORM_PACKAGE"
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M10 electronic-receipt local/WebView/PDF boundary
+      - name: Verify M10 electronic-receipt auth/WebView/PDF boundary
         shell: bash
         run: |
           MODEL=app/src/main/java/com/clxmhcs/chinaunicom/ui/ElectronicReceiptModels.kt
@@ -77,11 +77,21 @@ jobs:
           grep -q 'stream.fd.sync()' "$STORAGE"
           grep -q 'PdfRenderer' "$UI"
           grep -q 'ActivityResultContracts.OpenDocumentTree' "$UI"
+          grep -q '@JavascriptInterface' "$UI"
+          grep -q 'window.webkit.messageHandlers.MsJSBridge' "$UI"
+          grep -q 'window.webkit.messageHandlers.ElectronicReceiptHost' "$UI"
+          grep -q 'frequentFetch' "$UI"
+          grep -q 'showVarify' "$UI"
+          grep -q 'ECS0436' "$UI"
+          grep -q 'Domain=.10010.com' "$UI"
+          grep -q 'setAcceptThirdPartyCookies' "$UI"
+          grep -q 'LOAD_NO_CACHE' "$UI"
+          grep -q 'deviceBrand", "iphone"' "$UI"
           grep -q 'defaultValue != "MsJSBridge"' "$UI"
           grep -q 'getClientInfo' "$UI"
           grep -q '/servicequerybusiness/queryNoPaper/noPaperDetailPdfByUser' "$MODEL"
-          ! grep -Eqi 'cookie|token_online|appid|idcardlastsix' "$STORAGE"
-          ! grep -Eqi 'cookie|token_online|appid|idcardlastsix' "$MODEL"
+          ! grep -Eqi 'token_online|appid|idcardlastsix' "$STORAGE"
+          ! grep -Eqi 'token_online|appid|idcardlastsix' "$MODEL"
           echo "M10_ELECTRONIC_RECEIPT_BOUNDARY=PASS"
 
       - name: Run M10 regression

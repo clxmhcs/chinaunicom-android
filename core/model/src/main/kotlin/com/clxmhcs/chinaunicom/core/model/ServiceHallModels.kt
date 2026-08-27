@@ -45,6 +45,31 @@ data class ServiceHallListItem(
     val appointmentURL: String?,
 )
 
+data class AppointmentTicketSlot(
+    val id: String,
+    val day: String,
+    val startTime: String,
+    val endTime: String,
+    val remainingCount: Int?,
+    val isAvailable: Boolean,
+) {
+    val timeText: String get() = "$startTime-$endTime"
+}
+
+data class AppointmentTicketAvailabilityResult(
+    val slots: List<AppointmentTicketSlot>,
+    val businesses: List<String>,
+    val orderDescription: String?,
+    val appointmentCredentials: AccountCredentials,
+    val updatedCredentials: AccountCredentials?,
+)
+
+data class AppointmentTicketSubmissionResult(
+    val appointmentID: String?,
+    val message: String,
+    val updatedCredentials: AccountCredentials?,
+)
+
 enum class ServiceHallActionKind {
     MY_APPOINTMENTS,
     APPOINTMENT_TICKET,

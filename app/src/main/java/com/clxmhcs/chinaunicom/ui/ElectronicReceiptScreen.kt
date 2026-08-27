@@ -5,6 +5,7 @@ import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import android.util.Base64
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -48,6 +49,7 @@ import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.data.broadbandaccount.BroadbandAccountInfo
 import java.io.File
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -256,6 +258,7 @@ private fun ElectronicReceiptWebView(
     DisposableEffect(session.targetID, activationSerial) {
         onDispose {
             webView?.stopLoading()
+            webView?.removeJavascriptInterface(RECEIPT_NATIVE_BRIDGE)
             webView?.destroy()
             webView = null
             CookieManager.getInstance().removeAllCookies(null)
@@ -273,12 +276,23 @@ private fun ElectronicReceiptWebView(
                 webView = this
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
-                settings.cacheMode = WebSettings.LOAD_DEFAULT
+                settings.cacheMode = WebSettings.LOAD_NO_CACHE
                 settings.userAgentString = session.userAgent
                 settings.javaScriptCanOpenWindowsAutomatically = true
                 settings.setSupportMultipleWindows(false)
+                settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                settings.allowFileAccess = false
+                settings.allowContentAccess = true
+
+                val nativeBridge = ReceiptNativeBridge(this, session)
+                addJavascriptInterface(nativeBridge, RECEIPT_NATIVE_BRIDGE)
                 webChromeClient = ReceiptBridgeChromeClient(session)
                 webViewClient = object : WebViewClient() {
+                    override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                        super.onPageStarted(view, url, favicon)
+                        view.evaluateJavascript(BRIDGE_BOOTSTRAP_SCRIPT, null)
+                    }
+
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                         val url = request.url.toString()
                         ElectronicReceiptPdfCandidate.from(url)?.let(onPdfCandidate)
@@ -287,6 +301,8 @@ private fun ElectronicReceiptWebView(
 
                     override fun onPageFinished(view: WebView, url: String?) {
                         super.onPageFinished(view, url)
+                        view.evaluateJavascript(BRIDGE_BOOTSTRAP_SCRIPT, null)
+                        view.evaluateJavascript(verificationTriggerScript(session), null)
                         ElectronicReceiptPdfCandidate.from(url)?.let(onPdfCandidate)
                         view.evaluateJavascript(PDF_CANDIDATE_PROBE_SCRIPT) { raw ->
                             val candidateURL = decodeJavascriptString(raw)
@@ -300,18 +316,21 @@ private fun ElectronicReceiptWebView(
                 }
 
                 val manager = CookieManager.getInstance().apply { setAcceptCookie(true) }
+                manager.setAcceptThirdPartyCookies(this, true)
                 manager.removeAllCookies {
-                    seedReceiptCookies(manager, session.cookieHeader)
-                    manager.flush()
-                    post {
-                        loadUrl(
-                            ElectronicReceiptViewModel.RECEIPT_ENTRY_URL,
-                            mapOf(
-                                "Cookie" to session.cookieHeader,
-                                "User-Agent" to session.userAgent,
-                                "Referer" to "https://img.client.10010.com/search2020/index.html#/",
-                            ),
-                        )
+                    seedReceiptCookies(manager, session.cookieHeader) {
+                        manager.flush()
+                        post {
+                            loadUrl(
+                                ElectronicReceiptViewModel.RECEIPT_ENTRY_URL,
+                                mapOf(
+                                    "Cookie" to session.cookieHeader,
+                                    "User-Agent" to session.userAgent,
+                                    "Referer" to "https://img.client.10010.com/search2020/index.html#/",
+                                    "Cache-Control" to "no-cache",
+                                ),
+                            )
+                        }
                     }
                 }
             }
@@ -331,18 +350,53 @@ private class ReceiptBridgeChromeClient(
     ): Boolean {
         if (defaultValue != "MsJSBridge") return false
         val action = runCatching { JSONObject(message.orEmpty()).optString("action") }.getOrNull().orEmpty()
-        val data: Any = when (action) {
-            "isLogin" -> true
-            "fontSizeModel" -> "0"
-            "getLanguageInfo" -> "chinese"
-            "isEdop" -> false
-            "getClientInfo" -> clientInfo(session)
-            else -> JSONObject()
-        }
+        val data: Any = bridgeData(action, session)
         val payload = JSONObject().put("data", data).toString().toByteArray(Charsets.UTF_8)
         result?.confirm(Base64.encodeToString(payload, Base64.NO_WRAP))
         return true
     }
+}
+
+private class ReceiptNativeBridge(
+    private val webView: WebView,
+    private val session: ElectronicReceiptWebSession,
+) {
+    @JavascriptInterface
+    fun postMsBridge(message: String?) {
+        val body = runCatching { JSONObject(message.orEmpty()) }.getOrNull() ?: return
+        val action = body.optString("action")
+        val callbackID = body.optString("callbackId")
+        if (callbackID.isBlank()) return
+        val data = bridgeData(action, session)
+        val parameter = JSONObject().put("status", "success").put("data", data)
+        val payload = JSONObject()
+            .put("callbackId", callbackID)
+            .put("isKeepAlive", false)
+            .put("parameter", parameter)
+            .toString()
+        val encoded = Base64.encodeToString(payload.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+        val escaped = JSONObject.quote(encoded)
+        webView.post {
+            webView.evaluateJavascript("window.MsJSBridge&&window.MsJSBridge.callbackFromNative($escaped)", null)
+        }
+    }
+
+    @JavascriptInterface
+    fun postHost(message: String?) {
+        val body = runCatching { JSONObject(message.orEmpty()) }.getOrNull() ?: return
+        if (body.optString("action") == "verificationRequired") {
+            webView.post { webView.evaluateJavascript("window.__cuForceReceiptVerification&&window.__cuForceReceiptVerification()", null) }
+        }
+    }
+}
+
+private fun bridgeData(action: String, session: ElectronicReceiptWebSession): Any = when (action) {
+    "isLogin" -> true
+    "fontSizeModel" -> "0"
+    "getLanguageInfo" -> "chinese"
+    "isEdop" -> false
+    "getClientInfo" -> clientInfo(session)
+    else -> JSONObject()
 }
 
 private fun clientInfo(session: ElectronicReceiptWebSession): JSONObject {
@@ -370,21 +424,34 @@ private fun clientInfo(session: ElectronicReceiptWebSession): JSONObject {
         .put("deviceCode", session.deviceCode)
         .put("devicedId", session.deviceCode)
         .put("imei", session.deviceCode)
-        .put("deviceBrand", "android")
+        .put("deviceBrand", "iphone")
         .put("cookies", cookies)
 }
 
-private fun seedReceiptCookies(manager: CookieManager, header: String) {
-    val hosts = listOf(
-        "https://m.client.10010.com/",
-        "https://mxx.client.10010.com/",
-        "https://img.client.10010.com/",
-        "https://imgxx.client.10010.com/",
-        "https://loginhl.10010.com/",
-        "https://smartad.10010.com/",
-    )
-    header.split(';').map(String::trim).filter { it.contains('=') }.forEach { pair ->
-        hosts.forEach { host -> manager.setCookie(host, "$pair; Path=/; Secure") }
+private fun seedReceiptCookies(manager: CookieManager, header: String, onComplete: () -> Unit) {
+    val pairs = header.split(';').map(String::trim).filter { it.contains('=') }
+    if (pairs.isEmpty()) {
+        onComplete()
+        return
+    }
+    val targets = buildList {
+        pairs.forEach { pair ->
+            add("https://10010.com/" to "$pair; Domain=.10010.com; Path=/; Secure")
+            listOf(
+                "https://imgxx.client.10010.com/",
+                "https://img.client.10010.com/",
+                "https://mxx.client.10010.com/",
+                "https://m.client.10010.com/",
+                "https://loginhl.10010.com/",
+                "https://smartad.10010.com/",
+            ).forEach { host -> add(host to "$pair; Path=/; Secure") }
+        }
+    }
+    val remaining = AtomicInteger(targets.size)
+    targets.forEach { (url, value) ->
+        manager.setCookie(url, value) {
+            if (remaining.decrementAndGet() == 0) onComplete()
+        }
     }
 }
 
@@ -403,6 +470,55 @@ private fun decodeJavascriptString(raw: String?): String {
     if (value == "null" || value == "undefined" || value.isEmpty()) return ""
     return runCatching { JSONArray("[$value]").optString(0) }.getOrDefault(value.trim('"'))
 }
+
+private fun verificationTriggerScript(session: ElectronicReceiptWebSession): String {
+    val identity = JSONObject()
+        .put("serviceNumber", session.serviceNumber)
+        .put("loginType", session.loginType)
+        .toString()
+    return """
+(function(){
+  const identity=$identity;
+  window.__cuReceiptVerificationIdentity=identity;
+  function rootVM(){const root=document.querySelector('#app');return root&&root.__vue__;}
+  function find(vm,depth){
+    if(!vm||depth>14)return null;
+    if(('showVarify' in vm)&&typeof vm.frequentFetch==='function'&&(typeof vm.willQuery==='function'||typeof vm.chaxunsix==='function'))return vm;
+    const children=vm.${'$'}children||[];for(let i=0;i<children.length;i++){const match=find(children[i],depth+1);if(match)return match;}return null;
+  }
+  function assign(vm,key,value){if(!vm||value===undefined||value===null)return;if(typeof vm.${'$'}set==='function')vm.${'$'}set(vm,key,value);else vm[key]=value;}
+  function amend(vm,values){if(vm&&typeof vm.amend==='function')vm.amend(values);else if(vm&&vm.${'$'}store&&typeof vm.${'$'}store.commit==='function')vm.${'$'}store.commit('amend',values);else if(vm&&vm.${'$'}store&&vm.${'$'}store.state)Object.assign(vm.${'$'}store.state,values);}
+  function masked(value){const text=String(value||'');return text.length>7?text.slice(0,3)+'****'+text.slice(-4):text;}
+  function sync(vm){if(!vm)return;const current=window.__cuReceiptVerificationIdentity||identity;assign(vm,'loginNumber',current.serviceNumber||'');assign(vm,'loginType',current.loginType||'01');if(!vm.resetNumber)assign(vm,'resetNumber',masked(current.serviceNumber));amend(vm,{interNo:'hasLoggedOn',loginType:current.loginType||'01'});}
+  function hasData(vm){return !!((Array.isArray(vm.datalists1)&&vm.datalists1.length)||(Array.isArray(vm.datalists2)&&vm.datalists2.length)||(vm.${'$'}store&&vm.${'$'}store.state&&Array.isArray(vm.${'$'}store.state.datalist)&&vm.${'$'}store.state.datalist.length));}
+  function resolved(vm){if(!vm)return false;if(vm.showVarify||vm.showIdLogin||hasData(vm))return true;const route=String(location.hash||location.href||'').toLowerCase();return route.indexOf('unbindquery')>=0||route.indexOf('pdfviwes')>=0||route.indexOf('pdfviews')>=0;}
+  function force(vm){if(!vm)return false;sync(vm);assign(vm,'errShow',false);assign(vm,'kongshow',false);assign(vm,'nokongshow',false);assign(vm,'showIdLogin',false);assign(vm,'showFaceRegister',false);assign(vm,'checkerr',false);assign(vm,'showNumbererr',false);assign(vm,'showovererrtime',false);assign(vm,'showVarify',true);if(vm.${'$'}store&&vm.${'$'}store.state)vm.${'$'}store.state.showVarify=null;if(typeof vm.${'$'}pageLoading==='function')vm.${'$'}pageLoading(false);document.body.style.overflow='auto';if(typeof vm.${'$'}forceUpdate==='function')vm.${'$'}forceUpdate();return true;}
+  window.__cuForceReceiptVerification=function(){return force(find(rootVM(),0));};
+  const vm=find(rootVM(),0);if(vm)sync(vm);
+  if(!window.__cuReceiptVerificationObserverInstalled){
+    window.__cuReceiptVerificationObserverInstalled=true;
+    function report(text){if(String(text||'').indexOf('ECS0436')>=0)setTimeout(function(){window.__cuForceReceiptVerification();},0);}
+    const originalFetch=window.fetch;if(typeof originalFetch==='function'){window.fetch=function(){const args=arguments;return originalFetch.apply(this,args).then(function(response){try{response.clone().text().then(report).catch(function(){});}catch(e){}return response;});};}
+    const open=XMLHttpRequest.prototype.open,send=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(method,url){this.__cuReceiptURL=String(url||'');return open.apply(this,arguments);};XMLHttpRequest.prototype.send=function(){this.addEventListener('load',function(){report(this.responseText);});return send.apply(this,arguments);};
+  }
+  if(window.__cuReceiptVerificationTriggerInstalled)return;
+  window.__cuReceiptVerificationTriggerInstalled=true;
+  const started=Date.now();
+  setTimeout(function(){const current=find(rootVM(),0);if(!current||resolved(current))return;sync(current);if(typeof current.frequentFetch==='function'){try{current.frequentFetch();}catch(e){}}},1200);
+  const watchdog=setInterval(function(){const current=find(rootVM(),0);const elapsed=Date.now()-started;if(!current){if(elapsed>=12000)clearInterval(watchdog);return;}sync(current);if(resolved(current)){clearInterval(watchdog);return;}if(elapsed>=8000){force(current);clearInterval(watchdog);}},250);
+})();
+""".trimIndent()
+}
+
+private const val RECEIPT_NATIVE_BRIDGE = "ElectronicReceiptNative"
+
+private const val BRIDGE_BOOTSTRAP_SCRIPT = """
+(function(){
+  window.webkit=window.webkit||{};window.webkit.messageHandlers=window.webkit.messageHandlers||{};
+  window.webkit.messageHandlers.MsJSBridge={postMessage:function(body){try{window.ElectronicReceiptNative.postMsBridge(typeof body==='string'?body:JSON.stringify(body));}catch(e){}}};
+  window.webkit.messageHandlers.ElectronicReceiptHost={postMessage:function(body){try{window.ElectronicReceiptNative.postHost(typeof body==='string'?body:JSON.stringify(body));}catch(e){}}};
+})();
+"""
 
 private const val PDF_CANDIDATE_PROBE_SCRIPT = """
 (function(){

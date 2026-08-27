@@ -7,12 +7,16 @@ import android.location.LocationManager
 import android.os.CancellationSignal
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.clxmhcs.chinaunicom.core.model.AccountCredentials
+import com.clxmhcs.chinaunicom.core.model.AppointmentTicketSlot
 import com.clxmhcs.chinaunicom.core.model.ServiceHallAction
 import com.clxmhcs.chinaunicom.core.model.ServiceHallCategory
 import com.clxmhcs.chinaunicom.core.model.ServiceHallCity
 import com.clxmhcs.chinaunicom.core.model.ServiceHallCoordinate
 import com.clxmhcs.chinaunicom.core.model.ServiceHallListItem
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
+import com.clxmhcs.chinaunicom.core.network.AppointmentTicketException
+import com.clxmhcs.chinaunicom.core.network.UnicomAppointmentTicketClient
 import com.clxmhcs.chinaunicom.core.network.UnicomCookieCodec
 import com.clxmhcs.chinaunicom.core.network.UnicomServiceHallClient
 import com.clxmhcs.chinaunicom.data.CredentialStoreProvider
@@ -56,15 +60,34 @@ data class ServiceHallUiState(
         }
 }
 
+data class ServiceHallAppointmentUiState(
+    val hallID: String? = null,
+    val slots: List<AppointmentTicketSlot> = emptyList(),
+    val selectedSlotID: String? = null,
+    val business: String = "",
+    val orderDescription: String? = null,
+    val isLoading: Boolean = false,
+    val isSubmitting: Boolean = false,
+    val successMessage: String? = null,
+    val errorMessage: String? = null,
+) {
+    val selectedSlot: AppointmentTicketSlot?
+        get() = slots.firstOrNull { it.id == selectedSlotID }
+}
+
 class ServiceHallViewModel(application: Application) : AndroidViewModel(application) {
     private val credentials = CredentialStoreProvider.create(application.applicationContext)
     private val client = UnicomServiceHallClient()
+    private val appointmentClient = UnicomAppointmentTicketClient()
     private val locationManager = application.getSystemService(LocationManager::class.java)
     private val _state = MutableStateFlow(ServiceHallUiState())
     val state: StateFlow<ServiceHallUiState> = _state.asStateFlow()
+    private val _appointmentState = MutableStateFlow(ServiceHallAppointmentUiState())
+    val appointmentState: StateFlow<ServiceHallAppointmentUiState> = _appointmentState.asStateFlow()
 
     private var bootstrappedForAccount: UUID? = null
     private var pageIndex = 0
+    private var appointmentCredentials: AccountCredentials? = null
 
     fun bootstrap(accounts: List<UnicomAccount>, preferredAccountID: UUID?) {
         val account = preferredAccountID?.let { id -> accounts.firstOrNull { it.id == id && it.isEnabled } }
@@ -159,6 +182,82 @@ class ServiceHallViewModel(application: Application) : AndroidViewModel(applicat
         fetchPage(accountID, city, coordinate, next, append = true)
     }
 
+    fun openAppointment(hall: ServiceHallListItem) {
+        val accountID = _state.value.accountID ?: return
+        if (hall.supportsAppointment == false) {
+            _appointmentState.value = ServiceHallAppointmentUiState(
+                hallID = hall.id,
+                errorMessage = "该营业厅暂不支持预约取号。",
+            )
+            return
+        }
+        appointmentCredentials = null
+        _appointmentState.value = ServiceHallAppointmentUiState(hallID = hall.id, isLoading = true)
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val stored = credentials.read(accountID) ?: error("当前号码缺少登录凭据")
+                val result = appointmentClient.fetchAvailableSlots(stored, hall.id, hall.epID)
+                result.updatedCredentials?.let { credentials.save(accountID, it) }
+                appointmentCredentials = result.appointmentCredentials
+                result
+            }.onSuccess { result ->
+                val selected = result.slots.firstOrNull { it.isAvailable }
+                _appointmentState.value = ServiceHallAppointmentUiState(
+                    hallID = hall.id,
+                    slots = result.slots,
+                    selectedSlotID = selected?.id,
+                    business = result.businesses.firstOrNull().orEmpty(),
+                    orderDescription = result.orderDescription,
+                    errorMessage = if (result.slots.isEmpty()) "联通未返回可预约时间" else null,
+                )
+            }.onFailure { error ->
+                _appointmentState.value = ServiceHallAppointmentUiState(
+                    hallID = hall.id,
+                    errorMessage = safeAppointmentMessage(error),
+                )
+            }
+        }
+    }
+
+    fun selectAppointmentSlot(slotID: String) {
+        val current = _appointmentState.value
+        val slot = current.slots.firstOrNull { it.id == slotID && it.isAvailable } ?: return
+        _appointmentState.update { it.copy(selectedSlotID = slot.id, successMessage = null, errorMessage = null) }
+    }
+
+    fun submitAppointment(hall: ServiceHallListItem) {
+        val accountID = _state.value.accountID ?: return
+        val current = _appointmentState.value
+        val slot = current.selectedSlot ?: return
+        if (current.isSubmitting) return
+        _appointmentState.update { it.copy(isSubmitting = true, successMessage = null, errorMessage = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val stored = appointmentCredentials ?: credentials.read(accountID) ?: error("当前号码缺少登录凭据")
+                val result = appointmentClient.submit(stored, hall, current.business, slot)
+                result.updatedCredentials?.let { credentials.save(accountID, it) }
+                result
+            }.onSuccess { result ->
+                _appointmentState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        successMessage = result.message.ifBlank { "预约提交成功" },
+                        errorMessage = null,
+                    )
+                }
+            }.onFailure { error ->
+                _appointmentState.update {
+                    it.copy(isSubmitting = false, errorMessage = safeAppointmentMessage(error))
+                }
+            }
+        }
+    }
+
+    fun clearAppointment() {
+        appointmentCredentials = null
+        _appointmentState.value = ServiceHallAppointmentUiState()
+    }
+
     private fun loadCities(account: UnicomAccount) {
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
@@ -241,9 +340,9 @@ class ServiceHallViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     private fun ServiceHallCity.coordinateOrNull(): ServiceHallCoordinate? {
-        val cityLongitude = longitude ?: return null
-        val cityLatitude = latitude ?: return null
-        return ServiceHallCoordinate(cityLongitude, cityLatitude)
+        val lon = longitude ?: return null
+        val lat = latitude ?: return null
+        return ServiceHallCoordinate(lon, lat)
     }
 
     private fun ServiceHallCity.distanceTo(target: ServiceHallCoordinate): Double {
@@ -281,6 +380,12 @@ class ServiceHallViewModel(application: Application) : AndroidViewModel(applicat
     private fun mask(value: String): String {
         val text = value.trim()
         return if (text.length >= 8) text.take(3) + "****" + text.takeLast(4) else text
+    }
+
+    private fun safeAppointmentMessage(error: Throwable): String = when (error) {
+        is AppointmentTicketException.Duplicate -> error.message ?: "当前号码已有预约记录"
+        is AppointmentTicketException.Server -> error.message ?: "预约服务暂不可用"
+        else -> error.message?.takeIf { it.isNotBlank() } ?: "预约取号失败"
     }
 
     private fun safeMessage(error: Throwable): String = error.message?.takeIf { it.isNotBlank() } ?: "营业厅查询失败"
