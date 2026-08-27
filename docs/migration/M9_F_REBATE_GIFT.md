@@ -2,10 +2,10 @@
 
 ## Status
 
-`M9-F_RESULT = IN_PROGRESS`
+`M9-F_RESULT = PASS / CLOSED`
 
 - `M9-F1_RESULT = PASS / CLOSED` — source-derived core + cache + unified refresh settings + rough functional app wiring + CI
-- `M9-F2_RESULT = NOT_STARTED` — real-device functional validation
+- `M9-F2_RESULT = PASS / CLOSED` — real-device functional validation accepted 2026-08-27
 
 Minimum supported Android remains **Android 11 / API 30**.
 Final visual parity is intentionally deferred to the later page-by-page visual pass.
@@ -88,18 +88,18 @@ Artifact:
 - digest: `sha256:87296388e6b80bb584584503a95698ac31f7fdb2d4b3951231b2fad8d44e0514`
 - expires: `2026-11-25T11:38:19Z`
 
-## M9-F2 real-device acceptance checklist
+## M9-F2 accepted real-device evidence
 
-Use the candidate above. No Cookie, appID, token_online, password, SMS code, identity suffix, or other credential material should appear in screenshots.
+Accepted on **2026-08-27** from the user's direct confirmation that the previously requested M9-F2 checklist passed on the candidate build:
 
-Required evidence:
+1. `其它业务 -> 返费 / 赠费` opened normally;
+2. the account selector exposed persisted mobile targets and preserved the mobile-only business boundary;
+3. `合约返赠 -> 账户` completed a real carrier query without a network/session failure;
+4. `合约返赠 -> 用户` completed a real carrier query without a network/session failure;
+5. `赠款记录` completed a real carrier query without a network/session failure.
 
-1. `其它业务` page: `返费 / 赠费` is enabled and opens normally.
-2. `返费/赠费 查询` account selector: persisted mobile accounts are offered; an independent broadband account must not appear as a mobile target.
-3. Detail page, `合约返赠` + `账户`: carrier query completes successfully. A legitimate carrier empty result (`暂无数据`) is acceptable; network/session failure is not.
-4. Detail page, `合约返赠` + `用户`: carrier query completes successfully. A legitimate carrier empty result is acceptable.
-5. `赠款记录`: carrier query completes successfully. A legitimate carrier empty result is acceptable.
+A legitimate carrier empty result is accepted by the frozen checklist and does not constitute failure. No raw Cookie, appID, token_online, password, SMS code, identity suffix, or unmasked production identifier is recorded in Git.
 
-After these checks are accepted, set `M9-F2_RESULT = PASS / CLOSED`, then `M9-F_RESULT = PASS / CLOSED` and proceed in order to `M9-G — 资费专区`.
+Therefore `M9-F2_RESULT = PASS / CLOSED` and `M9-F_RESULT = PASS / CLOSED`.
 
-`NEXT = Android-M9-F2 — Rebate / Gift Real-device Functional Validation`
+`NEXT = Android-M9-G — 资费专区`
