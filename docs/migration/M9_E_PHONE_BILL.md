@@ -2,10 +2,10 @@
 
 ## Status
 
-`M9-E_RESULT = IN_PROGRESS`
+`M9-E_RESULT = PASS / CLOSED`
 
-- `M9-E1_RESULT = PASS` — M8 PhoneBill reuse + Other Business functional wiring
-- `M9-E2_RESULT = NOT_STARTED` — real-device functional validation
+- `M9-E1_RESULT = PASS / CLOSED` — M8 PhoneBill reuse + Other Business functional wiring
+- `M9-E2_RESULT = PASS / CLOSED` — real-device functional validation accepted 2026-08-27
 
 Minimum supported Android remains **Android 11 / API 30**.
 
@@ -19,7 +19,7 @@ The selected representative opens the existing Phone Bill experience. Android M9
 
 ## M9-E1 accepted code boundary
 
-Android now provides:
+Android provides:
 
 - `其它业务 -> 话费 / 账单` as an active destination;
 - `other/phone-bill` as the billing-account selector route;
@@ -51,10 +51,15 @@ Real-device artifact:
 - SHA-256: `fdd90d3e633a35af6c771def80e469b47722a4a47fd40b66e0947fec28c5d0ee`
 - head SHA: `7c14ce0f34ba8931245ff024a1a10385b09c388e`
 
-## Pending real-device validation
+## M9-E2 accepted real-device evidence
 
-M9-E2 must verify the Other Business entry, mobile-only representative selector, real current-month Phone Bill query and one historical-month query. A legitimate zero-fee/empty sub-item carrier result is acceptable if a real snapshot is returned rather than a query/session failure.
+Accepted 2026-08-27 from the user's direct real-device confirmation:
 
-No sensitive credentials or identity values are required in evidence screenshots.
+- Other Business showed `话费 / 账单` as integrated;
+- the billing-account selector contained the intended mobile billing targets and preserved representative-group semantics without introducing the independent broadband account;
+- a selected production account returned a real current-month Phone Bill result rather than a query/session failure;
+- the same account returned a real historical-month Phone Bill result, confirming the historical query/cache path on device.
 
-`NEXT = Android-M9-E2 — Phone Bill real-device functional validation`
+No raw credential, token, appID, identity suffix or unmasked production identifier is recorded in Git.
+
+`NEXT = Android-M9-F — 返费 / 赠费`
