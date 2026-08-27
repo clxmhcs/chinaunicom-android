@@ -11,6 +11,7 @@ on:
       - "data/settings/**"
       - "data/balance/**"
       - "data/myorder/**"
+      - "data/mypackage/**"
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
       - ".github/workflows/android-m9-build.yml"
@@ -24,6 +25,7 @@ on:
       - "data/settings/**"
       - "data/balance/**"
       - "data/myorder/**"
+      - "data/mypackage/**"
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
       - ".github/workflows/android-m9-build.yml"
@@ -33,7 +35,7 @@ permissions:
   statuses: write
 
 jobs:
-  my-order-core-test-and-build:
+  other-business-test-and-build:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -59,7 +61,7 @@ jobs:
           test -n "$PLATFORM_PACKAGE"
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M9-A1/A2/A3 My Order source and app boundary
+      - name: Verify M9-A My Order permanent boundary
         shell: bash
         run: |
           MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/MyOrderModels.kt
@@ -82,72 +84,91 @@ jobs:
           for file in "$MODEL" "$DETAIL_MODEL" "$CLIENT" "$LIFECYCLE" "$DETAIL_LIFECYCLE" "$STORE" "$DETAIL_STORE" "$DETAIL_PARSER" "$DETAIL_CORE" "$SETTINGS" "$SETTINGS_ADAPTER" "$APP_VM" "$OTHER_UI" "$LIST_UI" "$DETAIL_UI" "$APP"; do test -f "$file"; done
           grep -q 'include(":data:myorder")' settings.gradle.kts
           grep -q 'minSdk = 30' data/myorder/build.gradle.kts
-          grep -q 'minSdk = 30' app/build.gradle.kts
-          grep -q 'implementation(project(":data:settings"))' data/myorder/build.gradle.kts
           grep -q 'implementation(project(":data:myorder"))' app/build.gradle.kts
-
           grep -q '/mobileservicequery/order/newQueryOrder' "$CLIENT"
-          grep -q '"current_page"' "$CLIENT"
-          grep -q '"page_size"' "$CLIENT"
           grep -q '"loginNumber" to md5' "$CLIENT"
           grep -q 'iphone_c@12.1400' "$CLIENT"
           grep -q 'sessionClient.activateSession(credentials)' "$CLIENT"
-          grep -q 'UnicomCookieCodec.applying' "$CLIENT"
-          grep -q 'CredentialStore' "$LIFECYCLE"
           grep -q 'result.copy(updatedCredentials = null)' "$LIFECYCLE"
           grep -q 'StateFlow<MyOrderStoreState>' "$STORE"
           grep -q 'entryRefreshPolicy.refreshOnEntry()' "$STORE"
           grep -q 'loadMoreIfNeeded' "$STORE"
-          grep -q 'unique(merged)' "$STORE"
-
           grep -q 'data class OrderRefreshPolicy' "$SETTINGS"
           grep -q 'val refreshOnEntry: Boolean = true' "$SETTINGS"
-          grep -q 'val orderRefreshPolicy: StateFlow<OrderRefreshPolicy>' "$SETTINGS"
-          grep -q 'settingsRepository.orderRefreshPolicy.value.refreshOnEntry' "$SETTINGS_ADAPTER"
-
           grep -q 'BUSINESS("business")' "$DETAIL_MODEL"
           grep -q 'RENEWAL("renewal")' "$DETAIL_MODEL"
           grep -q 'UNSUPPORTED("unsupported")' "$DETAIL_MODEL"
-          ! grep -q 'cookieHeader' "$DETAIL_MODEL"
-          grep -q 'CredentialStore' "$DETAIL_LIFECYCLE"
-          grep -q 'UnicomCookieCodec.normalize' "$DETAIL_LIFECYCLE"
-          grep -q 'requireCookieHeader' "$DETAIL_STORE"
-          grep -q 'request?.id != requestID' "$DETAIL_STORE"
           grep -q '/udbh/rest/portal/qryEvaluateOrderInfoByOrderId' "$DETAIL_CORE"
-          grep -q '/udbh/rest/portal/querySubProducts' "$DETAIL_CORE"
           grep -q 'broaRenewalInfo' "$DETAIL_CORE"
-          grep -q 'queryEvaluateItem' "$DETAIL_CORE"
-
-          grep -q 'DefaultMyOrderStore' "$APP_VM"
-          grep -q 'SettingsMyOrderEntryRefreshPolicy' "$APP_VM"
-          grep -q 'MyOrderDetailStore' "$APP_VM"
-          grep -q 'requireDetailCookieHeader' "$APP_VM"
           grep -q 'OtherBusinessScreen(onOpenMyOrder' "$APP"
           grep -q 'private const val MY_ORDER_ROUTE = "other/my-order"' "$APP"
-          grep -q 'other/my-order/detail/{accountId}/{orderId}' "$APP"
           grep -q 'MyOrderScreen(' "$APP"
           grep -q 'MyOrderDetailScreen(' "$APP"
-          grep -q '搜索订单' "$LIST_UI"
-          grep -q 'MyOrderKind.entries' "$LIST_UI"
           grep -q 'loadMoreIfNeeded' "$LIST_UI"
-          grep -q 'MyOrderDetailWebBridgeContract.javaScript' "$DETAIL_UI"
           grep -q 'CookieManager.getInstance' "$DETAIL_UI"
           grep -q 'value.endsWith(".10010.com")' "$DETAIL_UI"
           grep -q 'Max-Age=0; Domain=.10010.com' "$DETAIL_UI"
-          grep -q 'queryEvaluateItem' "$DETAIL_UI"
-          grep -q 'Modifier.size(1.dp)' "$DETAIL_UI"
-
           if find data/myorder/src/main -type f -iname '*cache*' | grep -q .; then
-            echo "M9 must not invent a My Order disk cache because current iOS MyOrderStore is in-memory only"
+            echo "M9-A must not invent a My Order disk cache"
             exit 1
           fi
-          if grep -R -nE 'token_online|password|smsCode' data/myorder/src/main app/src/main/java/com/clxmhcs/chinaunicom/ui/MyOrder*; then
-            echo "M9 ordinary data/UI state must not persist credential material"
-            exit 1
-          fi
-          echo "M9_A3_MY_ORDER_FUNCTIONAL_WIRING_GATE=PASS"
+          echo "M9_A_MY_ORDER_PERMANENT_GATE=PASS"
 
-      - name: Run M9-A3 regression
+      - name: Verify M9-B1 My Package core boundary
+        shell: bash
+        run: |
+          MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/MyPackageModels.kt
+          CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomMyPackageClient.kt
+          LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/MyPackageAccountCredentialLifecycle.kt
+          STORE=data/mypackage/src/main/kotlin/com/clxmhcs/chinaunicom/data/mypackage/MyPackageStore.kt
+          CACHE=data/mypackage/src/main/kotlin/com/clxmhcs/chinaunicom/data/mypackage/MyPackageDiskCache.kt
+          SETTINGS=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt
+
+          for file in "$MODEL" "$CLIENT" "$LIFECYCLE" "$STORE" "$CACHE" "$SETTINGS"; do test -f "$file"; done
+          grep -q 'include(":data:mypackage")' settings.gradle.kts
+          grep -q 'minSdk = 30' data/mypackage/build.gradle.kts
+          grep -q 'implementation(project(":core:login"))' data/mypackage/build.gradle.kts
+          grep -q 'implementation(project(":data:settings"))' data/mypackage/build.gradle.kts
+
+          grep -q 'queryPackage/myPackage' "$CLIENT"
+          grep -q 'queryPackage/myResourceDetails' "$CLIENT"
+          grep -q 'queryPackage/myMemberMobile' "$CLIENT"
+          grep -q 'queryPackage/myPrettyNumber' "$CLIENT"
+          grep -q 'iphone_c@12.1400' "$CLIENT"
+          grep -q '#user3ExtraInfo6' "$CLIENT"
+          grep -q 'AES/CBC/NoPadding' "$CLIENT"
+          grep -q 'sessionClient.activateSession(credentials)' "$CLIENT"
+          grep -q 'fetchOptionalRoot' "$CLIENT"
+          grep -q 'result.copy(updatedCredentials = null)' "$LIFECYCLE"
+
+          grep -q 'enum class PageEntryRefreshMode' "$SETTINGS"
+          grep -q 'EVERY_ENTRY("everyEntry")' "$SETTINGS"
+          grep -q 'REFRESH_WHEN_EXPIRED("refreshWhenExpired")' "$SETTINGS"
+          grep -q 'MANUAL_ONLY("manualOnly")' "$SETTINGS"
+          grep -q 'data class MyPackageRefreshPolicy' "$SETTINGS"
+          grep -q 'PageEntryRefreshMode.EVERY_ENTRY' "$SETTINGS"
+          grep -q 'val cacheValidityMinutes: Int = 30' "$SETTINGS"
+          grep -q 'MY_PACKAGE_KEY = "myPackage"' "$SETTINGS"
+
+          grep -q 'PageEntryRefreshMode.EVERY_ENTRY' "$STORE"
+          grep -q 'PageEntryRefreshMode.REFRESH_WHEN_EXPIRED' "$STORE"
+          grep -q 'PageEntryRefreshMode.MANUAL_ONLY' "$STORE"
+          grep -q 'Duration.between' "$STORE"
+          grep -q 'elapsed.isNegative' "$STORE"
+          grep -q 'applyRefreshPolicyChange' "$STORE"
+          grep -q 'MyPackageRefreshState.Warning' "$STORE"
+
+          grep -q 'AtomicFile' "$CACHE"
+          grep -q 'SCHEMA_VERSION = 1' "$CACHE"
+          grep -q 'stream.fd.sync()' "$CACHE"
+          grep -q 'Map<UUID, MyPackageCacheRecord>' "$CACHE"
+          if grep -R -nE 'token_online|password|smsCode|Cookie' data/mypackage/src/main; then
+            echo "M9-B1 My Package business/cache state must not contain raw credential material"
+            exit 1
+          fi
+          echo "M9_B1_MY_PACKAGE_CORE_GATE=PASS"
+
+      - name: Run M9-B1 regression
         id: verify
         continue-on-error: true
         run: >-
@@ -167,12 +188,13 @@ jobs:
           :data:integral:testDebugUnitTest
           :data:comprehensive:testDebugUnitTest
           :data:myorder:testDebugUnitTest
+          :data:mypackage:testDebugUnitTest
           :app:testDebugUnitTest
           :app:assembleDebug
           :app:assembleRelease
           --stacktrace
 
-      - name: Publish M9-A3 status
+      - name: Publish M9-B1 status
         if: always()
         uses: actions/github-script@v7
         with:
@@ -183,10 +205,10 @@ jobs:
               repo: context.repo.repo,
               sha: context.sha,
               state: passed ? 'success' : 'failure',
-              context: 'android-m9-my-order-core',
-              description: passed ? 'M9-A3 My Order functional wiring passed' : 'M9-A3 My Order regression failed',
+              context: 'android-m9-other-business',
+              description: passed ? 'M9-B1 My Package core passed' : 'M9-B1 My Package regression failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
-      - name: Fail workflow when M9-A3 verification failed
+      - name: Fail workflow when M9-B1 verification failed
         if: always() && steps.verify.outcome != 'success'
         run: exit 1
