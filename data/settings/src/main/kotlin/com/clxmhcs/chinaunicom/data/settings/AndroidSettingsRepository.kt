@@ -25,7 +25,7 @@ object AndroidSettingsRepositories {
     fun refreshLogic(
         context: Context,
         balanceIntervalSynchronizer: BalanceRefreshIntervalSynchronizer = BalanceRefreshIntervalSynchronizer { true },
-    ): RebateGiftSettingsRepository = UnifiedRefreshSettingsRepository(
+    ): VideoRingSettingsRepository = UnifiedVideoRingSettingsRepository(
         storage = SharedPreferencesRefreshLogicPolicyStorage(context),
         balanceIntervalSynchronizer = balanceIntervalSynchronizer,
     )

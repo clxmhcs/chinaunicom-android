@@ -9,19 +9,9 @@ data class VideoRingMember(
     val endTime: String? = null,
 )
 
-data class VideoRingBenefit(
-    val id: String,
-    val name: String,
-    val imageURL: String? = null,
-    val price: String? = null,
-    val received: Boolean? = null,
-)
-
 data class VideoRingMemberState(
     val phoneNumber: String,
     val members: List<VideoRingMember>,
-    val benefits: List<VideoRingBenefit>,
-    val isEnabled: Boolean = false,
 )
 
 data class VideoRingMemberFetchResult(

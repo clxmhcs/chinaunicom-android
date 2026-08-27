@@ -4,53 +4,76 @@
 
 `M9-H_RESULT = IN_PROGRESS`
 
-- `M9-H1_RESULT = IN_PROGRESS` — source-derived native client + selected-account credential lifecycle + member/benefit store + rough functional wiring + CI
-- `M9-H2_RESULT = NOT_STARTED` — real-device functional validation
+- `M9-H1_RESULT = REOPENED_R1` — initial implementation compiled, but real-device H2 exposed 10155 auth rejection: `接口鉴权拦截不通过，请求随机数不存在`.
+- `M9-H1-R1_RESULT = IN_PROGRESS` — realign Android to the **currently active iOS `VideoRingInlineMemberService`**.
+- `M9-H2_RESULT = FAIL_RETRY_REQUIRED` — repeat real-device validation only after R1 CI passes.
 
 Minimum supported Android remains **Android 11 / API 30**.
 Final app-owned visual parity remains deferred to the later page-by-page visual pass.
 
-## Source-derived functional boundary
+## Real-device failure that reopened H1
 
-Current iOS source establishes `其它业务 -> 视频彩铃会员` as a per-mobile-number native member center.
+The first H2 candidate reached the Android member center but the 10155 server rejected the request before business data was accepted:
 
-Android preserves these source rules:
+`接口鉴权拦截不通过，请求随机数不存在`
 
-- selectable targets are persisted enabled mobile accounts only; independent broadband is not inserted into this account selector;
-- credentials are read only for the selected account from the existing M5 credential authority;
-- native China Unicom ticket request uses `https://m.client.10010.com/edop_ng/getTicketByNative`, the selected account's `ecs_token`, and app id `edop_unicom_c43eac06`;
-- if that ticket request fails and the selected account has appID/token_online, only that same account is reactivated through the existing M4 session path, renewed credentials are immediately persisted through M5, then the ticket request is retried;
-- the video-ring service root is `https://m.10155.com` with client header appid `3000013947`;
-- login endpoint: `/woapp/login/ecsAppletLogin`;
-- video-ring activation endpoint: `/woapp/videoRing/getCrbtFlag`;
-- member configuration endpoint: `/woapp/h5/woMember/getClientMemberInfosByUserId`;
-- member-benefit endpoint: `/woapp/h5/woMember/getMemberDetail`;
-- after 10155 login, normalized `caller` must exactly equal the selected mobile number. A mismatch is a hard failure and no member/benefit data is exposed;
-- 10155 networking uses no automatic cookie jar, preventing session/cookie cross-contamination between mobile numbers;
-- source member types include `87 AI彩铃视听剧场会员`, `15 铂金会员`, and `76 AI彩铃升级版`;
-- the first active member type is used for member detail, falling back to type `15` when none is active;
-- current source's monthly-benefit view is read/display only. Android does not invent claim, redeem, purchase or other write APIs;
-- current iOS implementation has no VideoRing-specific disk cache or refresh-policy Settings authority; Android therefore keeps this feature's business result in memory and reloads on entry/manual refresh.
+The failure proved that the earlier Android boundary was derived from a non-driving service implementation. The current iOS view actually calls the private `VideoRingInlineMemberService` in `VideoRingMemberView.swift`, so R1 uses that implementation as the authority.
 
-## Android implementation boundary
+No Cookie, appID, token_online, password, SMS code or identity material from the real device is stored in this document.
 
-M9-H1 adds:
+## Active iOS source boundary used by R1
 
-- `core:model/VideoRingModels.kt`;
-- `core:network/UnicomVideoRingClient.kt` with isolated GET/POST transport and `CookieJar.NO_COOKIES`;
-- protocol tests covering the ticket -> 10155 login -> flag -> member -> benefit chain, renewed selected-account credentials and caller mismatch hard failure;
-- `core:login/VideoRingAccountCredentialLifecycle.kt`, which keeps M5 `CredentialStore` as the only credential authority and strips renewed credentials from ordinary business state;
-- `data:videoring/VideoRingStore.kt`, an in-memory selected-account store with stale-request suppression and defense-in-depth phone matching;
-- `VideoRingViewModel`, mobile-account selector and member-center rough functional Compose UI;
-- active `其它业务 -> 视频彩铃会员` routes `other/video-ring` and `other/video-ring/{accountId}`;
-- a dedicated `Android M9 H Video Ring` workflow.
+The current iOS chain is:
 
-No Cookie, appID, token_online, password, SMS code or identity material is placed in Compose/navigation/business state.
+1. selected enabled mobile account only; 11 digits and starts with `1`;
+2. read that selected account's credentials from the existing credential authority;
+3. native ticket: `https://m.client.10010.com/edop_ng/getTicketByNative` with selected account `ecs_token` and native app id `edop_unicom_c43eac06`;
+4. if ticket retrieval fails and appID/token_online are available, reactivate only that selected account, persist renewed credentials, then retry ticket retrieval;
+5. create a fresh ephemeral 10155 cookie session for this refresh;
+6. login: `https://m.10155.com/woapp/login/ecsAppletLogin`;
+7. normalized login `caller` must exactly equal the selected phone number; mismatch is a hard failure;
+8. configured member tabs: `/woapp/h5/woMember/getClientMemberInfosByUserId`;
+9. actual member-open state: `/woapp/uc/getmemberinfo`;
+10. merge by member type against the three source tabs: `87 AI彩铃视听剧场会员`, `15 铂金会员`, `76 AI彩铃升级版`.
 
-## Acceptance order
+The active inline implementation does **not** use `getCrbtFlag` or `getMemberDetail` for this page's live member state.
 
-1. H1 implementation and CI must pass first.
-2. H2 real-device evidence must then verify the selected mobile account reaches its own 10155 member state without cross-account leakage.
-3. Visual styling remains deferred and does not block functional closure.
+## 10155 authentication contract
 
-`NEXT = Android-M9-H1 — Video Ring compile / CI`
+Every 10155 request, including login, carries:
+
+- `appid = 3000013947`;
+- persistent 36-character client `uid` (client identity, **not** server-returned userid);
+- millisecond `timestamp`;
+- nonce formatted like `0.%016llu`;
+- uppercase MD5 `sign = MD5(timestamp + "VNEU8G4V" + nonce)`;
+- `oswoversion = 1018`;
+- `Accept-Language = zh-Hans-CN;q=1.0`;
+- iOS-equivalent China Unicom `User-Agent`;
+- normalized Bearer `accessToken` only after login.
+
+Android R1 creates one fresh in-memory cookie jar per refresh and only accepts/replays automatic cookies for `m.10155.com`, matching the source's ephemeral 10155 session while preventing cookie reuse across account refreshes.
+
+## Cache / entry refresh parity
+
+The active iOS implementation has a per-account disk cache and a `videoRing` entry policy in the shared refresh-policy schema.
+
+R1 therefore adds:
+
+- per-account `AtomicFile` cache with `fd.sync()`;
+- cached phone-number guard before restoring data;
+- default entry mode `everyEntry`;
+- `refreshWhenExpired` with default 60-minute validity;
+- `manualOnly` support;
+- manual refresh always forces a real network query;
+- the `videoRing` policy is written to the same existing refresh-logic JSON/storage authority, not a second settings store.
+
+## R1 acceptance order
+
+1. R1 source-derived static contract passes.
+2. Core network/login/settings/cache/store tests pass.
+3. Debug + Release app builds pass.
+4. Main APK and permanent M9 regressions remain green.
+5. Repeat H2 on a real device. The first proof is that the previous `请求随机数不存在` authentication rejection is gone and the three member tabs show server-derived open state.
+
+`NEXT = Android-M9-H1-R1 — CI then H2 retry`

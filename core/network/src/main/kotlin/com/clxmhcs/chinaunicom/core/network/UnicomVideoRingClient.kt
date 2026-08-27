@@ -1,14 +1,18 @@
 package com.clxmhcs.chinaunicom.core.network
 
 import com.clxmhcs.chinaunicom.core.model.AccountCredentials
-import com.clxmhcs.chinaunicom.core.model.VideoRingBenefit
 import com.clxmhcs.chinaunicom.core.model.VideoRingMember
 import com.clxmhcs.chinaunicom.core.model.VideoRingMemberFetchResult
 import com.clxmhcs.chinaunicom.core.model.VideoRingMemberState
+import java.security.MessageDigest
+import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.random.Random
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import okhttp3.Cookie
 import okhttp3.CookieJar
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -30,9 +34,37 @@ internal fun interface VideoRingTransport {
     fun execute(request: VideoRingTransportRequest): UnicomRawResponse
 }
 
+/** One ephemeral 10155 cookie session per business refresh. Native-ticket traffic never enters this jar. */
+private class EphemeralVideoRingCookieJar : CookieJar {
+    private val lock = Any()
+    private val cookies = mutableListOf<Cookie>()
+
+    override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+        if (url.host != UnicomVideoRingClient.ROOT_HOST) return
+        val now = System.currentTimeMillis()
+        synchronized(lock) {
+            this.cookies.removeAll { existing ->
+                existing.expiresAt <= now || cookies.any { incoming ->
+                    existing.name == incoming.name && existing.domain == incoming.domain && existing.path == incoming.path
+                }
+            }
+            this.cookies += cookies.filter { it.expiresAt > now }
+        }
+    }
+
+    override fun loadForRequest(url: HttpUrl): List<Cookie> {
+        if (url.host != UnicomVideoRingClient.ROOT_HOST) return emptyList()
+        val now = System.currentTimeMillis()
+        return synchronized(lock) {
+            cookies.removeAll { it.expiresAt <= now }
+            cookies.filter { it.matches(url) }
+        }
+    }
+}
+
 internal class OkHttpVideoRingTransport(timeoutMillis: Long = 20_000L) : VideoRingTransport {
     private val client = OkHttpClient.Builder()
-        .cookieJar(CookieJar.NO_COOKIES)
+        .cookieJar(EphemeralVideoRingCookieJar())
         .connectTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
         .readTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
         .writeTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
@@ -61,28 +93,76 @@ internal class OkHttpVideoRingTransport(timeoutMillis: Long = 20_000L) : VideoRi
     }
 }
 
-/** Source-equivalent native client for iOS VideoRingMemberService + VideoRingAPIClient. */
+/** Source-equivalent native client for the active iOS VideoRingInlineMemberService. */
 class UnicomVideoRingClient private constructor(
-    private val transport: VideoRingTransport,
+    private val transportFactory: () -> VideoRingTransport,
     private val activateSession: (AccountCredentials) -> AccountCredentials,
+    private val clientUID: String,
+    private val clockMillis: () -> Long,
+    private val nonceProvider: () -> String,
 ) : VideoRingNetworkClient {
-    constructor() : this(OkHttpVideoRingTransport(), UnicomAPIClient()::activateSession)
+    constructor(clientUID: String) : this(
+        transportFactory = { OkHttpVideoRingTransport() },
+        activateSession = UnicomAPIClient()::activateSession,
+        clientUID = normalizeClientUID(clientUID),
+        clockMillis = System::currentTimeMillis,
+        nonceProvider = ::newNonce,
+    )
+
+    constructor() : this(defaultClientUID())
 
     internal constructor(
         transport: VideoRingTransport,
         activateSession: (AccountCredentials) -> AccountCredentials,
+        clientUID: String,
+        clockMillis: () -> Long,
+        nonceProvider: () -> String,
         testOnly: Unit,
-    ) : this(transport, activateSession)
+    ) : this(
+        transportFactory = { transport },
+        activateSession = activateSession,
+        clientUID = normalizeClientUID(clientUID),
+        clockMillis = clockMillis,
+        nonceProvider = nonceProvider,
+    )
 
     companion object {
         const val NATIVE_APP_ID = "edop_unicom_c43eac06"
         const val NATIVE_TICKET_ROOT = "https://m.client.10010.com/edop_ng/getTicketByNative"
         const val ROOT = "https://m.10155.com"
+        const val ROOT_HOST = "m.10155.com"
         const val CLIENT_APP_ID = "3000013947"
+        const val SIGN_SALT = "VNEU8G4V"
+        const val OS_WO_VERSION = "1018"
+        const val USER_AGENT = "ChinaUnicom4.x/12.14 (com.chinaunicom.mobilebusiness; build:13) Alamofire/4.7.3 unicom{version:iphone_c@12.1400}"
         const val LOGIN = "/woapp/login/ecsAppletLogin"
-        const val CRBT_FLAG = "/woapp/videoRing/getCrbtFlag"
         const val MEMBER_INFO = "/woapp/h5/woMember/getClientMemberInfosByUserId"
-        const val MEMBER_DETAIL = "/woapp/h5/woMember/getMemberDetail"
+        const val MEMBER_STATE = "/woapp/uc/getmemberinfo"
+
+        private val DEFAULT_TABS = listOf(
+            VideoRingMember("87", "AI彩铃视听剧场会员", "87", false),
+            VideoRingMember("15", "铂金会员", "15", false),
+            VideoRingMember("76", "AI彩铃升级版", "76", false),
+        )
+
+        private fun normalizeClientUID(value: String): String {
+            val normalized = value.trim().lowercase(Locale.ROOT)
+            if (normalized.length != 36 || normalized.any { !it.isLetterOrDigit() }) {
+                throw VideoRingAPIException.InvalidClientUID
+            }
+            return normalized
+        }
+
+        private fun defaultClientUID(): String {
+            val first = java.util.UUID.randomUUID().toString().replace("-", "").lowercase(Locale.ROOT)
+            val second = java.util.UUID.randomUUID().toString().replace("-", "").lowercase(Locale.ROOT)
+            return first + second.take(4)
+        }
+
+        private fun newNonce(): String {
+            val digits = Random.nextLong(0L, 10_000_000_000_000_000L)
+            return String.format(Locale.US, "0.%016d", digits)
+        }
     }
 
     override fun fetchMemberState(
@@ -90,34 +170,51 @@ class UnicomVideoRingClient private constructor(
         expectedPhoneNumber: String,
     ): VideoRingMemberFetchResult {
         val expected = normalizePhone(expectedPhoneNumber)
-        if (expected.isEmpty()) throw VideoRingAPIException.InvalidPhoneNumber
+        if (expected.length != 11 || !expected.startsWith("1")) throw VideoRingAPIException.InvalidPhoneNumber
 
+        val transport = transportFactory()
         var activeCredentials = credentials
         val ticket = try {
-            getNativeTicket(activeCredentials)
+            getNativeTicket(transport, activeCredentials)
         } catch (firstError: Exception) {
             if (activeCredentials.appID.isNullOrBlank() || activeCredentials.tokenOnline.isNullOrBlank()) throw firstError
             activeCredentials = activateSession(activeCredentials)
-            getNativeTicket(activeCredentials)
+            getNativeTicket(transport, activeCredentials)
         }
 
-        val session = ecsAppletLogin(ticket, expected)
-        val enabled = getCrbtFlag(session)
-        val members = getMemberInfo(session)
-        val memberType = members.firstOrNull(VideoRingMember::isMember)?.memberType ?: "15"
-        val benefits = getMemberDetail(session, memberType)
+        val login = ecsAppletLogin(transport, ticket)
+        val normalizedCaller = normalizePhone(login.caller)
+        if (normalizedCaller != expected) {
+            throw VideoRingAPIException.AccountMismatch(expected, normalizedCaller)
+        }
+
+        val configuredTabs = getMemberInfo(transport, login.accessToken)
+        val memberStates = getMemberState(transport, login.accessToken)
+        val configuredByType = configuredTabs.associateBy(VideoRingMember::memberType)
+        val stateByType = memberStates.associateBy(VideoRingMember::memberType)
+        val merged = DEFAULT_TABS.map { fallback ->
+            val configured = configuredByType[fallback.memberType] ?: fallback
+            val state = stateByType[fallback.memberType]
+            VideoRingMember(
+                id = configured.memberType,
+                name = configured.name,
+                memberType = configured.memberType,
+                isMember = state?.isMember == true,
+                startTime = state?.startTime,
+                endTime = state?.endTime,
+            )
+        }
+
         return VideoRingMemberFetchResult(
             state = VideoRingMemberState(
-                phoneNumber = expected,
-                members = members,
-                benefits = benefits,
-                isEnabled = enabled,
+                phoneNumber = normalizedCaller,
+                members = merged,
             ),
             updatedCredentials = activeCredentials.takeIf { it != credentials },
         )
     }
 
-    private fun getNativeTicket(credentials: AccountCredentials): String {
+    private fun getNativeTicket(transport: VideoRingTransport, credentials: AccountCredentials): String {
         val cookie = UnicomCookieCodec.normalize(credentials.cookie)
         if (cookie.isEmpty()) throw UnicomAPIException.MissingCookie
         val ecsToken = UnicomCookieCodec.value("ecs_token", cookie)?.trim().orEmpty()
@@ -127,16 +224,18 @@ class UnicomVideoRingClient private constructor(
             .addQueryParameter("appId", NATIVE_APP_ID)
             .build()
             .toString()
-        val response = execute(
-            method = "GET",
-            url = url,
-            headers = mapOf(
-                "Accept" to "*/*",
-                "Content-Type" to "application/x-www-form-urlencoded",
-                "Cookie" to cookie,
+        val root = parseObject(
+            execute(
+                transport = transport,
+                method = "GET",
+                url = url,
+                headers = mapOf(
+                    "Accept" to "*/*",
+                    "Content-Type" to "application/x-www-form-urlencoded",
+                    "Cookie" to cookie,
+                ),
             ),
         )
-        val root = parseObject(response)
         val code = first(root, "rsp_code", "code", "status")
         val ticket = first(root, "ticket")
         if (!UnicomResponseStatus.isSuccess(code) || ticket.isNullOrEmpty()) {
@@ -145,108 +244,123 @@ class UnicomVideoRingClient private constructor(
         return ticket
     }
 
-    private fun ecsAppletLogin(ticket: String, expectedPhoneNumber: String): VideoRingSession {
+    private fun ecsAppletLogin(transport: VideoRingTransport, ticket: String): LoginResult {
         val root = postForm(
-            LOGIN,
-            mapOf("appid" to NATIVE_APP_ID, "ticket" to ticket),
-            session = null,
+            transport = transport,
+            path = LOGIN,
+            values = mapOf("appid" to NATIVE_APP_ID, "ticket" to ticket),
+            accessToken = null,
         )
-        val successFlag = root["success"].stringValue()?.lowercase()
         val code = first(root, "code", "rsp_code", "status")
+        if (code != null && !UnicomResponseStatus.isSuccess(code)) {
+            throw VideoRingAPIException.LoginFailed(first(root, "message", "desc", "rsp_desc") ?: "10155 登录失败")
+        }
         val result = root["result"] as? JsonObject
         val caller = result?.let { first(it, "caller") }
         val accessToken = first(root, "accessToken")
-        if (successFlag == "false" || (code != null && !UnicomResponseStatus.isSuccess(code)) || caller.isNullOrEmpty() || accessToken.isNullOrEmpty()) {
-            throw VideoRingAPIException.LoginFailed(first(root, "message", "desc", "rsp_desc") ?: "10155 登录失败")
+        if (caller.isNullOrEmpty() || accessToken.isNullOrEmpty()) {
+            throw VideoRingAPIException.LoginFailed(first(root, "message", "desc", "rsp_desc") ?: "10155 登录未返回 caller/accessToken")
         }
-        val normalizedCaller = normalizePhone(caller)
-        if (normalizedCaller != expectedPhoneNumber) {
-            throw VideoRingAPIException.AccountMismatch(expectedPhoneNumber, normalizedCaller)
-        }
-        return VideoRingSession(
-            uid = result?.let { first(it, "userid", "userId", "uid") }.orEmpty(),
+        return LoginResult(caller = caller, accessToken = accessToken)
+    }
+
+    private fun getMemberInfo(transport: VideoRingTransport, accessToken: String): List<VideoRingMember> {
+        val root = postJson(
+            transport = transport,
+            path = MEMBER_INFO,
+            json = """{"includeAllConfigure":"1"}""",
             accessToken = accessToken,
         )
-    }
-
-    private fun getCrbtFlag(session: VideoRingSession): Boolean {
-        val root = postForm(CRBT_FLAG, emptyMap(), session)
-        ensureBusinessSuccess(root, "视频彩铃开通状态查询失败")
-        return root["result"].stringValue()?.let { it == "1" || it.equals("true", ignoreCase = true) } == true
-    }
-
-    private fun getMemberInfo(session: VideoRingSession): List<VideoRingMember> {
-        val root = postJson(MEMBER_INFO, """{"includeAllConfigure":"1"}""", session)
         ensureBusinessSuccess(root, "会员信息查询失败")
         val result = root["result"] as? JsonArray ?: throw UnicomAPIException.InvalidResponse
         return result.mapNotNull { element ->
             val item = element as? JsonObject ?: return@mapNotNull null
             val type = first(item, "memberType") ?: return@mapNotNull null
+            val name = first(item, "memberName") ?: return@mapNotNull null
             VideoRingMember(
                 id = type,
-                name = first(item, "memberName") ?: type,
+                name = name,
                 memberType = type,
-                isMember = first(item, "isMember")?.let { it == "1" || it.equals("true", ignoreCase = true) } == true,
+                isMember = false,
             )
         }
     }
 
-    private fun getMemberDetail(session: VideoRingSession, memberType: String): List<VideoRingBenefit> {
-        val body = """{"memberType":"${jsonEscape(memberType)}"}"""
-        val root = postJson(MEMBER_DETAIL, body, session)
-        ensureBusinessSuccess(root, "会员权益查询失败")
-        val result = root["result"] as? JsonObject ?: return emptyList()
-        val products = result["productlist"] as? JsonArray ?: return emptyList()
-        return products.mapNotNull { element ->
+    private fun getMemberState(transport: VideoRingTransport, accessToken: String): List<VideoRingMember> {
+        val root = postJson(
+            transport = transport,
+            path = MEMBER_STATE,
+            json = "{}",
+            accessToken = accessToken,
+        )
+        ensureBusinessSuccess(root, "会员开通状态查询失败")
+        val result = root["result"] as? JsonArray ?: throw UnicomAPIException.InvalidResponse
+        return result.mapNotNull { element ->
             val item = element as? JsonObject ?: return@mapNotNull null
-            val id = first(item, "spuId") ?: return@mapNotNull null
-            val rightNum = first(item, "rightNum")?.toIntOrNull()
-            val received = first(item, "received")?.toIntOrNull()?.let { it != 0 }
-            VideoRingBenefit(
-                id = id,
-                name = first(item, "spuName") ?: id,
-                imageURL = first(item, "spuImgurl"),
-                price = rightNum?.let { "${it}沃券" },
-                received = received,
+            val type = first(item, "memberType") ?: return@mapNotNull null
+            val name = first(item, "memberName") ?: return@mapNotNull null
+            VideoRingMember(
+                id = type,
+                name = name,
+                memberType = type,
+                isMember = first(item, "status") == "1",
+                startTime = first(item, "startTime"),
+                endTime = first(item, "endTime"),
             )
         }
     }
 
-    private fun postForm(path: String, values: Map<String, String>, session: VideoRingSession?): JsonObject =
-        parseObject(
-            execute(
-                method = "POST",
-                url = ROOT + path,
-                body = unicomFormEncoded(values),
-                headers = authenticationHeaders("application/x-www-form-urlencoded", session),
-            ),
-        )
+    private fun postForm(
+        transport: VideoRingTransport,
+        path: String,
+        values: Map<String, String>,
+        accessToken: String?,
+    ): JsonObject = parseObject(
+        execute(
+            transport = transport,
+            method = "POST",
+            url = ROOT + path,
+            body = unicomFormEncoded(values),
+            headers = authenticationHeaders("application/x-www-form-urlencoded", accessToken),
+        ),
+    )
 
-    private fun postJson(path: String, json: String, session: VideoRingSession): JsonObject =
-        parseObject(
-            execute(
-                method = "POST",
-                url = ROOT + path,
-                body = json.encodeToByteArray(),
-                headers = authenticationHeaders("application/json", session),
-            ),
-        )
+    private fun postJson(
+        transport: VideoRingTransport,
+        path: String,
+        json: String,
+        accessToken: String,
+    ): JsonObject = parseObject(
+        execute(
+            transport = transport,
+            method = "POST",
+            url = ROOT + path,
+            body = json.encodeToByteArray(),
+            headers = authenticationHeaders("application/json", accessToken),
+        ),
+    )
 
-    private fun authenticationHeaders(contentType: String, session: VideoRingSession?): Map<String, String> = buildMap {
-        put("Content-Type", contentType)
-        put("Accept", "*/*")
-        put("appid", CLIENT_APP_ID)
-        session?.let {
-            if (it.uid.isNotEmpty()) put("uid", it.uid)
-            val token = normalizedBearerToken(it.accessToken)
-            if (token.isNotEmpty()) {
-                put("accessToken", token)
-                put("Authorization", token)
-            }
+    private fun authenticationHeaders(contentType: String, accessToken: String?): Map<String, String> {
+        val timestamp = clockMillis().toString()
+        val nonce = nonceProvider()
+        val signature = md5Upper(timestamp + SIGN_SALT + nonce)
+        return buildMap {
+            put("Content-Type", contentType)
+            put("Accept", "*/*")
+            put("appid", CLIENT_APP_ID)
+            put("uid", clientUID)
+            put("timestamp", timestamp)
+            put("nonce", nonce)
+            put("sign", signature)
+            put("oswoversion", OS_WO_VERSION)
+            put("Accept-Language", "zh-Hans-CN;q=1.0")
+            put("User-Agent", USER_AGENT)
+            accessToken?.let { put("accessToken", normalizedBearerToken(it)) }
         }
     }
 
     private fun execute(
+        transport: VideoRingTransport,
         method: String,
         url: String,
         body: ByteArray = byteArrayOf(),
@@ -257,7 +371,8 @@ class UnicomVideoRingClient private constructor(
         return response.body
     }
 
-    private fun parseObject(data: ByteArray): JsonObject = parseNetworkJson(data) as? JsonObject ?: throw UnicomAPIException.InvalidResponse
+    private fun parseObject(data: ByteArray): JsonObject =
+        parseNetworkJson(data) as? JsonObject ?: throw UnicomAPIException.InvalidResponse
 
     private fun ensureBusinessSuccess(root: JsonObject, fallback: String) {
         val code = first(root, "code", "rsp_code", "status")
@@ -279,27 +394,16 @@ class UnicomVideoRingClient private constructor(
 
     private fun normalizePhone(value: String): String = value.filter(Char::isDigit)
 
-    private fun jsonEscape(value: String): String = buildString(value.length + 8) {
-        value.forEach { char ->
-            when (char) {
-                '\\' -> append("\\\\")
-                '"' -> append("\\\"")
-                '\n' -> append("\\n")
-                '\r' -> append("\\r")
-                '\t' -> append("\\t")
-                else -> append(char)
-            }
-        }
-    }
-}
+    private fun md5Upper(value: String): String = MessageDigest.getInstance("MD5")
+        .digest(value.encodeToByteArray())
+        .joinToString("") { byte -> String.format(Locale.US, "%02X", byte.toInt() and 0xFF) }
 
-internal data class VideoRingSession(
-    val uid: String,
-    val accessToken: String,
-)
+    private data class LoginResult(val caller: String, val accessToken: String)
+}
 
 sealed class VideoRingAPIException(message: String) : Exception(message) {
     data object InvalidPhoneNumber : VideoRingAPIException("当前号码格式无效")
+    data object InvalidClientUID : VideoRingAPIException("视频彩铃客户端标识格式无效")
     data object MissingEcsToken : VideoRingAPIException("当前号码的登录凭据中缺少 ecs_token，请先刷新该号码的登录状态")
     data class TicketFailed(val detail: String) : VideoRingAPIException("获取当前号码的视频彩铃登录票据失败：$detail")
     data class LoginFailed(val detail: String) : VideoRingAPIException("登录视频彩铃会员中心失败：$detail")
