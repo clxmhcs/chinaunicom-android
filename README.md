@@ -32,7 +32,7 @@ M5 supplies Android Keystore AES-256-GCM account credentials, SMS login, passwor
 M6 includes:
 
 - ordinary account metadata persistence separated from M5 Keystore credentials;
-- `AccountRepository`, `SettingsRepository`, `QuotaRepository`, `BalanceRepository`, `RefreshCoordinator` and `StateFlow<UnicomAppState>`;
+- `AccountRepository`, `SettingsRepository`, `QuotaRepository`, `BalanceRepository`, `QuotaRefreshCoordinator` and `StateFlow<UnicomAppState>`;
 - cold-launch/foreground/manual quota refresh orchestration, per-account/global mutual exclusion and persisted quota refresh policy;
 - M5-owned credential renewal for quota and balance;
 - source-equivalent `SharedBalanceCacheStore` freshness, persistent lease/in-flight protection, failure retry cooldown and financial representative selection;
