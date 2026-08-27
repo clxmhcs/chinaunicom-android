@@ -9,6 +9,7 @@ on:
       - "core/network/**"
       - "core/login/**"
       - "data/rebategift/**"
+      - "data/settings/**"
       - "settings.gradle.kts"
       - ".github/workflows/android-m9-f-rebate-gift-build.yml"
   push:
@@ -19,6 +20,7 @@ on:
       - "core/network/**"
       - "core/login/**"
       - "data/rebategift/**"
+      - "data/settings/**"
       - "settings.gradle.kts"
       - ".github/workflows/android-m9-f-rebate-gift-build.yml"
 
@@ -60,16 +62,19 @@ jobs:
           LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/RebateAndGiftAccountCredentialLifecycle.kt
           STORE=data/rebategift/src/main/kotlin/com/clxmhcs/chinaunicom/data/rebategift/RebateAndGiftStore.kt
           CACHE=data/rebategift/src/main/kotlin/com/clxmhcs/chinaunicom/data/rebategift/AndroidRebateAndGiftDiskCache.kt
+          SETTINGS=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/RebateGiftRefreshSettings.kt
+          ANDROID_SETTINGS=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/AndroidSettingsRepository.kt
+          SETTINGS_TEST=data/settings/src/test/kotlin/com/clxmhcs/chinaunicom/data/settings/RebateGiftSettingsRepositoryTest.kt
           SELECTOR=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherRebateAndGiftAccountSelectionScreen.kt
           SCREEN=app/src/main/java/com/clxmhcs/chinaunicom/ui/RebateAndGiftScreen.kt
           VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/RebateAndGiftViewModel.kt
           OTHER=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherBusinessScreen.kt
           APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
           BUILD=app/build.gradle.kts
-          for file in "$MODEL" "$CLIENT" "$LIFECYCLE" "$STORE" "$CACHE" "$SELECTOR" "$SCREEN" "$VM" "$OTHER" "$APP" "$BUILD"; do test -f "$file"; done
+          for file in "$MODEL" "$CLIENT" "$LIFECYCLE" "$STORE" "$CACHE" "$SETTINGS" "$ANDROID_SETTINGS" "$SETTINGS_TEST" "$SELECTOR" "$SCREEN" "$VM" "$OTHER" "$APP" "$BUILD"; do test -f "$file"; done
 
           grep -q 'minSdk = 30' "$BUILD"
-          grep -q 'versionName = "0.9.0-m9f1"' "$BUILD"
+          grep -Eq 'versionName = "0\.9\.0-m9[a-z][0-9]+"' "$BUILD"
           grep -q 'ACCOUNT("account", "账户", "0")' "$MODEL"
           grep -q 'USER("user", "用户", "1")' "$MODEL"
           grep -q 'https://hlbasic.10010.com' "$CLIENT"
@@ -94,6 +99,17 @@ jobs:
           grep -q 'contractsByScope' "$STORE"
           grep -q 'automaticRefreshMonth' "$STORE"
 
+          grep -q 'interface RebateGiftSettingsRepository : SettingsRepository' "$SETTINGS"
+          grep -q 'class UnifiedRefreshSettingsRepository' "$SETTINGS"
+          grep -q 'private const val REBATE_GIFT_KEY = "rebateGift"' "$SETTINGS"
+          grep -q 'monthlyRefreshDay: Int = 2' "$SETTINGS"
+          grep -q 'monthlyRefreshHour: Int = 8' "$SETTINGS"
+          grep -q 'queryImmediatelyWhenNoCache: Boolean = true' "$SETTINGS"
+          grep -q 'RebateGiftSettingsRepository = UnifiedRefreshSettingsRepository' "$ANDROID_SETTINGS"
+          grep -q 'AndroidSettingsRepositories.refreshLogic(appContext)' "$VM"
+          grep -q 'refreshSettings.rebateGiftRefreshPolicy.value' "$VM"
+          grep -q 'policyProvider = RebateGiftRefreshPolicyProvider' "$VM"
+
           grep -q 'OtherBusinessEntry("返费 / 赠费", enabled = true)' "$OTHER"
           grep -q 'onOpenRebateAndGift' "$OTHER"
           grep -q 'OTHER_REBATE_GIFT_ROUTE = "other/rebate-gift"' "$APP"
@@ -109,4 +125,4 @@ jobs:
           echo "M9_F_REBATE_GIFT_GATE=PASS"
 
       - name: Run M9-F regression
-        run: ./gradlew :core:model:testDebugUnitTest :core:network:testDebugUnitTest :core:login:testDebugUnitTest :data:rebategift:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease
+        run: ./gradlew :core:model:testDebugUnitTest :core:network:testDebugUnitTest :core:login:testDebugUnitTest :data:settings:testDebugUnitTest :data:rebategift:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease
