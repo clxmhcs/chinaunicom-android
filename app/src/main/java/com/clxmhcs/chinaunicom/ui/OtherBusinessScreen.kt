@@ -30,7 +30,7 @@ private val otherBusinessEntries = listOf(
     OtherBusinessEntry("我的套餐", enabled = true),
     OtherBusinessEntry("积分", enabled = true),
     OtherBusinessEntry("话费 / 账单", enabled = true),
-    OtherBusinessEntry("返费 / 赠费"),
+    OtherBusinessEntry("返费 / 赠费", enabled = true),
     OtherBusinessEntry("资费专区"),
     OtherBusinessEntry("附近营业厅"),
 )
@@ -43,6 +43,7 @@ fun OtherBusinessScreen(
     onOpenMyPackage: () -> Unit,
     onOpenIntegral: () -> Unit,
     onOpenPhoneBill: () -> Unit,
+    onOpenRebateAndGift: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
@@ -77,6 +78,7 @@ fun OtherBusinessScreen(
                                         "我的套餐" -> onOpenMyPackage()
                                         "积分" -> onOpenIntegral()
                                         "话费 / 账单" -> onOpenPhoneBill()
+                                        "返费 / 赠费" -> onOpenRebateAndGift()
                                     }
                                 },
                             shape = MaterialTheme.shapes.medium,

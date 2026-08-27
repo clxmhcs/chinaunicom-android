@@ -1,0 +1,112 @@
+name: Android M9 F Rebate Gift
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/model/**"
+      - "core/network/**"
+      - "core/login/**"
+      - "data/rebategift/**"
+      - "settings.gradle.kts"
+      - ".github/workflows/android-m9-f-rebate-gift-build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/model/**"
+      - "core/network/**"
+      - "core/login/**"
+      - "data/rebategift/**"
+      - "settings.gradle.kts"
+      - ".github/workflows/android-m9-f-rebate-gift-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  m9-f-rebate-gift:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+      - name: Ensure Android API 37 SDK
+        shell: bash
+        run: |
+          PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && $1 ~ /android-37/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
+          test -n "$PLATFORM_PACKAGE"
+          sdkmanager --channel=3 "$PLATFORM_PACKAGE"
+
+      - name: Verify M9-F source-derived boundary
+        shell: bash
+        run: |
+          MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/RebateAndGiftModels.kt
+          CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomRebateAndGiftClient.kt
+          LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/RebateAndGiftAccountCredentialLifecycle.kt
+          STORE=data/rebategift/src/main/kotlin/com/clxmhcs/chinaunicom/data/rebategift/RebateAndGiftStore.kt
+          CACHE=data/rebategift/src/main/kotlin/com/clxmhcs/chinaunicom/data/rebategift/AndroidRebateAndGiftDiskCache.kt
+          SELECTOR=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherRebateAndGiftAccountSelectionScreen.kt
+          SCREEN=app/src/main/java/com/clxmhcs/chinaunicom/ui/RebateAndGiftScreen.kt
+          VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/RebateAndGiftViewModel.kt
+          OTHER=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherBusinessScreen.kt
+          APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
+          BUILD=app/build.gradle.kts
+          for file in "$MODEL" "$CLIENT" "$LIFECYCLE" "$STORE" "$CACHE" "$SELECTOR" "$SCREEN" "$VM" "$OTHER" "$APP" "$BUILD"; do test -f "$file"; done
+
+          grep -q 'minSdk = 30' "$BUILD"
+          grep -q 'versionName = "0.9.0-m9f1"' "$BUILD"
+          grep -q 'ACCOUNT("account", "账户", "0")' "$MODEL"
+          grep -q 'USER("user", "用户", "1")' "$MODEL"
+          grep -q 'https://hlbasic.10010.com' "$CLIENT"
+          grep -q '/servicequerybusiness/grantsAndContractRebates/contractRebate' "$CLIENT"
+          grep -q '/servicequerybusiness/grantsAndContractRebates/canOpenAnInterfaceCall' "$CLIENT"
+          grep -q '"qrytype"' "$CLIENT"
+          grep -q '"duanlianjieabc"' "$CLIENT"
+          grep -q '"ticketChannel"' "$CLIENT"
+          grep -q 'UnicomAPIClient()::activateSession' "$CLIENT"
+          grep -q 'yyyyMMddHHmmss' "$CLIENT"
+          grep -q 'RebateAndGiftAccountCredentialLifecycle' "$LIFECYCLE"
+          grep -q 'CredentialStore' "$LIFECYCLE"
+          grep -q 'updatedCredentials?.let { credentialStore.save' "$LIFECYCLE"
+
+          grep -q 'AtomicFile' "$CACHE"
+          grep -q 'stream.fd.sync()' "$CACHE"
+          ! grep -Eqi 'cookie|token_online|appid|idcardlastsix' "$CACHE"
+          grep -q 'monthlyRefreshDay: Int = 2' "$STORE"
+          grep -q 'monthlyRefreshHour: Int = 8' "$STORE"
+          grep -q 'queryImmediatelyWhenNoCache: Boolean = true' "$STORE"
+          grep -q 'Asia/Shanghai' "$STORE"
+          grep -q 'contractsByScope' "$STORE"
+          grep -q 'automaticRefreshMonth' "$STORE"
+
+          grep -q 'OtherBusinessEntry("返费 / 赠费", enabled = true)' "$OTHER"
+          grep -q 'onOpenRebateAndGift' "$OTHER"
+          grep -q 'OTHER_REBATE_GIFT_ROUTE = "other/rebate-gift"' "$APP"
+          grep -q 'OTHER_REBATE_GIFT_DETAIL_ROUTE = "other/rebate-gift/{accountId}"' "$APP"
+          grep -q 'OtherRebateAndGiftAccountSelectionScreen' "$APP"
+          grep -q 'RebateAndGiftScreen' "$APP"
+          grep -q 'filter(UnicomAccount::isEnabled)' "$SELECTOR"
+          ! grep -Eqi 'broadband|cookie|token_online|appid|idcardlastsix' "$SELECTOR"
+          grep -q 'RebateQueryScope.ACCOUNT' "$SCREEN"
+          grep -q 'RebateQueryScope.USER' "$SCREEN"
+          grep -q '合约返赠' "$SCREEN"
+          grep -q '赠款记录' "$SCREEN"
+          echo "M9_F_REBATE_GIFT_GATE=PASS"
+
+      - name: Run M9-F regression
+        run: ./gradlew :core:model:testDebugUnitTest :core:network:testDebugUnitTest :core:login:testDebugUnitTest :data:rebategift:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease

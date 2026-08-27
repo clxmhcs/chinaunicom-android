@@ -41,6 +41,8 @@ private const val OTHER_INTEGRAL_ROUTE = "other/integral"
 private const val OTHER_INTEGRAL_DETAIL_ROUTE = "other/integral/{accountId}"
 private const val OTHER_PHONE_BILL_ROUTE = "other/phone-bill"
 private const val OTHER_PHONE_BILL_DETAIL_ROUTE = "other/phone-bill/{accountId}"
+private const val OTHER_REBATE_GIFT_ROUTE = "other/rebate-gift"
+private const val OTHER_REBATE_GIFT_DETAIL_ROUTE = "other/rebate-gift/{accountId}"
 
 @Composable
 fun ChinaUnicomApp() {
@@ -50,6 +52,7 @@ fun ChinaUnicomApp() {
     val comprehensiveViewModel: ComprehensiveBusinessViewModel = viewModel()
     val myOrderViewModel: MyOrderViewModel = viewModel()
     val broadbandAccountViewModel: BroadbandAccountViewModel = viewModel()
+    val rebateAndGiftViewModel: RebateAndGiftViewModel = viewModel()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner, flowViewModel) {
@@ -153,6 +156,7 @@ fun ChinaUnicomApp() {
                     onOpenMyPackage = { navController.navigate(MY_PACKAGE_ROUTE) },
                     onOpenIntegral = { navController.navigate(OTHER_INTEGRAL_ROUTE) },
                     onOpenPhoneBill = { navController.navigate(OTHER_PHONE_BILL_ROUTE) },
+                    onOpenRebateAndGift = { navController.navigate(OTHER_REBATE_GIFT_ROUTE) },
                 )
             }
             composable(ORDERED_BUSINESS_HUB_ROUTE) {
@@ -236,6 +240,24 @@ fun ChinaUnicomApp() {
                     PhoneBillEntryScreen(
                         account = account,
                         businessViewModel = comprehensiveViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+            }
+            composable(OTHER_REBATE_GIFT_ROUTE) {
+                val flowState by flowViewModel.uiState.collectAsState()
+                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                OtherRebateAndGiftAccountSelectionScreen(
+                    accounts = mobileAccounts,
+                    onBack = { navController.popBackStack() },
+                    onOpenAccount = { navController.navigate("other/rebate-gift/$it") },
+                )
+            }
+            composable(OTHER_REBATE_GIFT_DETAIL_ROUTE) { entry ->
+                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                    RebateAndGiftScreen(
+                        account = account,
+                        viewModel = rebateAndGiftViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }
