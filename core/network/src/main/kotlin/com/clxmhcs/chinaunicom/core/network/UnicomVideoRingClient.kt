@@ -206,7 +206,7 @@ class UnicomVideoRingClient private constructor(
                 id = id,
                 name = first(item, "spuName") ?: id,
                 imageURL = first(item, "spuImgurl"),
-                price = rightNum?.let { "$it沃券" },
+                price = rightNum?.let { "${it}沃券" },
                 received = received,
             )
         }
