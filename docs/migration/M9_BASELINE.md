@@ -13,12 +13,12 @@ Substages:
   - `M9-A4_RESULT = PASS / CLOSED` — real-device functional validation
 - `M9-B_RESULT = IN_PROGRESS` — 我的套餐
   - `M9-B1_RESULT = PASS / CLOSED` — model reuse + crypto + client + M5 lifecycle + disk cache + store + settings
-  - `M9-B2_RESULT = NOT_STARTED` — rough functional app wiring
-  - `M9-B3_RESULT = NOT_STARTED` — real-device functional validation
+  - `M9-B2_RESULT = PASS / CLOSED` — rough functional app wiring
+  - `M9-B3_RESULT = IN_PROGRESS` — real-device functional validation
 - `M9-C_RESULT = NOT_STARTED` — 已订业务
 - `M9-D_RESULT = NOT_STARTED` — 积分
 - `M9-E_RESULT = NOT_STARTED` — 账单
-- `M9-F_RESULT = NOT_STARTED` — 返费/赠费
+- `M9-F_RESULT = NOT_STARTED` — 返费 / 赠费
 - `M9-G_RESULT = NOT_STARTED` — 资费专区
 - `M9-H_RESULT = NOT_STARTED` — 视频彩铃
 
@@ -47,16 +47,9 @@ These hashes are synchronized to the current uploaded iOS source archive used fo
 
 `core:model/MyOrderModels.kt` from M2 remains the sole Android list-model authority. Android does not create a My Order disk cache because the iOS `MyOrderStore.swift` does not persist one.
 
-`UnicomMyOrderClient` preserves the source list contract, including:
+`UnicomMyOrderClient` preserves the source list contract, including the real `newQueryOrder` form request, page size 15, lowercase-MD5 mobile identifier, source `iphone_c@12.1400` header semantics, Set-Cookie mutation merging, response aliases, JSON-string `respData` compatibility, and one existing-M4 session-activation retry on expiry.
 
-- `https://m.client.10010.com/mobileservicequery/order/newQueryOrder`;
-- form POST, page size 15, `loginNumber = lowercase MD5(digits-only mobile)`;
-- source headers / `iphone_c@12.1400` semantics;
-- Set-Cookie mutation merging;
-- response field aliases and JSON-string `respData` compatibility;
-- existing M4 session activation and one retry on login/session expiry.
-
-`MyOrderAccountCredentialLifecycle` reads only M5 `CredentialStore`, saves renewed credentials immediately and strips `updatedCredentials` before business state receives the result.
+`MyOrderAccountCredentialLifecycle` reads only M5 `CredentialStore`, saves renewed credentials immediately and strips `updatedCredentials` before ordinary business state receives the result.
 
 Accepted A1 implementation: `514e3d2005a4253385beff010834c85d3c76d037`.
 Android M9 run `32966913358` — complete success.
@@ -65,13 +58,7 @@ Android M9 run `32966913358` — complete success.
 
 The single tolerant `SettingsRepository` owns `orders.refreshOnEntry`, default `true`.
 
-The detail core follows the **current** iOS source and supports only:
-
-- `business` hosted detail;
-- `renewal` hosted detail;
-- explicit `unsupported` for other order types.
-
-It does not invent a payment-order fallback. Cookie access remains behind M5 and is not stored in ordinary detail state.
+The current iOS detail core supports only `business`, `renewal`, and explicit `unsupported`; Android does not invent a payment-order fallback. Cookie access remains behind M5 and is not stored in ordinary detail state.
 
 Primary A2 implementation: `0b5101e752cc46f87cf38c93c57ff5f7e3e2200d`.
 Accepted verified A2 head: `d9c864fb3675320a62ed29b765117088b696b173`.
@@ -79,18 +66,7 @@ Android M9 run `32973038127` — complete success.
 
 ### A3 — rough installable app wiring
 
-A3 wires:
-
-- `其它业务 -> 我的订单`;
-- production persisted account selection;
-- source-equivalent entry refresh;
-- manual refresh, local search and kind filtering;
-- automatic list-end pagination plus manual load-more fallback;
-- business/renewal hosted detail route only when a supported detail action exists;
-- Android WebView restricted to `10010.com` / subdomains;
-- M5 Cookie injection only for the hosted request, followed by targeted cookie-name expiry on destruction.
-
-No Cookie/token is put into navigation, Compose state, ordinary disk state or logs.
+A3 wires `其它业务 -> 我的订单`, production persisted account selection, entry/manual refresh, search/filter, pagination, supported business/renewal detail, and a WebView limited to `10010.com` / subdomains. M5 Cookie injection is transient and followed by targeted expiry; no credential material enters navigation, Compose state, ordinary disk state or logs.
 
 Accepted A3 head: `1f32584c9856f0afe84d2b01fc98085efc120e3b`.
 Android M9 run `33024157050` — complete success.
@@ -107,7 +83,7 @@ Accepted real-device evidence on **2026-08-27** verified the installable product
 - the real carrier order list returned populated records with legitimate order category/status, masked business number, channel, time and amount;
 - a cancelled order displayed the corresponding cancellation/退订 warning state;
 - current returned payment orders exposed no supported detail action and correctly rendered `暂无可用详情`;
-- per the frozen acceptance scope, no artificial business/renewal order was manufactured solely to obtain a detail screenshot.
+- no artificial business/renewal order was manufactured solely for acceptance.
 
 Therefore `M9-A_RESULT = PASS / CLOSED`.
 
@@ -120,110 +96,102 @@ Therefore `M9-A_RESULT = PASS / CLOSED`.
 | `Services/MyPackageCrypto.swift` | `40217661d2a24a22d57a4153de4083a094db4c8695f39fdf93c1c6b0281de912` | member payload URL/Base64/AES-128-CBC/zero-padding contract |
 | `Services/MyPackageClient.swift` | `bfe48b27c2fd475b2b04e513560ea6fa6f4d7b61605267a5f6fc7394789d8c5a` | primary and optional enhancement endpoint/session/parser truth |
 | `Stores/MyPackageStore.swift` | `92be9421cbe1e92057d3a87f226a78bdd8ce938d4f3d45d7ba956af78f9df1c3` | per-account cache and refresh behavior truth |
-| `Views/MyPackageView.swift` | `d7e7d9fafc630d7b41216e01c1df77ac810c908d3e42a889d334895e724eebe0` | functional page content/interaction truth for B2/B3 |
+| `Views/MyPackageView.swift` | `d7e7d9fafc630d7b41216e01c1df77ac810c908d3e42a889d334895e724eebe0` | functional page content/interaction truth |
 | `Views/OtherBusinessView.swift` | `2824ba88c2ea509ce6e3dc6cbb95794a4cd71db366dccf3967c4fc646cef2214` | `我的套餐` entry truth |
 
 ## M9-B1 accepted boundary
 
-### Existing model authority
+M2 already contains the source-aligned `MyPackageModels.kt`; M9-B1 reuses that model authority.
 
-M2 already contains source-aligned `core:model/MyPackageModels.kt`; M9-B1 reuses it and does not introduce a duplicate model hierarchy.
+`UnicomMyPackageClient` implements the current iOS primary `/queryPackage/myPackage` request and the optional resource/member/pretty-number enhancement requests. Primary failure fails the query; non-session failures of optional enhancement requests do not discard a valid primary package. Session expiry reuses existing M4 activation and retries once. Set-Cookie mutations and renewed credentials continue through M5.
 
-### Real MyPackage client and crypto
+Member crypto follows the source sequence: URL-percent decode -> Base64 decode -> AES-128-CBC with key/IV `#user3ExtraInfo6` -> no PKCS padding -> trailing-zero removal -> member JSON parsing.
 
-`UnicomMyPackageClient` implements the current iOS network contract:
+`MyPackageAccountCredentialLifecycle` is the secure boundary, and `AndroidMyPackageDiskCache` persists only schema-versioned account UUID -> snapshot/fetchedAt data through app-private `AtomicFile` + `fd.sync()`.
 
-- primary endpoint: `https://mxx.client.10010.com/servicequerybusiness/queryPackage/myPackage`;
-- optional resource enhancement: `/servicequerybusiness/queryPackage/myResourceDetails`, types `1` and `2`;
-- optional member enhancement: `/servicequerybusiness/queryPackage/myMemberMobile`, `chooseflag=1`;
-- optional pretty-number enhancement: `/servicequerybusiness/queryPackage/myPrettyNumber`;
-- `Origin=https://imgxx.client.10010.com`, matching package-page referer and `unicom{version:iphone_c@12.1400}` semantics;
-- primary package failure fails the query, while non-session failure of resource/member/pretty enhancement does **not** discard a valid primary package;
-- login/session expiry anywhere in the flow reuses existing M4 `activateSession(...)` and retries once;
-- Set-Cookie mutations are merged and renewed credentials are routed back through M5.
+The single `SettingsRepository` owns `myPackage` with exactly the source three entry modes: `everyEntry`, `refreshWhenExpired`, and `manualOnly`; default cache validity for expired mode is 30 minutes. Manual refresh always performs network work.
 
-Member payload crypto follows the source sequence exactly:
+Accepted B1 implementation: `2a6cc6a3dc03f0d1f8ca4979863c06470c1b3d0b`.
+Android M9 run `33030539003` — complete success.
+Android M2 run `33030538968` — complete success.
 
-1. URL-percent decode;
-2. Base64 decode;
-3. AES-128-CBC with key/IV `#user3ExtraInfo6`;
-4. no PKCS padding;
-5. trim trailing zero bytes;
-6. parse `myNumbers` member groups.
+Therefore `M9-B1_RESULT = PASS / CLOSED`.
 
-Android uses the API-30-safe `URLDecoder.decode(String, String)` overload.
+## M9-B2 accepted boundary
 
-### M5 credential lifecycle
+B2 wires the B1 core into the installable Android app while intentionally keeping presentation rough:
 
-`MyPackageAccountCredentialLifecycle`:
+- `其它业务` now exposes `我的套餐` as an active destination;
+- `other/my-package` is a real Navigation route;
+- `MyPackageViewModel` owns one `DefaultMyPackageStore` and reuses the existing M5 `CredentialStoreProvider`, B1 credential lifecycle, account-scoped disk cache and single `SettingsRepository` policy authority;
+- the page selects from the already-persisted, enabled production mobile accounts and calls the source-equivalent entry load for the chosen account;
+- loading, no-cache/manual-only, carrier failure, retained-cache warning and retry states are represented without duplicating network logic in Compose;
+- manual `刷新` calls the existing B1 store refresh path;
+- the main package section renders product name, month fee, product start time, refresh time and promotion metadata when returned;
+- the `移网` resource tab renders source-derived outside-package charging rules;
+- the `宽带` resource tab renders broadband resources returned by the package API, including broadband number, package/actual speed, start/end time and tips;
+- package description, business rules and month-fee description are retained;
+- contract activities, contract rules and non-cancellable prompt are retained;
+- member groups preserve the source group-type `05` behavior, primary members, masked numbers, and the source two-member collapsed/`查看更多`/`收起` interaction;
+- `查看完整号码` does **not** expose or fabricate a full number; it currently shows the source-derived requirement that full-number access needs SMS verification;
+- the pretty-number section appears only when `isPrettyNumber` is true;
+- no Cookie, token, password or SMS code enters ViewModel/Compose ordinary state;
+- app version is `0.9.0-m9b2`; minimum Android remains API 30.
 
-- reads credentials only from the existing M5 `CredentialStore`;
-- executes the validated MyPackage request;
-- saves renewed Cookie/appID/token immediately to M5 storage;
-- strips `updatedCredentials` before returning the business result.
+### Independent broadband-account parity boundary
 
-No raw credential material exists in `data:mypackage` business/cache state.
+The frozen iOS MyPackage account selector can also consume saved `BroadbandAccountInfoStore` targets. The current Android account system does not yet contain an equivalent independent broadband-account persistence/onboarding authority.
 
-### Per-account disk cache
+B2 therefore deliberately **does not invent or fake broadband accounts**. It uses the real persisted mobile-account authority and renders any associated broadband resources returned by the real MyPackage response. Independent saved-broadband-account selection remains a known account-system parity gap and must be completed before full broadband-account parity can be claimed.
 
-Unlike My Order, iOS MyPackage **does** persist a cache. Android therefore adds `AndroidMyPackageDiskCache` with:
+### M9-B2 accepted implementation / CI
 
-- account UUID -> `MyPackageCacheRecord` mapping;
-- schema version `1`;
-- snapshot + `fetchedAt`;
-- app-private files directory;
-- Android `AtomicFile` replacement and `fd.sync()` before finish-write;
-- no Cookie/token/password/SMS material.
+Accepted B2 implementation head:
 
-A cache write failure preserves the freshly fetched in-memory snapshot and exposes a warning instead of converting a valid carrier response into total failure.
+`04e56d2bde802d9c32638f01825763ca37e05c1b`
 
-### Source-equivalent refresh policy
+Android M9 Other Business run `33032941768` completed successfully:
 
-The unique `SettingsRepository` now owns `myPackage` using source-equivalent `PageEntryRefreshMode` with exactly three modes:
-
-- `everyEntry` — default, query whenever the page is entered after cache restoration;
-- `refreshWhenExpired` — default validity 30 minutes; clock rollback is treated as expired;
-- `manualOnly` — restore cache only; if absent, show the source-equivalent manual-query message.
-
-Manual refresh always performs network work. Policy changes can be applied immediately to the active account. Unknown settings domains remain preserved by tolerant JSON merging.
-
-### M9-B1 accepted implementation / CI
-
-Accepted B1 implementation head:
-
-`2a6cc6a3dc03f0d1f8ca4979863c06470c1b3d0b`
-
-Android M9 Other Business run `33030539003` completed successfully:
-
-- My Order permanent regression boundary — success;
-- M9-B1 MyPackage static/source/security boundary — success;
-- AES/member crypto test — success;
-- primary-success/optional-enhancement-failure client behavior test — success;
-- MyPackage cache/store policy tests — success;
-- SettingsRepository MyPackage default/persistence/unknown-domain tests — success;
-- all existing core/data/app regression tests — success;
+- M9-A My Order permanent boundary — success;
+- M9-B1 MyPackage permanent core boundary — success;
+- M9-B2 rough functional wiring boundary — success;
+- all core/data/app regression tests — success;
 - Debug assembly — success;
 - Release assembly — success;
 - `android-m9-other-business` status publication — success;
 - failure gate — skipped as expected;
 - complete job — success.
 
-Android M2 Models run `33030538968` also completed successfully on the same B1 head, including app assembly.
+Android Main APK Build run `33032941829` completed successfully, including artifact upload.
 
-Therefore `M9-B1_RESULT = PASS / CLOSED`.
+Accepted installable artifact:
 
-## Deferred after M9-B1
+- name: `chinaunicom-debug-apk`;
+- artifact id: `9630992097`;
+- SHA-256 digest: `1dc4f95fd6b740f2305cac1a5a2fd7be11c3b99c4c548dc9ed50ea4ec5a8df74`;
+- source head: `04e56d2bde802d9c32638f01825763ca37e05c1b`.
 
-B1 intentionally does not yet provide:
+Therefore `M9-B2_RESULT = PASS / CLOSED`.
 
-- an active `其它业务 -> 我的套餐` Android destination;
-- Android account selection / package content rendering;
-- Android manual-refresh control and active policy UI wiring for the page;
-- real-device MyPackage evidence;
-- final visual parity.
+## M9-B3 real-device acceptance scope
 
-These remain ordered as **M9-B2 -> M9-B3**. Visual refinement stays deferred.
+Use the installable B2 artifact with the user's existing local credentials. No credential export/upload is required.
+
+Required evidence:
+
+1. `其它业务` root showing `我的套餐` as `已接入`;
+2. `我的套餐` account-selection page showing at least one saved production account; account identifiers may be masked;
+3. one selected real account with the returned main-package section visible, including product name and month fee plus effective/refresh time where returned;
+4. the same account's `移网` resource tab showing real outside-package rules or the legitimate carrier-empty state;
+5. the same account's `宽带` resource tab showing real associated broadband data when returned, or the legitimate `当前套餐未返回关联宽带资源` state;
+6. the `我的合约` section showing real contract data or the legitimate empty state;
+7. the `我的成员` section showing real masked members or the legitimate empty state; when more than two ordinary members exist, `查看更多` should expand them;
+8. if `我的靓号` appears for the selected account, capture it; if it does not appear, do not manufacture a condition solely for acceptance.
+
+Also press `刷新` once on a selected real account and confirm the page does not crash. A screenshot is only additionally required if refresh produces a warning/error that needs evaluation.
+
+Visual spacing, typography, icons and card polish are explicitly outside B3 acceptance.
 
 ## Next
 
-`NEXT = Android-M9-B2 — My Package Rough Functional App Wiring`
+`NEXT = Android-M9-B3 — My Package Real-device Functional Validation`
