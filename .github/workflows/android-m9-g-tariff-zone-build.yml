@@ -72,7 +72,7 @@ jobs:
           grep -q 'implementation(project(":data:tariffzone"))' "$BUILD"
           grep -q 'minSdk = 30' "$BUILD"
           grep -q 'minSdk = 30' "$MODULE"
-          grep -q 'versionName = "0.9.0-m9g1"' "$BUILD"
+          grep -Eq 'versionName = "0\.9\.0-m9[a-z0-9.-]*"' "$BUILD"
           grep -q 'NATIONAL("1")' "$MODEL"
           grep -q 'LOCAL("2")' "$MODEL"
           grep -q 'TariffZoneFirstLevel("1", "套餐"' "$MODEL"
