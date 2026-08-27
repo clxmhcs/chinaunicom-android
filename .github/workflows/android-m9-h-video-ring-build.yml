@@ -1,0 +1,128 @@
+name: Android M9 H Video Ring
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/model/**"
+      - "core/network/**"
+      - "core/login/**"
+      - "core/security/**"
+      - "data/videoring/**"
+      - "settings.gradle.kts"
+      - ".github/workflows/android-m9-h-video-ring-build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/model/**"
+      - "core/network/**"
+      - "core/login/**"
+      - "core/security/**"
+      - "data/videoring/**"
+      - "settings.gradle.kts"
+      - ".github/workflows/android-m9-h-video-ring-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  m9-h-video-ring:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+      - name: Ensure Android API 37 SDK
+        shell: bash
+        run: |
+          PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && $1 ~ /android-37/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
+          test -n "$PLATFORM_PACKAGE"
+          sdkmanager --channel=3 "$PLATFORM_PACKAGE"
+
+      - name: Verify M9-H source-derived boundary
+        shell: bash
+        run: |
+          MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/VideoRingModels.kt
+          CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomVideoRingClient.kt
+          LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/VideoRingAccountCredentialLifecycle.kt
+          STORE=data/videoring/src/main/kotlin/com/clxmhcs/chinaunicom/data/videoring/VideoRingStore.kt
+          VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/VideoRingViewModel.kt
+          UI=app/src/main/java/com/clxmhcs/chinaunicom/ui/VideoRingScreens.kt
+          OTHER=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherBusinessScreen.kt
+          APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
+          BUILD=app/build.gradle.kts
+          for file in "$MODEL" "$CLIENT" "$LIFECYCLE" "$STORE" "$VM" "$UI" "$OTHER" "$APP" "$BUILD"; do test -f "$file"; done
+
+          grep -q 'include(":data:videoring")' settings.gradle.kts
+          grep -q 'minSdk = 30' data/videoring/build.gradle.kts
+          grep -q 'minSdk = 30' "$BUILD"
+          grep -q 'versionName = "0.9.0-m9h1"' "$BUILD"
+          grep -q 'implementation(project(":data:videoring"))' "$BUILD"
+
+          grep -q 'edop_unicom_c43eac06' "$CLIENT"
+          grep -q 'https://m.client.10010.com/edop_ng/getTicketByNative' "$CLIENT"
+          grep -q 'https://m.10155.com' "$CLIENT"
+          grep -q '/woapp/login/ecsAppletLogin' "$CLIENT"
+          grep -q '/woapp/videoRing/getCrbtFlag' "$CLIENT"
+          grep -q '/woapp/h5/woMember/getClientMemberInfosByUserId' "$CLIENT"
+          grep -q '/woapp/h5/woMember/getMemberDetail' "$CLIENT"
+          grep -q '3000013947' "$CLIENT"
+          grep -q 'CookieJar.NO_COOKIES' "$CLIENT"
+          grep -q 'UnicomCookieCodec.value("ecs_token"' "$CLIENT"
+          grep -q 'activateSession' "$CLIENT"
+          grep -q 'AccountMismatch' "$CLIENT"
+          grep -q 'normalizedCaller != expectedPhoneNumber' "$CLIENT"
+          grep -q '"accessToken"' "$CLIENT"
+          grep -q '"Authorization"' "$CLIENT"
+
+          grep -q 'credentialStore.read(accountID)' "$LIFECYCLE"
+          grep -q 'credentialStore.save(accountID, it)' "$LIFECYCLE"
+          grep -q 'result.copy(updatedCredentials = null)' "$LIFECYCLE"
+          if find data/videoring/src/main -type f -iname '*cache*' | grep -q .; then
+            echo "M9-H must not invent a VideoRing disk cache"
+            exit 1
+          fi
+          grep -q 'OtherBusinessEntry("视频彩铃会员", enabled = true)' "$OTHER"
+          grep -q 'onOpenVideoRing' "$OTHER"
+          grep -q 'private const val OTHER_VIDEO_RING_ROUTE = "other/video-ring"' "$APP"
+          grep -q 'private const val OTHER_VIDEO_RING_DETAIL_ROUTE = "other/video-ring/{accountId}"' "$APP"
+          grep -q 'VideoRingAccountSelectionScreen(' "$APP"
+          grep -q 'VideoRingMemberCenterScreen(' "$APP"
+          grep -q 'val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()' "$APP"
+          grep -q 'AI彩铃视听剧场会员' "$UI"
+          grep -q '铂金会员' "$UI"
+          grep -q 'AI彩铃升级版' "$UI"
+          grep -q '权益月月领' "$UI"
+          grep -q '每月得1张沃券' "$UI"
+          if grep -R -nE 'cookie|tokenOnline|appID|token_online|password|smsCode' "$VM" "$UI" "$STORE"; then
+            echo "M9-H Compose/ViewModel/business state must not expose credential material"
+            exit 1
+          fi
+          echo "M9_H_VIDEO_RING_SOURCE_BOUNDARY=PASS"
+
+      - name: Run M9-H regression
+        run: >-
+          gradle
+          :core:model:testDebugUnitTest
+          :core:network:testDebugUnitTest
+          :core:login:testDebugUnitTest
+          :data:videoring:testDebugUnitTest
+          :app:testDebugUnitTest
+          :app:assembleDebug
+          :app:assembleRelease
+          --stacktrace
