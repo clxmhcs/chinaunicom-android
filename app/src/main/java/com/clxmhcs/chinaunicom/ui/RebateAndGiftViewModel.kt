@@ -10,11 +10,15 @@ import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.data.CredentialStoreProvider
 import com.clxmhcs.chinaunicom.data.rebategift.AndroidRebateAndGiftStores
 import com.clxmhcs.chinaunicom.data.rebategift.RebateAndGiftStore
+import com.clxmhcs.chinaunicom.data.rebategift.RebateGiftRefreshPolicy as StoreRebateGiftRefreshPolicy
+import com.clxmhcs.chinaunicom.data.rebategift.RebateGiftRefreshPolicyProvider
+import com.clxmhcs.chinaunicom.data.settings.AndroidSettingsRepositories
 import kotlinx.coroutines.launch
 
 class RebateAndGiftViewModel(application: Application) : AndroidViewModel(application) {
     private val appContext = application.applicationContext
     private val credentialStore = CredentialStoreProvider.create(appContext)
+    private val refreshSettings = AndroidSettingsRepositories.refreshLogic(appContext)
 
     val store: RebateAndGiftStore = AndroidRebateAndGiftStores.create(
         context = appContext,
@@ -22,6 +26,15 @@ class RebateAndGiftViewModel(application: Application) : AndroidViewModel(applic
             validator = UnicomRebateAndGiftCredentialValidator(),
             credentialStore = credentialStore,
         ),
+        policyProvider = RebateGiftRefreshPolicyProvider {
+            val policy = refreshSettings.rebateGiftRefreshPolicy.value
+            StoreRebateGiftRefreshPolicy(
+                automaticRefreshEnabled = policy.automaticRefreshEnabled,
+                monthlyRefreshDay = policy.monthlyRefreshDay,
+                monthlyRefreshHour = policy.monthlyRefreshHour,
+                queryImmediatelyWhenNoCache = policy.queryImmediatelyWhenNoCache,
+            )
+        },
     )
     val state = store.state
 
