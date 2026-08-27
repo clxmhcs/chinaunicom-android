@@ -24,7 +24,7 @@ private data class OtherBusinessEntry(
 
 private val otherBusinessEntries = listOf(
     OtherBusinessEntry("已订业务", enabled = true),
-    OtherBusinessEntry("视频彩铃会员"),
+    OtherBusinessEntry("视频彩铃会员", enabled = true),
     OtherBusinessEntry("电子受理单"),
     OtherBusinessEntry("我的订单", enabled = true),
     OtherBusinessEntry("我的套餐", enabled = true),
@@ -39,6 +39,7 @@ private val otherBusinessEntries = listOf(
 @Composable
 fun OtherBusinessScreen(
     onOpenOrderedBusiness: () -> Unit,
+    onOpenVideoRing: () -> Unit,
     onOpenMyOrder: () -> Unit,
     onOpenMyPackage: () -> Unit,
     onOpenIntegral: () -> Unit,
@@ -75,6 +76,7 @@ fun OtherBusinessScreen(
                                 .clickable(enabled = entry.enabled) {
                                     when (entry.title) {
                                         "已订业务" -> onOpenOrderedBusiness()
+                                        "视频彩铃会员" -> onOpenVideoRing()
                                         "我的订单" -> onOpenMyOrder()
                                         "我的套餐" -> onOpenMyPackage()
                                         "积分" -> onOpenIntegral()
