@@ -63,7 +63,7 @@ Primary implementation:
 - `f93d8b5369f477cc86ea6e2d363f78e96acb4c9c` — unified `rebateGift` refresh settings extension
 - `002f79e2e399e070dd7331f0a4c79fc992a9015c` — Android unified settings repository factory
 - `d0b712ad89a0e3552457205c5ec14af285f215aa` — ViewModel -> unified settings authority wiring
-- `b803925afa5995067ba6591398e3ba795afa02d9` — settings persistence/tolerance regression tests
+- `b803b509113b651fd7c3aafb06d21d02d98a5dec` — settings persistence/tolerance regression tests
 - `d32cc1c965d5ad7a5d6f98fa7b5bfed6d942ff1f` — dedicated M9-F CI contract including unified settings
 
 Accepted CI for head `d32cc1c965d5ad7a5d6f98fa7b5bfed6d942ff1f`:
