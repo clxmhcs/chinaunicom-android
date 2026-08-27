@@ -2,10 +2,10 @@
 
 ## Status
 
-`M9-D_RESULT = IN_PROGRESS`
+`M9-D_RESULT = PASS / CLOSED`
 
-- `M9-D1_RESULT = PASS` — M8 Integral reuse + Other Business functional wiring
-- `M9-D2_RESULT = NOT_STARTED` — real-device functional validation
+- `M9-D1_RESULT = PASS / CLOSED` — M8 Integral reuse + Other Business functional wiring
+- `M9-D2_RESULT = PASS / CLOSED` — real-device functional validation on 2026-08-27
 
 Minimum supported Android remains **Android 11 / API 30**.
 
@@ -15,11 +15,11 @@ Final visual parity remains deferred until the later page-by-page visual pass.
 
 Current iOS Other Business routes `积分` to an account-selection view which uses only persisted, enabled mobile accounts whose mobile number contains exactly 11 digits. Independent broadband accounts are not Integral targets.
 
-The selected mobile account opens the existing Integral experience. Therefore Android M9-D must reuse the M8 Integral authority instead of creating a second client, store, cache, refresh policy, or credential path.
+The selected mobile account opens the existing Integral experience. Therefore Android M9-D reuses the M8 Integral authority instead of creating a second client, store, cache, refresh policy, or credential path.
 
-## M9-D1 accepted code boundary
+## Accepted code boundary
 
-Android now provides:
+Android provides:
 
 - `其它业务 -> 积分` as an active destination;
 - `other/integral` as the mobile-account selector route;
@@ -34,20 +34,28 @@ Android now provides:
 
 Implementation head: `1f6e9f517115e94d2bb120e99ab53c4f41280aa9`.
 
-Dedicated Android M9-D run `33055619586` — **SUCCESS**.
+Initial dedicated Android M9-D run `33055619586` — **SUCCESS**.
 Android M9 permanent regression run `33055619556` — **SUCCESS**.
 Main APK run `33055619579` — **SUCCESS**.
 
-Real-device artifact:
+Real-device artifact used for combined M9-C2 + M9-D2 validation:
 
 - name: `chinaunicom-debug-apk`
 - artifact id: `9639557916`
 - SHA-256: `14c241cd4a24e40441de509a8192a0098a5cd1fd2dcd762d2c71226fd63061a0`
 
-The M9-C dedicated workflow initially rejected the later `m9d1` version string even though the C implementation remained intact. Its version gate was made forward-compatible at commit `b1458d95e5e1ee6d34cf18dc81bd987f29142360`; corrected M9-C run `33055811783` passed completely.
+## Real-device closure evidence
 
-## Pending combined real-device validation
+Accepted on 2026-08-27:
 
-Per migration sequencing, M9-C2 (已订业务) and M9-D2 (积分) may be accepted together on the M9-D1 APK because that APK contains both functional paths.
+- Other Business showed `积分` as `已接入`;
+- the Integral selector showed persisted mobile numbers only and did not publish the independent broadband account;
+- a production mobile account opened the real Integral experience successfully;
+- the real overview returned available points `887`, communication points `327`, reward points `560`, and expiring-this-month points `0`;
+- month/category query entry points were rendered from the same M8 Integral store.
 
-`NEXT = Android-M9-C2 + Android-M9-D2 combined real-device functional validation`
+The same evidence round also closed M9-C: mobile Ordered Business returned 57 real items and independent broadband returned 9 real items. The broadband account was present lower in the Ordered Business target list; the footer count currently reflects only mobile-number count. That count is a non-blocking display/text issue deferred to the final page-by-page visual pass.
+
+M9-D's CI version gate was made forward-compatible before later M9 app versions. On M9-E1 head `7c14ce0f34ba8931245ff024a1a10385b09c388e`, dedicated M9-D run `33063974631` passed again.
+
+`NEXT = Android-M9-E2 — Phone Bill real-device functional validation`
