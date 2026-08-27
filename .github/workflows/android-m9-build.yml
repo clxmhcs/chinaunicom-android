@@ -12,6 +12,7 @@ on:
       - "data/balance/**"
       - "data/myorder/**"
       - "data/mypackage/**"
+      - "data/broadbandaccount/**"
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
       - ".github/workflows/android-m9-build.yml"
@@ -25,7 +26,8 @@ on:
       - "data/settings/**"
       - "data/balance/**"
       - "data/myorder/**"
-      - "data/mypackage/**"
+      - "data:mypackage/**"
+      - "data/broadbandaccount/**"
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
       - ".github/workflows/android-m9-build.yml"
@@ -168,7 +170,7 @@ jobs:
 
           grep -q 'implementation(project(":data:mypackage"))' "$BUILD"
           grep -q 'minSdk = 30' "$BUILD"
-          grep -q 'versionName = "0.9.0-m9b2"' "$BUILD"
+          grep -Eq 'versionName = "0\.9\.0-m9[a-z0-9.-]*"' "$BUILD"
           grep -q 'MyPackageAccountCredentialLifecycle' "$VM"
           grep -q 'CredentialStoreProvider.create' "$VM"
           grep -q 'AndroidMyPackageDiskCache' "$VM"
@@ -207,7 +209,7 @@ jobs:
           fi
           echo "M9_B2_MY_PACKAGE_FUNCTIONAL_WIRING_GATE=PASS"
 
-      - name: Run M9-B2 regression
+      - name: Run M9 regression
         id: verify
         continue-on-error: true
         run: >-
@@ -228,12 +230,13 @@ jobs:
           :data:comprehensive:testDebugUnitTest
           :data:myorder:testDebugUnitTest
           :data:mypackage:testDebugUnitTest
+          :data:broadbandaccount:testDebugUnitTest
           :app:testDebugUnitTest
           :app:assembleDebug
           :app:assembleRelease
           --stacktrace
 
-      - name: Publish M9-B2 status
+      - name: Publish M9 status
         if: always()
         uses: actions/github-script@v7
         with:
@@ -245,9 +248,9 @@ jobs:
               sha: context.sha,
               state: passed ? 'success' : 'failure',
               context: 'android-m9-other-business',
-              description: passed ? 'M9-B2 My Package functional wiring passed' : 'M9-B2 My Package regression failed',
+              description: passed ? 'M9 Other Business regression passed' : 'M9 Other Business regression failed',
               target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
-      - name: Fail workflow when M9-B2 verification failed
+      - name: Fail workflow when M9 verification failed
         if: always() && steps.verify.outcome != 'success'
         run: exit 1
