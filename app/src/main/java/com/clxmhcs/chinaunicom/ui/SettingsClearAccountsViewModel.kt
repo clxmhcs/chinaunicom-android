@@ -183,15 +183,25 @@ class SettingsClearAccountsViewModel(application: Application) : AndroidViewMode
 
     private suspend fun deleteSelectedAccounts(mobileIDs: Set<UUID>, broadbandIDs: Set<UUID>) {
         for (accountID in mobileIDs) {
+            val previousAccounts = accountRepository.loadAccounts()
+            if (previousAccounts.none { it.id == accountID }) continue
+            val credentialBackup = runCatching { credentialStore.read(accountID) }.getOrNull()
+
+            try {
+                accountRepository.removeAccount(accountID)
+                credentialStore.delete(accountID)
+            } catch (error: Throwable) {
+                runCatching { accountRepository.replaceAccounts(previousAccounts) }
+                credentialBackup?.let { backup -> runCatching { credentialStore.save(accountID, backup) } }
+                throw error
+            }
+
             val balance = unicomRepository.balanceState.value
             if (balance.homeBalanceAccountID == accountID) unicomRepository.setHomeBalanceAccountID(null)
             balance.balanceAccountGroups
                 .filter { accountID in it.memberAccountIDs }
                 .forEach { group -> unicomRepository.toggleBalanceAccount(accountID, group.id) }
-
-            credentialStore.delete(accountID)
             dailyBaselineStore.deleteAccount(accountID)
-            accountRepository.removeAccount(accountID)
         }
 
         if (mobileIDs.isNotEmpty()) {
@@ -201,8 +211,17 @@ class SettingsClearAccountsViewModel(application: Application) : AndroidViewMode
         }
 
         for (accountID in broadbandIDs) {
-            credentialStore.delete(accountID)
-            broadbandRepository.remove(accountID)
+            val previous = broadbandRepository.loadAccounts().firstOrNull { it.id == accountID } ?: continue
+            val credentialBackup = runCatching { credentialStore.read(accountID) }.getOrNull()
+            try {
+                broadbandRepository.remove(accountID)
+                credentialStore.delete(accountID)
+            } catch (error: Throwable) {
+                runCatching { broadbandRepository.upsert(previous) }
+                credentialBackup?.let { backup -> runCatching { credentialStore.save(accountID, backup) } }
+                throw error
+            }
+            dailyBaselineStore.deleteAccount(accountID)
         }
     }
 
