@@ -74,9 +74,9 @@ class CaptureVpnService : VpnService() {
             CapturePacketRuntime.beginSession()
             packetReader = CaptureTunPacketReader(
                 tunnelInterface = descriptor,
-                onPacket = CapturePacketRuntime::accept,
+                onPacket = { packet -> CapturePacketRuntime.accept(packet) },
                 onFailure = ::handlePacketReaderFailure,
-            ).also(CaptureTunPacketReader::start)
+            ).also { it.start() }
             store.writeState(CaptureStateSnapshot(CaptureTunnelState.RUNNING, RUNNING_MESSAGE))
         } catch (error: Exception) {
             closePacketReader()
