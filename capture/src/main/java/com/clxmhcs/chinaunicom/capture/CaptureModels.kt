@@ -7,11 +7,11 @@ data class CaptureConfiguration(
     val additionalHosts: List<String> = emptyList(),
 ) {
     fun normalized(): CaptureConfiguration = copy(
-        targetHost = targetHost?.trim()?.takeIf(String::isNotEmpty),
-        targetPath = targetPath?.trim()?.takeIf(String::isNotEmpty),
+        targetHost = targetHost?.trim()?.takeIf { it.isNotEmpty() },
+        targetPath = targetPath?.trim()?.takeIf { it.isNotEmpty() },
         additionalHosts = additionalHosts
-            .map(String::trim)
-            .filter(String::isNotEmpty)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
             .distinct(),
     )
 }
