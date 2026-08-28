@@ -15,6 +15,12 @@ interface UnicomRepository {
     suspend fun refreshAccount(accountID: UUID)
     suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger)
 
+    /**
+     * User-initiated Widget refresh entry. Widget code must call this App-side authority rather than
+     * owning a second carrier client. Balance uses the existing shared freshness/lease gate.
+     */
+    suspend fun refreshWidgetAccount(accountID: UUID, includeBalance: Boolean)
+
     /** Rehydrates the single production AppState after validated account metadata is created. */
     suspend fun reloadAccountsFromPersistence() = Unit
 
