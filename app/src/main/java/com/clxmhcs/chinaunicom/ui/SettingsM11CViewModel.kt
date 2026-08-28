@@ -4,9 +4,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.clxmhcs.chinaunicom.automation.AutomationCoordinator
+import com.clxmhcs.chinaunicom.automation.NotificationPermissionCoordinator
 import com.clxmhcs.chinaunicom.core.model.DailyUsageBaseline
 import com.clxmhcs.chinaunicom.core.model.PhoneCarrierCorrection
 import com.clxmhcs.chinaunicom.core.model.ShortcutNotificationProfile
+import com.clxmhcs.chinaunicom.core.model.ShortcutNotificationSlot
 import com.clxmhcs.chinaunicom.core.model.WidgetDisplayConfiguration
 import com.clxmhcs.chinaunicom.core.model.WidgetDualDisplayConfiguration
 import com.clxmhcs.chinaunicom.data.UnicomRepositoryProvider
@@ -136,7 +138,16 @@ class SettingsM11CViewModel(application: Application) : AndroidViewModel(applica
     fun shortcutProfile(accountID: UUID): ShortcutNotificationProfile = shortcutRepository.profile(accountID)
 
     fun saveShortcutProfile(profile: ShortcutNotificationProfile) {
-        _operationMessage.value = if (shortcutRepository.save(profile)) "快捷通知配置已保存" else "快捷通知配置保存失败"
+        val previous = shortcutRepository.profile(profile.accountID)
+        val saved = shortcutRepository.save(profile)
+        _operationMessage.value = if (saved) "快捷通知配置已保存" else "快捷通知配置保存失败"
+        if (
+            saved &&
+            previous.slot == ShortcutNotificationSlot.NONE &&
+            profile.slot != ShortcutNotificationSlot.NONE
+        ) {
+            NotificationPermissionCoordinator.requestFromUserAction()
+        }
     }
 
     fun dailyUsageBaseline(accountID: UUID, dateKey: String): DailyUsageBaseline? = baselineStore.load(accountID, dateKey)

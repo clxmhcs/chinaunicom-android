@@ -58,9 +58,14 @@ jobs:
         shell: bash
         run: |
           APP_BUILD=app/build.gradle.kts
+          MANIFEST=app/src/main/AndroidManifest.xml
           AUTO=app/src/main/java/com/clxmhcs/chinaunicom/automation/AutomationCoordinator.kt
           WORKER=app/src/main/java/com/clxmhcs/chinaunicom/automation/QuotaRefreshWorker.kt
           NOTIFY=app/src/main/java/com/clxmhcs/chinaunicom/automation/NotificationService.kt
+          ANDROID_NOTIFY=app/src/main/java/com/clxmhcs/chinaunicom/automation/AndroidNotificationService.kt
+          RENDERER=app/src/main/java/com/clxmhcs/chinaunicom/automation/AutomationNotificationContentRenderer.kt
+          USAGE_STORE=app/src/main/java/com/clxmhcs/chinaunicom/automation/AutomationNotificationUsageStore.kt
+          PERMISSION=app/src/main/java/com/clxmhcs/chinaunicom/automation/NotificationPermissionCoordinator.kt
           WIDGET_COORD=app/src/main/java/com/clxmhcs/chinaunicom/automation/WidgetUpdateCoordinator.kt
           REPOSITORY=app/src/main/java/com/clxmhcs/chinaunicom/data/UnicomRepository.kt
           PROD=app/src/main/java/com/clxmhcs/chinaunicom/data/ProductionUnicomRepository.kt
@@ -70,12 +75,15 @@ jobs:
           MAIN=app/src/main/java/com/clxmhcs/chinaunicom/MainActivity.kt
           SETTINGS_VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsM11CViewModel.kt
           SETTINGS=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/WidgetRefreshSettings.kt
-          TEST=app/src/test/java/com/clxmhcs/chinaunicom/automation/AutomationCoordinatorTest.kt
+          SCHEDULE_TEST=app/src/test/java/com/clxmhcs/chinaunicom/automation/AutomationCoordinatorTest.kt
+          NOTIFICATION_TEST=app/src/test/java/com/clxmhcs/chinaunicom/automation/AutomationNotificationContentRendererTest.kt
 
-          for file in "$APP_BUILD" "$AUTO" "$WORKER" "$NOTIFY" "$WIDGET_COORD" "$REPOSITORY" "$PROD" "$DEBUG_FAKE" "$DEBUG_PROVIDER" "$RELEASE_PROVIDER" "$MAIN" "$SETTINGS_VM" "$SETTINGS" "$TEST"; do test -f "$file"; done
+          for file in "$APP_BUILD" "$MANIFEST" "$AUTO" "$WORKER" "$NOTIFY" "$ANDROID_NOTIFY" "$RENDERER" "$USAGE_STORE" "$PERMISSION" "$WIDGET_COORD" "$REPOSITORY" "$PROD" "$DEBUG_FAKE" "$DEBUG_PROVIDER" "$RELEASE_PROVIDER" "$MAIN" "$SETTINGS_VM" "$SETTINGS" "$SCHEDULE_TEST" "$NOTIFICATION_TEST"; do test -f "$file"; done
 
           grep -q 'minSdk = 30' "$APP_BUILD"
-          grep -q 'm13a1' "$APP_BUILD"
+          grep -q 'm13b1' "$APP_BUILD"
+          grep -q 'android.permission.POST_NOTIFICATIONS' "$MANIFEST"
+
           grep -q 'OneTimeWorkRequestBuilder<QuotaRefreshWorker>' "$AUTO"
           grep -q 'WorkManager.getInstance' "$AUTO"
           grep -q 'NetworkType.CONNECTED' "$AUTO"
@@ -88,12 +96,39 @@ jobs:
           grep -q 'scheduledMinutes' "$AUTO"
           grep -q 'compensationMinutes' "$AUTO"
           grep -q 'failureRetrySeconds' "$AUTO"
+
           grep -q 'CoroutineWorker' "$WORKER"
           grep -q 'CancellationException' "$WORKER"
           grep -q 'UnicomRepositoryProvider.create' "$WORKER"
           grep -q 'refreshAutomation' "$WORKER"
           grep -q 'NotificationServiceProvider.current' "$WORKER"
           grep -q 'AutomationCoordinator.enqueueFollowing(applicationContext)' "$WORKER"
+
+          grep -q 'AndroidNotificationService' "$NOTIFY"
+          grep -q 'NotificationChannel' "$ANDROID_NOTIFY"
+          grep -q 'NotificationManager' "$ANDROID_NOTIFY"
+          grep -q 'ShortcutNotificationSlot.NONE' "$ANDROID_NOTIFY"
+          grep -q 'notifyOnFailure' "$ANDROID_NOTIFY"
+          grep -q 'AutomationNotificationContentRenderer.render' "$ANDROID_NOTIFY"
+          grep -q 'AutomationNotificationUsageStore' "$ANDROID_NOTIFY"
+          grep -q 'areNotificationsEnabled' "$ANDROID_NOTIFY"
+          grep -q 'POST_NOTIFICATIONS' "$ANDROID_NOTIFY"
+          grep -q 'chinaunicom_quota_automation_v1' "$ANDROID_NOTIFY"
+
+          grep -q '\[套餐名称\]' "$RENDERER"
+          grep -q '\[主流量.已用\]' "$RENDERER"
+          grep -q '\[今日用量\]' "$RENDERER"
+          grep -q '\[余额\]' "$RENDERER"
+          grep -q '国内余' "$RENDERER"
+          grep -q '语音余' "$RENDERER"
+          grep -q 'chinaunicom.m13.notification.usage.v1' "$USAGE_STORE"
+
+          grep -q 'ActivityResultContracts.RequestPermission' "$MAIN"
+          grep -q 'NotificationPermissionCoordinator.attach' "$MAIN"
+          grep -q 'NotificationPermissionCoordinator.shouldRequest' "$MAIN"
+          grep -q 'previous.slot == ShortcutNotificationSlot.NONE' "$SETTINGS_VM"
+          grep -q 'NotificationPermissionCoordinator.requestFromUserAction' "$SETTINGS_VM"
+
           grep -q 'refreshAutomation' "$REPOSITORY"
           grep -q 'refreshAutomation' "$PROD"
           grep -q 'quotaRepository.refreshAll' "$PROD"
@@ -109,11 +144,15 @@ jobs:
           grep -q 'AutomationCoordinator.synchronize(app, replaceExisting = true)' "$SETTINGS_VM"
           grep -q 'automaticRefreshEnabled' "$SETTINGS"
           grep -q 'scheduledMinutes' "$SETTINGS"
-          grep -q 'policySelectsNearestFutureSlotToday' "$TEST"
-          grep -q 'futurePolicyAfterRunSelectsNextConfiguredSlot' "$TEST"
+          grep -q 'policySelectsNearestFutureSlotToday' "$SCHEDULE_TEST"
+          grep -q 'futurePolicyAfterRunSelectsNextConfiguredSlot' "$SCHEDULE_TEST"
+          grep -q 'rendersSavedTemplateAgainstCommittedAccountState' "$NOTIFICATION_TEST"
+          grep -q 'allSuccessContentDisabledProducesNoNotification' "$NOTIFICATION_TEST"
 
-          ! grep -Eqi 'm\.client\.10010\.com|m\.10155\.com|ecstest2018|okhttp3\.Request|token_online|idcardlastsix|cookie[[:space:]]*[:=]|appid[[:space:]]*[:=]' "$AUTO" "$WORKER" "$NOTIFY" "$WIDGET_COORD"
-          ! grep -Eq 'AlarmManager|SCHEDULE_EXACT_ALARM|USE_EXACT_ALARM' "$AUTO" "$WORKER"
+          NOTIFICATION_FILES="$NOTIFY $ANDROID_NOTIFY $RENDERER $USAGE_STORE $PERMISSION"
+          ! grep -Eqi 'm\.client\.10010\.com|m\.10155\.com|ecstest2018|okhttp3\.Request|UnicomAPIClient|LoginQuotaRefreshClient|token_online|idcardlastsix|cookie[[:space:]]*[:=]|appid[[:space:]]*[:=]' $NOTIFICATION_FILES
+          ! grep -Eq 'AlarmManager|SCHEDULE_EXACT_ALARM|USE_EXACT_ALARM' "$AUTO" "$WORKER" "$ANDROID_NOTIFY" "$PERMISSION"
+          ! grep -Eq 'requestPermissions|startActivity' "$WORKER"
           echo "M13_AUTOMATION_BOUNDARY=PASS"
 
       - name: Run M13 automation regression
