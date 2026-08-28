@@ -6,8 +6,8 @@ import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 /**
  * Notification delivery boundary for M13.
  *
- * M13-A deliberately installs a no-op implementation: scheduling and refresh authority land
- * first, while Android notification channels/templates/permission handling are added in M13-B.
+ * Scheduling and carrier refresh stay outside this interface. The Android implementation consumes
+ * committed account state plus the existing M11 shortcut-notification profiles.
  */
 interface NotificationService {
     suspend fun onAutomaticRefreshCompleted(
@@ -35,10 +35,11 @@ interface NotificationService {
     }
 }
 
-/** Process-facing seam so M13-B can install Android notification delivery without touching Worker networking. */
 object NotificationServiceProvider {
-    fun current(context: Context): NotificationService {
-        context.applicationContext
-        return NotificationService.NONE
+    @Volatile
+    private var instance: NotificationService? = null
+
+    fun current(context: Context): NotificationService = instance ?: synchronized(this) {
+        instance ?: AndroidNotificationService(context.applicationContext).also { instance = it }
     }
 }
