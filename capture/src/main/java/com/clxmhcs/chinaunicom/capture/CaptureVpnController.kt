@@ -50,4 +50,8 @@ object CaptureVpnController {
     fun readPacketSession(): CapturePacketSessionSnapshot = CapturePacketRuntime.snapshot()
 
     fun readRecentPacketMetadata(): List<CapturePacketMetadata> = CapturePacketRuntime.recentPackets()
+
+    fun readHttpSession(): CaptureHttpSessionSnapshot = CaptureHttpRuntime.snapshot()
+
+    fun readRecentHttpMessages(): List<CaptureHttpMessage> = CaptureHttpRuntime.recentMessages()
 }
