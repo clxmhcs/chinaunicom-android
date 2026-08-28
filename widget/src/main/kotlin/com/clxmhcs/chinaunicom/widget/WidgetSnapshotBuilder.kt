@@ -220,28 +220,42 @@ object WidgetSnapshotBuilder {
     private data class Resolved(val total: Double, val remaining: Double, val used: Double)
 
     private fun resolvedFlowValues(item: FlowPackage): Resolved {
-        val used = max(0.0, item.usedMB ?: 0.0)
-        val remaining = max(0.0, item.remainingMB ?: 0.0)
+        val rawTotal = item.totalMB
+        val rawUsed = item.usedMB
+        val rawRemaining = item.remainingMB
+        val used = max(0.0, rawUsed ?: 0.0)
+        val remaining = max(0.0, rawRemaining ?: 0.0)
         val total = when {
-            item.totalMB != null && item.totalMB > 0 -> item.totalMB
-            item.usedMB != null || item.remainingMB != null -> used + remaining
+            rawTotal != null && rawTotal > 0.0 -> rawTotal
+            rawUsed != null || rawRemaining != null -> used + remaining
             else -> 0.0
         }
-        val resolvedUsed = item.usedMB?.let { max(0.0, it) } ?: item.remainingMB?.let { max(0.0, total - max(0.0, it)) } ?: 0.0
-        val resolvedRemaining = item.remainingMB?.let { max(0.0, it) } ?: item.usedMB?.let { max(0.0, total - max(0.0, it)) } ?: 0.0
+        val resolvedUsed = rawUsed?.let { max(0.0, it) }
+            ?: rawRemaining?.let { max(0.0, total - max(0.0, it)) }
+            ?: 0.0
+        val resolvedRemaining = rawRemaining?.let { max(0.0, it) }
+            ?: rawUsed?.let { max(0.0, total - max(0.0, it)) }
+            ?: 0.0
         return Resolved(max(0.0, total), resolvedRemaining, resolvedUsed)
     }
 
     private fun resolvedVoiceValues(item: VoicePackage): Resolved {
-        val used = max(0.0, item.usedMinutes ?: 0.0)
-        val remaining = max(0.0, item.remainingMinutes ?: 0.0)
+        val rawTotal = item.totalMinutes
+        val rawUsed = item.usedMinutes
+        val rawRemaining = item.remainingMinutes
+        val used = max(0.0, rawUsed ?: 0.0)
+        val remaining = max(0.0, rawRemaining ?: 0.0)
         val total = when {
-            item.totalMinutes != null && item.totalMinutes > 0 -> item.totalMinutes
-            item.usedMinutes != null || item.remainingMinutes != null -> used + remaining
+            rawTotal != null && rawTotal > 0.0 -> rawTotal
+            rawUsed != null || rawRemaining != null -> used + remaining
             else -> 0.0
         }
-        val resolvedUsed = item.usedMinutes?.let { max(0.0, it) } ?: item.remainingMinutes?.let { max(0.0, total - max(0.0, it)) } ?: 0.0
-        val resolvedRemaining = item.remainingMinutes?.let { max(0.0, it) } ?: item.usedMinutes?.let { max(0.0, total - max(0.0, it)) } ?: 0.0
+        val resolvedUsed = rawUsed?.let { max(0.0, it) }
+            ?: rawRemaining?.let { max(0.0, total - max(0.0, it)) }
+            ?: 0.0
+        val resolvedRemaining = rawRemaining?.let { max(0.0, it) }
+            ?: rawUsed?.let { max(0.0, total - max(0.0, it)) }
+            ?: 0.0
         return Resolved(max(0.0, total), resolvedRemaining, resolvedUsed)
     }
 
