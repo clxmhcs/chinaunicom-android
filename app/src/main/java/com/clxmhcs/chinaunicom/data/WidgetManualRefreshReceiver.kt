@@ -3,55 +3,73 @@ package com.clxmhcs.chinaunicom.data
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import androidx.work.Constraints
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.core.model.WidgetDualSide
 import com.clxmhcs.chinaunicom.data.settings.SharedPreferencesWidgetConfigurationStorage
 import com.clxmhcs.chinaunicom.widget.AndroidWidgetSnapshotStore
 import com.clxmhcs.chinaunicom.widget.WidgetRefreshActionContract
 import java.util.UUID
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 
 /**
- * App-side endpoint for a user tap on a desktop Widget refresh control.
+ * Lightweight App-side endpoint for desktop Widget refresh taps.
  *
- * This receiver never talks to China Unicom directly. It resolves the configured account and calls
- * the process-wide [UnicomRepository] authority, which keeps quota/session, shared-balance and
- * Widget Snapshot side effects on the same production path as the main App.
+ * Broadcast delivery only validates the action and enqueues durable work. Carrier networking never
+ * runs inside the receiver lifecycle and remains owned by [UnicomRepository].
  */
 class WidgetManualRefreshReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val request = WidgetManualRefreshRequest.fromAction(intent.action) ?: return
-        val pendingResult = goAsync()
-        if (!refreshGate.tryLock()) {
-            pendingResult.finish()
-            return
-        }
+        val work = OneTimeWorkRequestBuilder<WidgetManualRefreshWorker>()
+            .setInputData(workDataOf(WidgetManualRefreshWorker.ACTION_KEY to request.action))
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build(),
+            )
+            .build()
 
-        val appContext = context.applicationContext
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            try {
-                runCatching { refresh(appContext, request) }
-            } finally {
-                refreshGate.unlock()
-                pendingResult.finish()
-            }
-        }
+        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
+            request.uniqueWorkName,
+            ExistingWorkPolicy.KEEP,
+            work,
+        )
+    }
+}
+
+/** One-shot user-initiated Widget refresh routed through the existing production repository. */
+class WidgetManualRefreshWorker(
+    appContext: Context,
+    workerParameters: WorkerParameters,
+) : CoroutineWorker(appContext, workerParameters) {
+    override suspend fun doWork(): Result {
+        val request = WidgetManualRefreshRequest.fromAction(inputData.getString(ACTION_KEY))
+            ?: return Result.failure()
+        return runCatching {
+            refresh(request)
+        }.fold(
+            onSuccess = { Result.success() },
+            onFailure = { Result.failure() },
+        )
     }
 
-    private suspend fun refresh(context: Context, request: WidgetManualRefreshRequest) {
-        val repository = UnicomRepositoryProvider.create(context)
+    private suspend fun refresh(request: WidgetManualRefreshRequest) {
+        val repository = UnicomRepositoryProvider.create(applicationContext)
         repository.reloadAccountsFromPersistence()
 
-        val storage = SharedPreferencesWidgetConfigurationStorage(context)
+        val storage = SharedPreferencesWidgetConfigurationStorage(applicationContext)
         val accounts = repository.appState.value.accounts.sortedBy(UnicomAccount::sortOrder)
         val target = when (request) {
             WidgetManualRefreshRequest.SINGLE -> {
                 val configuration = storage.loadSingle()
-                val snapshotAccountID = AndroidWidgetSnapshotStore(context).loadSingle()?.accountID
+                val snapshotAccountID = AndroidWidgetSnapshotStore(applicationContext).loadSingle()?.accountID
                 resolveSingleAccountID(
                     selectedAccountID = configuration.selectedAccountID,
                     snapshotAccountID = snapshotAccountID,
@@ -69,7 +87,7 @@ class WidgetManualRefreshReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        private val refreshGate = Mutex()
+        internal const val ACTION_KEY = "widget_refresh_action"
 
         internal fun resolveSingleAccountID(
             selectedAccountID: UUID?,
@@ -90,17 +108,24 @@ private data class WidgetRefreshTarget(
     val includeBalance: Boolean,
 )
 
-private enum class WidgetManualRefreshRequest {
-    SINGLE,
-    DUAL_LEFT,
-    DUAL_RIGHT;
+private enum class WidgetManualRefreshRequest(
+    val action: String,
+    val uniqueWorkName: String,
+) {
+    SINGLE(
+        WidgetRefreshActionContract.ACTION_REFRESH_SINGLE,
+        "chinaunicom-widget-manual-refresh-single",
+    ),
+    DUAL_LEFT(
+        WidgetRefreshActionContract.ACTION_REFRESH_DUAL_LEFT,
+        "chinaunicom-widget-manual-refresh-dual-left",
+    ),
+    DUAL_RIGHT(
+        WidgetRefreshActionContract.ACTION_REFRESH_DUAL_RIGHT,
+        "chinaunicom-widget-manual-refresh-dual-right",
+    );
 
     companion object {
-        fun fromAction(action: String?): WidgetManualRefreshRequest? = when (action) {
-            WidgetRefreshActionContract.ACTION_REFRESH_SINGLE -> SINGLE
-            WidgetRefreshActionContract.ACTION_REFRESH_DUAL_LEFT -> DUAL_LEFT
-            WidgetRefreshActionContract.ACTION_REFRESH_DUAL_RIGHT -> DUAL_RIGHT
-            else -> null
-        }
+        fun fromAction(action: String?): WidgetManualRefreshRequest? = entries.firstOrNull { it.action == action }
     }
 }
