@@ -8,11 +8,14 @@ import com.clxmhcs.chinaunicom.core.model.PhoneCarrierCorrection
 import com.clxmhcs.chinaunicom.core.model.ShortcutNotificationProfile
 import com.clxmhcs.chinaunicom.core.model.WidgetDisplayConfiguration
 import com.clxmhcs.chinaunicom.core.model.WidgetDualDisplayConfiguration
+import com.clxmhcs.chinaunicom.data.UnicomRepositoryProvider
 import com.clxmhcs.chinaunicom.data.refresh.AndroidDailyUsageBaselineStore
 import com.clxmhcs.chinaunicom.data.settings.AndroidSettingsRepositories
 import com.clxmhcs.chinaunicom.data.settings.PhoneAttributionSettingsState
 import com.clxmhcs.chinaunicom.data.settings.WidgetConfigurationState
 import com.clxmhcs.chinaunicom.data.settings.WidgetRefreshPolicy
+import com.clxmhcs.chinaunicom.widget.GlanceWidgetUpdateNotifier
+import com.clxmhcs.chinaunicom.widget.WidgetSnapshotExporter
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,11 +24,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class SettingsM11CViewModel(application: Application) : AndroidViewModel(application) {
-    private val attributionRepository = AndroidSettingsRepositories.phoneAttribution(application)
-    private val widgetRepository = AndroidSettingsRepositories.widgetConfiguration(application)
-    private val refreshRepository = AndroidSettingsRepositories.refreshLogic(application)
-    private val shortcutRepository = AndroidSettingsRepositories.shortcutNotifications(application)
-    private val baselineStore = AndroidDailyUsageBaselineStore(application.applicationContext)
+    private val app = application.applicationContext
+    private val attributionRepository = AndroidSettingsRepositories.phoneAttribution(app)
+    private val widgetRepository = AndroidSettingsRepositories.widgetConfiguration(app)
+    private val refreshRepository = AndroidSettingsRepositories.refreshLogic(app)
+    private val shortcutRepository = AndroidSettingsRepositories.shortcutNotifications(app)
+    private val baselineStore = AndroidDailyUsageBaselineStore(app)
+    private val unicomRepository = UnicomRepositoryProvider.create(app)
+    private val widgetSnapshotExporter = WidgetSnapshotExporter.android(
+        context = app,
+        notifier = GlanceWidgetUpdateNotifier(app),
+    )
 
     val attributionState: StateFlow<PhoneAttributionSettingsState> = attributionRepository.state
     val widgetState: StateFlow<WidgetConfigurationState> = widgetRepository.state
@@ -38,6 +47,7 @@ class SettingsM11CViewModel(application: Application) : AndroidViewModel(applica
     fun reconcileMobileAccounts(accountIDs: Set<UUID>) {
         widgetRepository.reconcileAccounts(accountIDs)
         shortcutRepository.reconcileAccounts(accountIDs)
+        exportCurrentWidgetSnapshots()
     }
 
     fun correction(number: String): PhoneCarrierCorrection = attributionRepository.correction(number)
@@ -78,11 +88,15 @@ class SettingsM11CViewModel(application: Application) : AndroidViewModel(applica
     fun cachedLocation(number: String): String? = attributionRepository.cachedLocation(number)
 
     fun saveSingleWidget(configuration: WidgetDisplayConfiguration) {
-        _operationMessage.value = if (widgetRepository.saveSingle(configuration)) "单号码组件配置已保存" else "组件配置保存失败"
+        val saved = widgetRepository.saveSingle(configuration)
+        _operationMessage.value = if (saved) "单号码组件配置已保存" else "组件配置保存失败"
+        if (saved) exportCurrentWidgetSnapshots()
     }
 
     fun saveDualWidget(configuration: WidgetDualDisplayConfiguration) {
-        _operationMessage.value = if (widgetRepository.saveDual(configuration)) "双号码组件配置已保存" else "组件配置保存失败"
+        val saved = widgetRepository.saveDual(configuration)
+        _operationMessage.value = if (saved) "双号码组件配置已保存" else "组件配置保存失败"
+        if (saved) exportCurrentWidgetSnapshots()
     }
 
     fun setWidgetAutomaticRefresh(enabled: Boolean) {
@@ -134,9 +148,17 @@ class SettingsM11CViewModel(application: Application) : AndroidViewModel(applica
         val result = refreshRepository.saveWidgetRefreshPolicy(policy)
         if (result.persisted) {
             widgetRepository.reload()
+            exportCurrentWidgetSnapshots()
             _operationMessage.value = "组件刷新策略已保存"
         } else {
             _operationMessage.value = "组件刷新策略保存失败"
+        }
+    }
+
+    private fun exportCurrentWidgetSnapshots() {
+        val accounts = unicomRepository.appState.value.accounts
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { widgetSnapshotExporter.export(accounts) }
         }
     }
 }

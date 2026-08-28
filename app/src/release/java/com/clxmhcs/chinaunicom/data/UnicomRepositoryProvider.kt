@@ -13,6 +13,8 @@ import com.clxmhcs.chinaunicom.data.refresh.QuotaRefreshCoordinator
 import com.clxmhcs.chinaunicom.data.refresh.QuotaRefreshPolicyProvider
 import com.clxmhcs.chinaunicom.data.settings.AndroidSettingsRepositories
 import com.clxmhcs.chinaunicom.data.settings.BalanceRefreshIntervalSynchronizer
+import com.clxmhcs.chinaunicom.widget.GlanceWidgetUpdateNotifier
+import com.clxmhcs.chinaunicom.widget.WidgetSnapshotExporter
 
 /** Release wiring uses one process-wide production Repository/AppState authority. */
 object UnicomRepositoryProvider {
@@ -33,6 +35,10 @@ object UnicomRepositoryProvider {
             balanceIntervalSynchronizer = BalanceRefreshIntervalSynchronizer { minutes ->
                 sharedBalanceCache.setRefreshIntervalMinutes(minutes)
             },
+        )
+        val widgetSnapshotExporter = WidgetSnapshotExporter.android(
+            context = appContext,
+            notifier = GlanceWidgetUpdateNotifier(appContext),
         )
         val refreshCoordinator = QuotaRefreshCoordinator(
             accountRepository = accountRepository,
@@ -66,6 +72,7 @@ object UnicomRepositoryProvider {
                     )
                 }
             },
+            accountsCommittedAction = widgetSnapshotExporter::onAccountsCommitted,
         )
     }
 }
