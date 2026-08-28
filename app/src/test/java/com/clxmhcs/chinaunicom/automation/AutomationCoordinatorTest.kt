@@ -7,6 +7,7 @@ import org.junit.Test
 
 class AutomationCoordinatorTest {
     private val zone = ZoneId.of("Asia/Shanghai")
+    private val defaultMinutes = listOf(8 * 60, 11 * 60, 14 * 60, 17 * 60)
 
     @Test
     fun beforeScheduledTimeQueuesToday() {
@@ -69,6 +70,47 @@ class AutomationCoordinatorTest {
         )
 
         assertEquals(time(2026, 8, 28, 11, 0), target)
+    }
+
+    @Test
+    fun policySelectsNearestFutureSlotToday() {
+        val now = time(2026, 8, 28, 15, 0)
+
+        val occurrence = nextPolicyAutomationOccurrence(
+            now = now,
+            scheduledMinutes = defaultMinutes,
+            compensationMinutes = 6,
+        )
+
+        assertEquals(17 * 60, occurrence?.scheduledMinute)
+        assertEquals(time(2026, 8, 28, 17, 0), occurrence?.targetAt)
+    }
+
+    @Test
+    fun policySelectsCompensatedSlotBeforeLaterFutureSlot() {
+        val now = time(2026, 8, 28, 8, 5)
+
+        val occurrence = nextPolicyAutomationOccurrence(
+            now = now,
+            scheduledMinutes = defaultMinutes,
+            compensationMinutes = 6,
+        )
+
+        assertEquals(8 * 60, occurrence?.scheduledMinute)
+        assertEquals(now, occurrence?.targetAt)
+    }
+
+    @Test
+    fun futurePolicyAfterRunSelectsNextConfiguredSlot() {
+        val now = time(2026, 8, 28, 8, 5)
+
+        val occurrence = nextFuturePolicyAutomationOccurrence(
+            now = now,
+            scheduledMinutes = defaultMinutes,
+        )
+
+        assertEquals(11 * 60, occurrence?.scheduledMinute)
+        assertEquals(time(2026, 8, 28, 11, 0), occurrence?.targetAt)
     }
 
     private fun time(
