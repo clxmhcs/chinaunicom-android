@@ -9,6 +9,10 @@ on:
       - "core/network/**"
       - "data/settings/**"
       - "data/refresh/**"
+      - "data/account/**"
+      - "data/balance/**"
+      - "data/broadbandaccount/**"
+      - "data/phonebill/**"
       - ".github/workflows/android-m11-settings-build.yml"
   push:
     branches: [main]
@@ -18,6 +22,10 @@ on:
       - "core/network/**"
       - "data/settings/**"
       - "data/refresh/**"
+      - "data/account/**"
+      - "data/balance/**"
+      - "data/broadbandaccount/**"
+      - "data/phonebill/**"
       - ".github/workflows/android-m11-settings-build.yml"
 
 permissions:
@@ -58,6 +66,9 @@ jobs:
           GENERAL=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsM11CGeneralScreens.kt
           WIDGET_UI=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsM11CWidgetScreens.kt
           VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsM11CViewModel.kt
+          CLEAR_VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsClearAccountsViewModel.kt
+          CLEAR_UI=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsClearAccountsScreen.kt
+          RUNTIME=app/src/main/java/com/clxmhcs/chinaunicom/data/AndroidQuotaRefreshRuntimeStore.kt
           MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/SettingsFeatureModels.kt
           ATTR=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/PhoneAttributionClient.kt
           ATTR_REPO=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/PhoneAttributionSettingsRepository.kt
@@ -66,7 +77,7 @@ jobs:
           BASELINE=data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/AndroidDailyUsageBaselineStore.kt
           RECEIPT=app/src/main/java/com/clxmhcs/chinaunicom/ui/ElectronicReceiptViewModel.kt
           MANUAL=app/src/main/assets/AppManual.txt
-          for file in "$BUILD" "$ROOT" "$GENERAL" "$WIDGET_UI" "$VM" "$MODEL" "$ATTR" "$ATTR_REPO" "$STORAGE" "$WIDGET" "$BASELINE" "$RECEIPT" "$MANUAL"; do test -f "$file"; done
+          for file in "$BUILD" "$ROOT" "$GENERAL" "$WIDGET_UI" "$VM" "$CLEAR_VM" "$CLEAR_UI" "$RUNTIME" "$MODEL" "$ATTR" "$ATTR_REPO" "$STORAGE" "$WIDGET" "$BASELINE" "$RECEIPT" "$MANUAL"; do test -f "$file"; done
 
           grep -q 'minSdk = 30' "$BUILD"
           grep -q '号码归属纠正' "$ROOT"
@@ -79,6 +90,32 @@ jobs:
           grep -q '快捷指令余量通知' "$ROOT"
           grep -q '抓包工具' "$ROOT"
           grep -q 'App使用说明书' "$ROOT"
+          grep -q '清空账户与凭据' "$ROOT"
+          grep -q 'SettingsClearAccountsScreen' "$ROOT"
+          grep -q 'reloadAfterMaintenance' "$ROOT"
+
+          grep -q 'credentialStore.delete(accountID)' "$CLEAR_VM"
+          grep -q 'credentialStore.deleteAll()' "$CLEAR_VM"
+          grep -q 'accountRepository.removeAccount(accountID)' "$CLEAR_VM"
+          grep -q 'accountRepository.clear()' "$CLEAR_VM"
+          grep -q 'broadbandRepository.remove(accountID)' "$CLEAR_VM"
+          grep -q 'broadbandRepository.clear()' "$CLEAR_VM"
+          grep -q 'phoneBillCache.pruneAccounts' "$CLEAR_VM"
+          grep -q 'phoneBillCache.clear()' "$CLEAR_VM"
+          grep -q 'dailyBaselineStore.deleteAccount' "$CLEAR_VM"
+          grep -q 'AndroidQuotaRefreshRuntimeStore(app).clear()' "$CLEAR_VM"
+          grep -q 'saveCorrections(emptyMap())' "$CLEAR_VM"
+          grep -q 'saveSegments(emptyMap())' "$CLEAR_VM"
+          grep -q 'saveSingle(WidgetDisplayConfiguration())' "$CLEAR_VM"
+          grep -q 'saveDual(WidgetDualDisplayConfiguration())' "$CLEAR_VM"
+          grep -q 'shortcuts.save(emptyMap())' "$CLEAR_VM"
+          grep -q 'credentialStore.save(accountID, backup)' "$CLEAR_VM"
+          grep -q 'accountRepository.replaceAccounts(previousAccounts)' "$CLEAR_VM"
+          grep -q 'PasswordVisualTransformation' "$CLEAR_UI"
+          grep -q '确认清空全部' "$CLEAR_UI"
+          grep -q '电子受理单 PDF' "$CLEAR_UI"
+          grep -q 'fun clear(): Boolean' "$RUNTIME"
+
           grep -q 'UnifiedWidgetRefreshSettingsRepository' "$WIDGET"
           grep -q 'AppRefreshLogicPolicyCodec.CURRENT_SCHEMA_VERSION' "$WIDGET"
           grep -q 'DEFAULT_AUTOMATIC_REFRESH_MINUTES' "$MODEL"
@@ -100,6 +137,7 @@ jobs:
           grep -q 'M14' "$MANUAL"
           ! grep -Eqi 'token_online|appid|idcardlastsix' "$MODEL"
           ! grep -Eqi 'token_online|appid|idcardlastsix' "$STORAGE"
+          ! grep -Eqi 'val .*cookie|val .*token_online|val .*appid|val .*idcardlastsix' "$CLEAR_VM"
           echo "M11_SETTINGS_BOUNDARY=PASS"
 
       - name: Run M11 regression
