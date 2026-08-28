@@ -176,7 +176,7 @@ internal object CaptureHttpHeaderParser {
 
     fun parse(streamID: String, headerBytes: ByteArray): CaptureHttpMessage? {
         if (headerBytes.size > CaptureHttpStreamPipeline.MAX_HEADER_BYTES + 4) return null
-        val text = headerBytes.toString(StandardCharsets.ISO_8859_1)
+        val text = String(headerBytes, StandardCharsets.ISO_8859_1)
         val lines = text.split("\r\n")
         val firstLine = lines.firstOrNull()?.trim().orEmpty()
         if (firstLine.isEmpty()) return null
