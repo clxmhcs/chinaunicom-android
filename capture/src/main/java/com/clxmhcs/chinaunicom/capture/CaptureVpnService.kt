@@ -44,7 +44,7 @@ class CaptureVpnService : VpnService() {
             return
         }
 
-        if (prepare(this) != null) {
+        if (VpnService.prepare(this) != null) {
             store.writeState(
                 CaptureStateSnapshot(
                     CaptureTunnelState.REQUIRES_PERMISSION,
@@ -70,7 +70,7 @@ class CaptureVpnService : VpnService() {
 
             tunnelInterface = descriptor
             store.writeState(CaptureStateSnapshot(CaptureTunnelState.RUNNING, RUNNING_MESSAGE))
-        } catch (error: Throwable) {
+        } catch (error: Exception) {
             closeTunnelInterface()
             store.writeState(
                 CaptureStateSnapshot(
