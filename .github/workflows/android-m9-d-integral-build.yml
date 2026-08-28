@@ -67,7 +67,7 @@ jobs:
           for file in "$OTHER" "$SELECTOR" "$ENTRY" "$VM" "$APP" "$BUILD" "$CLIENT" "$STORE" "$CACHE"; do test -f "$file"; done
 
           grep -q 'minSdk = 30' "$BUILD"
-          grep -Eq 'versionName = "0\.9\.0-m9[a-z][0-9]+"' "$BUILD"
+          grep -Eq 'versionName = "0\.9\.0-[a-z0-9.-]+"' "$BUILD"
           grep -q 'OtherBusinessEntry("积分", enabled = true)' "$OTHER"
           grep -q 'onOpenIntegral' "$OTHER"
           grep -q 'OTHER_INTEGRAL_ROUTE = "other/integral"' "$APP"

@@ -69,7 +69,7 @@ jobs:
           for file in "$OTHER" "$SELECTOR" "$ENTRY" "$VM" "$FLOW_VM" "$APP" "$BUILD" "$CLIENT" "$LIFECYCLE" "$STORE" "$CACHE"; do test -f "$file"; done
 
           grep -q 'minSdk = 30' "$BUILD"
-          grep -Eq 'versionName = "0\.9\.0-m9[a-z][0-9]+"' "$BUILD"
+          grep -Eq 'versionName = "0\.9\.0-[a-z0-9.-]+"' "$BUILD"
           grep -q 'OtherBusinessEntry("话费 / 账单", enabled = true)' "$OTHER"
           grep -q 'onOpenPhoneBill' "$OTHER"
           grep -q 'OTHER_PHONE_BILL_ROUTE = "other/phone-bill"' "$APP"

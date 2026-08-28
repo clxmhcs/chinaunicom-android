@@ -9,6 +9,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,6 +49,8 @@ private const val OTHER_REBATE_GIFT_ROUTE = "other/rebate-gift"
 private const val OTHER_REBATE_GIFT_DETAIL_ROUTE = "other/rebate-gift/{accountId}"
 private const val OTHER_TARIFF_ZONE_ROUTE = "other/tariff-zone"
 private const val OTHER_SERVICE_HALL_ROUTE = "other/service-hall"
+private const val SETTINGS_CREDENTIALS_ROUTE = "settings/credentials"
+private const val SETTINGS_REFRESH_ROUTE = "settings/app-refresh"
 
 @Composable
 fun ChinaUnicomApp() {
@@ -62,6 +65,8 @@ fun ChinaUnicomApp() {
     val videoRingViewModel: VideoRingViewModel = viewModel()
     val electronicReceiptViewModel: ElectronicReceiptViewModel = viewModel()
     val serviceHallViewModel: ServiceHallViewModel = viewModel()
+    val settingsViewModel: SettingsRootViewModel = viewModel()
+    val appSettings by settingsViewModel.appSettings.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner, flowViewModel) {
@@ -79,255 +84,271 @@ fun ChinaUnicomApp() {
         }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                tonalElevation = 0.dp,
+    CompositionLocalProvider(LocalAppSettings provides appSettings) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            bottomBar = {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                    tonalElevation = 0.dp,
+                ) {
+                    RootTab.entries.forEach { tab ->
+                        val selected = when (tab) {
+                            RootTab.Comprehensive -> currentRoute?.startsWith(RootTab.Comprehensive.route) == true || currentRoute?.startsWith("comprehensive/") == true
+                            RootTab.OtherBusiness -> currentRoute == tab.route || currentRoute?.startsWith("other/") == true
+                            RootTab.Settings -> currentRoute == tab.route || currentRoute?.startsWith("settings/") == true
+                            else -> currentRoute == tab.route
+                        }
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                navController.navigate(tab.route) {
+                                    popUpTo(RootTab.Flow.route) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            icon = { Text(text = tab.glyph, fontSize = 19.sp) },
+                            label = { Text(text = tab.label) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                indicatorColor = Color.Transparent,
+                            ),
+                        )
+                    }
+                }
+            },
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = RootTab.Flow.route,
+                modifier = Modifier.padding(innerPadding),
             ) {
-                RootTab.entries.forEach { tab ->
-                    val selected = when (tab) {
-                        RootTab.Comprehensive -> currentRoute?.startsWith(RootTab.Comprehensive.route) == true || currentRoute?.startsWith("comprehensive/") == true
-                        RootTab.OtherBusiness -> currentRoute == tab.route || currentRoute?.startsWith("other/") == true
-                        else -> currentRoute == tab.route
+                composable(RootTab.Flow.route) { FlowHomeScreen(flowViewModel) }
+                composable(RootTab.Voice.route) { VoiceDashboardScreen(flowViewModel) }
+                composable(RootTab.Comprehensive.route) {
+                    ComprehensiveBusinessScreen(
+                        flowViewModel = flowViewModel,
+                        businessViewModel = comprehensiveViewModel,
+                        onOpenOrderedBusiness = { navController.navigate("comprehensive/ordered/$it") },
+                        onOpenPhoneBill = { navController.navigate("comprehensive/bill/$it") },
+                        onOpenFlow = { navController.navigate("comprehensive/flow/$it") },
+                        onOpenVoice = { navController.navigate("comprehensive/voice/$it") },
+                        onOpenIntegral = { navController.navigate("comprehensive/integral/$it") },
+                    )
+                }
+                composable(ORDERED_ROUTE) { entry ->
+                    BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                        OrderedBusinessEntryScreen(account, comprehensiveViewModel) { navController.popBackStack() }
                     }
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            navController.navigate(tab.route) {
-                                popUpTo(RootTab.Flow.route) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
+                }
+                composable(BILL_ROUTE) { entry ->
+                    BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                        PhoneBillEntryScreen(account, comprehensiveViewModel) { navController.popBackStack() }
+                    }
+                }
+                composable(FLOW_ROUTE) { entry ->
+                    BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
+                        ComprehensiveRemainingEntryScreen(account, accounts, false, flowViewModel) { navController.popBackStack() }
+                    }
+                }
+                composable(VOICE_ROUTE) { entry ->
+                    BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
+                        ComprehensiveRemainingEntryScreen(account, accounts, true, flowViewModel) { navController.popBackStack() }
+                    }
+                }
+                composable(INTEGRAL_ROUTE) { entry ->
+                    BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
+                        IntegralEntryScreen(account, accounts.map { it.id }, comprehensiveViewModel) { navController.popBackStack() }
+                    }
+                }
+                composable(RootTab.OtherBusiness.route) {
+                    OtherBusinessScreen(
+                        onOpenOrderedBusiness = { navController.navigate(ORDERED_BUSINESS_HUB_ROUTE) },
+                        onOpenVideoRing = { navController.navigate(OTHER_VIDEO_RING_ROUTE) },
+                        onOpenElectronicReceipt = { navController.navigate(OTHER_ELECTRONIC_RECEIPT_ROUTE) },
+                        onOpenMyOrder = { navController.navigate(MY_ORDER_ROUTE) },
+                        onOpenMyPackage = { navController.navigate(MY_PACKAGE_ROUTE) },
+                        onOpenIntegral = { navController.navigate(OTHER_INTEGRAL_ROUTE) },
+                        onOpenPhoneBill = { navController.navigate(OTHER_PHONE_BILL_ROUTE) },
+                        onOpenRebateAndGift = { navController.navigate(OTHER_REBATE_GIFT_ROUTE) },
+                        onOpenTariffZone = { navController.navigate(OTHER_TARIFF_ZONE_ROUTE) },
+                        onOpenNearbyServiceHall = { navController.navigate(OTHER_SERVICE_HALL_ROUTE) },
+                    )
+                }
+                composable(ORDERED_BUSINESS_HUB_ROUTE) {
+                    val flowState by flowViewModel.uiState.collectAsState()
+                    val broadbandState by broadbandAccountViewModel.state.collectAsState()
+                    val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                    val accounts = mobileAccounts + broadbandState.accounts.map { it.toUnicomAccount() }
+                    OtherOrderedBusinessScreen(
+                        accounts = accounts,
+                        businessViewModel = comprehensiveViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(OTHER_VIDEO_RING_ROUTE) {
+                    val flowState by flowViewModel.uiState.collectAsState()
+                    val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                    VideoRingAccountSelectionScreen(
+                        accounts = mobileAccounts,
+                        onBack = { navController.popBackStack() },
+                        onOpenAccount = { navController.navigate("other/video-ring/$it") },
+                    )
+                }
+                composable(OTHER_VIDEO_RING_DETAIL_ROUTE) { entry ->
+                    BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                        VideoRingMemberCenterScreen(
+                            account = account,
+                            viewModel = videoRingViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                }
+                composable(OTHER_ELECTRONIC_RECEIPT_ROUTE) {
+                    val flowState by flowViewModel.uiState.collectAsState()
+                    val broadbandState by broadbandAccountViewModel.state.collectAsState()
+                    val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                    ElectronicReceiptScreen(
+                        mobileAccounts = mobileAccounts,
+                        broadbandAccounts = broadbandState.accounts,
+                        viewModel = electronicReceiptViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(MY_ORDER_ROUTE) {
+                    val flowState by flowViewModel.uiState.collectAsState()
+                    val accounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                    MyOrderScreen(
+                        accounts = accounts,
+                        viewModel = myOrderViewModel,
+                        onBack = { navController.popBackStack() },
+                        onOpenDetail = { account, order ->
+                            navController.navigate("other/my-order/detail/${account.id}/${Uri.encode(order.id)}")
                         },
-                        icon = { Text(text = tab.glyph, fontSize = 19.sp) },
-                        label = { Text(text = tab.label) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            indicatorColor = Color.Transparent,
-                        ),
                     )
                 }
-            }
-        },
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = RootTab.Flow.route,
-            modifier = Modifier.padding(innerPadding),
-        ) {
-            composable(RootTab.Flow.route) { FlowHomeScreen(flowViewModel) }
-            composable(RootTab.Voice.route) { VoiceDashboardScreen(flowViewModel) }
-            composable(RootTab.Comprehensive.route) {
-                ComprehensiveBusinessScreen(
-                    flowViewModel = flowViewModel,
-                    businessViewModel = comprehensiveViewModel,
-                    onOpenOrderedBusiness = { navController.navigate("comprehensive/ordered/$it") },
-                    onOpenPhoneBill = { navController.navigate("comprehensive/bill/$it") },
-                    onOpenFlow = { navController.navigate("comprehensive/flow/$it") },
-                    onOpenVoice = { navController.navigate("comprehensive/voice/$it") },
-                    onOpenIntegral = { navController.navigate("comprehensive/integral/$it") },
-                )
-            }
-            composable(ORDERED_ROUTE) { entry ->
-                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
-                    OrderedBusinessEntryScreen(account, comprehensiveViewModel) { navController.popBackStack() }
-                }
-            }
-            composable(BILL_ROUTE) { entry ->
-                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
-                    PhoneBillEntryScreen(account, comprehensiveViewModel) { navController.popBackStack() }
-                }
-            }
-            composable(FLOW_ROUTE) { entry ->
-                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
-                    ComprehensiveRemainingEntryScreen(account, accounts, false, flowViewModel) { navController.popBackStack() }
-                }
-            }
-            composable(VOICE_ROUTE) { entry ->
-                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
-                    ComprehensiveRemainingEntryScreen(account, accounts, true, flowViewModel) { navController.popBackStack() }
-                }
-            }
-            composable(INTEGRAL_ROUTE) { entry ->
-                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
-                    IntegralEntryScreen(account, accounts.map { it.id }, comprehensiveViewModel) { navController.popBackStack() }
-                }
-            }
-            composable(RootTab.OtherBusiness.route) {
-                OtherBusinessScreen(
-                    onOpenOrderedBusiness = { navController.navigate(ORDERED_BUSINESS_HUB_ROUTE) },
-                    onOpenVideoRing = { navController.navigate(OTHER_VIDEO_RING_ROUTE) },
-                    onOpenElectronicReceipt = { navController.navigate(OTHER_ELECTRONIC_RECEIPT_ROUTE) },
-                    onOpenMyOrder = { navController.navigate(MY_ORDER_ROUTE) },
-                    onOpenMyPackage = { navController.navigate(MY_PACKAGE_ROUTE) },
-                    onOpenIntegral = { navController.navigate(OTHER_INTEGRAL_ROUTE) },
-                    onOpenPhoneBill = { navController.navigate(OTHER_PHONE_BILL_ROUTE) },
-                    onOpenRebateAndGift = { navController.navigate(OTHER_REBATE_GIFT_ROUTE) },
-                    onOpenTariffZone = { navController.navigate(OTHER_TARIFF_ZONE_ROUTE) },
-                    onOpenNearbyServiceHall = { navController.navigate(OTHER_SERVICE_HALL_ROUTE) },
-                )
-            }
-            composable(ORDERED_BUSINESS_HUB_ROUTE) {
-                val flowState by flowViewModel.uiState.collectAsState()
-                val broadbandState by broadbandAccountViewModel.state.collectAsState()
-                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
-                val accounts = mobileAccounts + broadbandState.accounts.map { it.toUnicomAccount() }
-                OtherOrderedBusinessScreen(
-                    accounts = accounts,
-                    businessViewModel = comprehensiveViewModel,
-                    onBack = { navController.popBackStack() },
-                )
-            }
-            composable(OTHER_VIDEO_RING_ROUTE) {
-                val flowState by flowViewModel.uiState.collectAsState()
-                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
-                VideoRingAccountSelectionScreen(
-                    accounts = mobileAccounts,
-                    onBack = { navController.popBackStack() },
-                    onOpenAccount = { navController.navigate("other/video-ring/$it") },
-                )
-            }
-            composable(OTHER_VIDEO_RING_DETAIL_ROUTE) { entry ->
-                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
-                    VideoRingMemberCenterScreen(
-                        account = account,
-                        viewModel = videoRingViewModel,
-                        onBack = { navController.popBackStack() },
-                    )
-                }
-            }
-            composable(OTHER_ELECTRONIC_RECEIPT_ROUTE) {
-                val flowState by flowViewModel.uiState.collectAsState()
-                val broadbandState by broadbandAccountViewModel.state.collectAsState()
-                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
-                ElectronicReceiptScreen(
-                    mobileAccounts = mobileAccounts,
-                    broadbandAccounts = broadbandState.accounts,
-                    viewModel = electronicReceiptViewModel,
-                    onBack = { navController.popBackStack() },
-                )
-            }
-            composable(MY_ORDER_ROUTE) {
-                val flowState by flowViewModel.uiState.collectAsState()
-                val accounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
-                MyOrderScreen(
-                    accounts = accounts,
-                    viewModel = myOrderViewModel,
-                    onBack = { navController.popBackStack() },
-                    onOpenDetail = { account, order ->
-                        navController.navigate("other/my-order/detail/${account.id}/${Uri.encode(order.id)}")
-                    },
-                )
-            }
-            composable(MY_ORDER_DETAIL_ROUTE) { entry ->
-                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
-                    val orderState by myOrderViewModel.state.collectAsState()
-                    val orderID = entry.arguments?.getString("orderId")?.let(Uri::decode)
-                    val order = orderState.orders.firstOrNull { it.id == orderID }
-                    if (order == null) {
-                        Text("订单不存在，请返回列表重新加载")
-                    } else {
-                        MyOrderDetailScreen(account, order, myOrderViewModel) { navController.popBackStack() }
+                composable(MY_ORDER_DETAIL_ROUTE) { entry ->
+                    BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                        val orderState by myOrderViewModel.state.collectAsState()
+                        val orderID = entry.arguments?.getString("orderId")?.let(Uri::decode)
+                        val order = orderState.orders.firstOrNull { it.id == orderID }
+                        if (order == null) {
+                            Text("订单不存在，请返回列表重新加载")
+                        } else {
+                            MyOrderDetailScreen(account, order, myOrderViewModel) { navController.popBackStack() }
+                        }
                     }
                 }
-            }
-            composable(MY_PACKAGE_ROUTE) {
-                val flowState by flowViewModel.uiState.collectAsState()
-                val broadbandState by broadbandAccountViewModel.state.collectAsState()
-                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
-                val accounts = mobileAccounts + broadbandState.accounts.map { it.toUnicomAccount() }
-                val myPackageViewModel: MyPackageViewModel = viewModel()
-                MyPackageScreen(
-                    accounts = accounts,
-                    viewModel = myPackageViewModel,
-                    onBack = { navController.popBackStack() },
-                )
-            }
-            composable(OTHER_INTEGRAL_ROUTE) {
-                val flowState by flowViewModel.uiState.collectAsState()
-                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
-                OtherIntegralAccountSelectionScreen(
-                    accounts = mobileAccounts,
-                    onBack = { navController.popBackStack() },
-                    onOpenAccount = { navController.navigate("other/integral/$it") },
-                )
-            }
-            composable(OTHER_INTEGRAL_DETAIL_ROUTE) { entry ->
-                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
-                    IntegralEntryScreen(
-                        account = account,
-                        allAccountIDs = accounts.map { it.id },
-                        businessViewModel = comprehensiveViewModel,
+                composable(MY_PACKAGE_ROUTE) {
+                    val flowState by flowViewModel.uiState.collectAsState()
+                    val broadbandState by broadbandAccountViewModel.state.collectAsState()
+                    val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                    val accounts = mobileAccounts + broadbandState.accounts.map { it.toUnicomAccount() }
+                    val myPackageViewModel: MyPackageViewModel = viewModel()
+                    MyPackageScreen(
+                        accounts = accounts,
+                        viewModel = myPackageViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }
-            }
-            composable(OTHER_PHONE_BILL_ROUTE) {
-                val flowState by flowViewModel.uiState.collectAsState()
-                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
-                OtherPhoneBillAccountSelectionScreen(
-                    accounts = mobileAccounts,
-                    representativeAccountID = flowViewModel::financialRepresentativeAccountID,
-                    onBack = { navController.popBackStack() },
-                    onOpenAccount = { navController.navigate("other/phone-bill/$it") },
-                )
-            }
-            composable(OTHER_PHONE_BILL_DETAIL_ROUTE) { entry ->
-                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
-                    PhoneBillEntryScreen(
-                        account = account,
-                        businessViewModel = comprehensiveViewModel,
+                composable(OTHER_INTEGRAL_ROUTE) {
+                    val flowState by flowViewModel.uiState.collectAsState()
+                    val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                    OtherIntegralAccountSelectionScreen(
+                        accounts = mobileAccounts,
+                        onBack = { navController.popBackStack() },
+                        onOpenAccount = { navController.navigate("other/integral/$it") },
+                    )
+                }
+                composable(OTHER_INTEGRAL_DETAIL_ROUTE) { entry ->
+                    BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, accounts ->
+                        IntegralEntryScreen(
+                            account = account,
+                            allAccountIDs = accounts.map { it.id },
+                            businessViewModel = comprehensiveViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                }
+                composable(OTHER_PHONE_BILL_ROUTE) {
+                    val flowState by flowViewModel.uiState.collectAsState()
+                    val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                    OtherPhoneBillAccountSelectionScreen(
+                        accounts = mobileAccounts,
+                        representativeAccountID = flowViewModel::financialRepresentativeAccountID,
+                        onBack = { navController.popBackStack() },
+                        onOpenAccount = { navController.navigate("other/phone-bill/$it") },
+                    )
+                }
+                composable(OTHER_PHONE_BILL_DETAIL_ROUTE) { entry ->
+                    BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                        PhoneBillEntryScreen(
+                            account = account,
+                            businessViewModel = comprehensiveViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                }
+                composable(OTHER_REBATE_GIFT_ROUTE) {
+                    val flowState by flowViewModel.uiState.collectAsState()
+                    val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                    OtherRebateAndGiftAccountSelectionScreen(
+                        accounts = mobileAccounts,
+                        onBack = { navController.popBackStack() },
+                        onOpenAccount = { navController.navigate("other/rebate-gift/$it") },
+                    )
+                }
+                composable(OTHER_REBATE_GIFT_DETAIL_ROUTE) { entry ->
+                    BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
+                        RebateAndGiftScreen(
+                            account = account,
+                            viewModel = rebateAndGiftViewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                }
+                composable(OTHER_TARIFF_ZONE_ROUTE) {
+                    val flowState by flowViewModel.uiState.collectAsState()
+                    val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
+                    TariffZoneScreen(
+                        accounts = mobileAccounts,
+                        viewModel = tariffZoneViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }
-            }
-            composable(OTHER_REBATE_GIFT_ROUTE) {
-                val flowState by flowViewModel.uiState.collectAsState()
-                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
-                OtherRebateAndGiftAccountSelectionScreen(
-                    accounts = mobileAccounts,
-                    onBack = { navController.popBackStack() },
-                    onOpenAccount = { navController.navigate("other/rebate-gift/$it") },
-                )
-            }
-            composable(OTHER_REBATE_GIFT_DETAIL_ROUTE) { entry ->
-                BusinessAccountDestination(flowViewModel, entry.arguments?.getString("accountId")) { account, _ ->
-                    RebateAndGiftScreen(
-                        account = account,
-                        viewModel = rebateAndGiftViewModel,
+                composable(OTHER_SERVICE_HALL_ROUTE) {
+                    val flowState by flowViewModel.uiState.collectAsState()
+                    val content = flowState as? FlowUiState.Content
+                    NearbyServiceHallScreen(
+                        accounts = content?.accounts.orEmpty(),
+                        preferredAccountID = content?.homeBalanceAccount?.id,
+                        viewModel = serviceHallViewModel,
                         onBack = { navController.popBackStack() },
                     )
                 }
-            }
-            composable(OTHER_TARIFF_ZONE_ROUTE) {
-                val flowState by flowViewModel.uiState.collectAsState()
-                val mobileAccounts = (flowState as? FlowUiState.Content)?.accounts.orEmpty()
-                TariffZoneScreen(
-                    accounts = mobileAccounts,
-                    viewModel = tariffZoneViewModel,
-                    onBack = { navController.popBackStack() },
-                )
-            }
-            composable(OTHER_SERVICE_HALL_ROUTE) {
-                val flowState by flowViewModel.uiState.collectAsState()
-                val content = flowState as? FlowUiState.Content
-                NearbyServiceHallScreen(
-                    accounts = content?.accounts.orEmpty(),
-                    preferredAccountID = content?.homeBalanceAccount?.id,
-                    viewModel = serviceHallViewModel,
-                    onBack = { navController.popBackStack() },
-                )
-            }
-            composable(RootTab.Settings.route) {
-                SettingsAccountScreen(
-                    flowViewModel = flowViewModel,
-                    broadbandViewModel = broadbandAccountViewModel,
-                )
+                composable(RootTab.Settings.route) {
+                    SettingsRootScreen(
+                        settingsViewModel = settingsViewModel,
+                        onOpenCredentials = { navController.navigate(SETTINGS_CREDENTIALS_ROUTE) },
+                        onOpenRefreshLogic = { navController.navigate(SETTINGS_REFRESH_ROUTE) },
+                    )
+                }
+                composable(SETTINGS_CREDENTIALS_ROUTE) {
+                    SettingsAccountScreen(
+                        flowViewModel = flowViewModel,
+                        broadbandViewModel = broadbandAccountViewModel,
+                    )
+                }
+                composable(SETTINGS_REFRESH_ROUTE) {
+                    AppRefreshLogicSettingsScreen(
+                        settingsViewModel = settingsViewModel,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
             }
         }
     }
