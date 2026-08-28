@@ -46,4 +46,8 @@ object CaptureVpnController {
     fun saveConfiguration(context: Context, configuration: CaptureConfiguration) {
         CaptureRuntimeStore.create(context).writeConfiguration(configuration)
     }
+
+    fun readPacketSession(): CapturePacketSessionSnapshot = CapturePacketRuntime.snapshot()
+
+    fun readRecentPacketMetadata(): List<CapturePacketMetadata> = CapturePacketRuntime.recentPackets()
 }
