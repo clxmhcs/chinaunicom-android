@@ -14,6 +14,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -33,9 +37,10 @@ private val otherBusinessEntries = listOf(
     OtherBusinessEntry("返费 / 赠费", enabled = true),
     OtherBusinessEntry("资费专区", enabled = true),
     OtherBusinessEntry("附近营业厅", enabled = true),
+    OtherBusinessEntry("抓包工具", enabled = true),
 )
 
-/** M9/M10 functional shell. Visual refinement remains deferred until business parity closes. */
+/** M9/M10/M14 functional shell. Visual refinement remains deferred until business parity closes. */
 @Composable
 fun OtherBusinessScreen(
     onOpenOrderedBusiness: () -> Unit,
@@ -49,6 +54,12 @@ fun OtherBusinessScreen(
     onOpenTariffZone: () -> Unit,
     onOpenNearbyServiceHall: () -> Unit,
 ) {
+    var showCaptureTool by remember { mutableStateOf(false) }
+    if (showCaptureTool) {
+        CaptureToolScreen(onBack = { showCaptureTool = false })
+        return
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
             text = "其它业务",
@@ -87,6 +98,7 @@ fun OtherBusinessScreen(
                                         "返费 / 赠费" -> onOpenRebateAndGift()
                                         "资费专区" -> onOpenTariffZone()
                                         "附近营业厅" -> onOpenNearbyServiceHall()
+                                        "抓包工具" -> showCaptureTool = true
                                     }
                                 },
                             shape = MaterialTheme.shapes.medium,
