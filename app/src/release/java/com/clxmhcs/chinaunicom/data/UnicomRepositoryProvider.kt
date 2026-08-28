@@ -49,7 +49,6 @@ object UnicomRepositoryProvider {
             policyProvider = QuotaRefreshPolicyProvider {
                 settingsRepository.loadQuotaRefreshPolicy()
             },
-            accountsCommittedObserver = widgetSnapshotExporter::onAccountsCommitted,
         )
         val quotaRepository = DefaultQuotaRepository(refreshCoordinator)
         val balanceRepository = DefaultBalanceRepository(
@@ -72,8 +71,8 @@ object UnicomRepositoryProvider {
                         persisted.firstOrNull { it.isEnabled }?.id,
                     )
                 }
-                widgetSnapshotExporter.export(persisted)
             },
+            accountsCommittedAction = widgetSnapshotExporter::onAccountsCommitted,
         )
     }
 }
