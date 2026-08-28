@@ -72,9 +72,11 @@ class CaptureVpnService : VpnService() {
 
             tunnelInterface = descriptor
             CapturePacketRuntime.beginSession()
+            CaptureHttpRuntime.beginSession()
             packetReader = CaptureTunPacketReader(
                 tunnelInterface = descriptor,
                 onPacket = { packet -> CapturePacketRuntime.accept(packet) },
+                onTcpSegment = { segment -> CaptureHttpRuntime.accept(segment) },
                 onFailure = ::handlePacketReaderFailure,
             ).also { it.start() }
             store.writeState(CaptureStateSnapshot(CaptureTunnelState.RUNNING, RUNNING_MESSAGE))
@@ -181,6 +183,6 @@ class CaptureVpnService : VpnService() {
         private const val NOTIFICATION_CHANNEL_NAME = "联通余量抓包 VPN"
         private const val NOTIFICATION_TITLE = "联通余量抓包工具"
         private const val NOTIFICATION_ID = 1401
-        private const val RUNNING_MESSAGE = "VPN 已运行；M14-B 正在读取保留网段 IP 包元数据，尚未启用全量流量转发"
+        private const val RUNNING_MESSAGE = "VPN 已运行；M14-C 可重组测试网段明文 HTTP 头，尚未启用全量转发或 HTTPS 解密"
     }
 }
