@@ -60,10 +60,11 @@ jobs:
         shell: bash
         run: |
           APP_BUILD=app/build.gradle.kts
+          APP_MANIFEST=app/src/main/AndroidManifest.xml
           SETTINGS=settings.gradle.kts
           VERSIONS=gradle/libs.versions.toml
           WIDGET_BUILD=widget/build.gradle.kts
-          MANIFEST=widget/src/main/AndroidManifest.xml
+          WIDGET_MANIFEST=widget/src/main/AndroidManifest.xml
           SINGLE_XML=widget/src/main/res/xml/single_quota_widget_info.xml
           DUAL_XML=widget/src/main/res/xml/dual_quota_widget_info.xml
           MODELS=widget/src/main/kotlin/com/clxmhcs/chinaunicom/widget/WidgetSnapshotModels.kt
@@ -72,18 +73,26 @@ jobs:
           BUILDER=widget/src/main/kotlin/com/clxmhcs/chinaunicom/widget/WidgetSnapshotBuilder.kt
           DAILY=widget/src/main/kotlin/com/clxmhcs/chinaunicom/widget/WidgetDailyUsageCalculator.kt
           GLANCE=widget/src/main/kotlin/com/clxmhcs/chinaunicom/widget/QuotaWidgets.kt
+          REFRESH_CONTRACT=widget/src/main/kotlin/com/clxmhcs/chinaunicom/widget/WidgetRefreshActionContract.kt
+          REFRESH_RECEIVER=app/src/main/java/com/clxmhcs/chinaunicom/data/WidgetManualRefreshReceiver.kt
+          REPOSITORY=app/src/main/java/com/clxmhcs/chinaunicom/data/UnicomRepository.kt
           PROD=app/src/main/java/com/clxmhcs/chinaunicom/data/ProductionUnicomRepository.kt
           RELEASE=app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
           DEBUG=app/src/debug/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
           SETTINGS_VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsM11CViewModel.kt
-          for file in "$APP_BUILD" "$SETTINGS" "$VERSIONS" "$WIDGET_BUILD" "$MANIFEST" "$SINGLE_XML" "$DUAL_XML" "$MODELS" "$STORE" "$EXPORTER" "$BUILDER" "$DAILY" "$GLANCE" "$PROD" "$RELEASE" "$DEBUG" "$SETTINGS_VM"; do test -f "$file"; done
+          for file in "$APP_BUILD" "$APP_MANIFEST" "$SETTINGS" "$VERSIONS" "$WIDGET_BUILD" "$WIDGET_MANIFEST" "$SINGLE_XML" "$DUAL_XML" "$MODELS" "$STORE" "$EXPORTER" "$BUILDER" "$DAILY" "$GLANCE" "$REFRESH_CONTRACT" "$REFRESH_RECEIVER" "$REPOSITORY" "$PROD" "$RELEASE" "$DEBUG" "$SETTINGS_VM"; do test -f "$file"; done
 
+          grep -q 'minSdk = 30' "$APP_BUILD"
           grep -q 'minSdk = 30' "$WIDGET_BUILD"
           grep -q 'include(":widget")' "$SETTINGS"
           grep -q 'glance = "1.2.0"' "$VERSIONS"
+          grep -q 'work = "2.11.2"' "$VERSIONS"
           grep -q 'implementation(project(":widget"))' "$APP_BUILD"
-          grep -q 'SingleQuotaWidgetReceiver' "$MANIFEST"
-          grep -q 'DualQuotaWidgetReceiver' "$MANIFEST"
+          grep -q 'implementation(libs.androidx.work.runtime.ktx)' "$APP_BUILD"
+          grep -q 'SingleQuotaWidgetReceiver' "$WIDGET_MANIFEST"
+          grep -q 'DualQuotaWidgetReceiver' "$WIDGET_MANIFEST"
+          grep -q 'WidgetManualRefreshReceiver' "$APP_MANIFEST"
+          grep -A2 'WidgetManualRefreshReceiver' "$APP_MANIFEST" | grep -q 'android:exported="false"'
           grep -q 'android:updatePeriodMillis="0"' "$SINGLE_XML"
           grep -q 'android:updatePeriodMillis="0"' "$DUAL_XML"
           grep -q 'AtomicFile' "$STORE"
@@ -93,6 +102,18 @@ jobs:
           grep -q 'WidgetSnapshotBuilder' "$BUILDER"
           grep -q 'SingleQuotaGlanceWidget' "$GLANCE"
           grep -q 'DualQuotaGlanceWidget' "$GLANCE"
+          grep -q 'actionSendBroadcast' "$GLANCE"
+          grep -q 'ACTION_REFRESH_SINGLE' "$REFRESH_CONTRACT"
+          grep -q 'ACTION_REFRESH_DUAL_LEFT' "$REFRESH_CONTRACT"
+          grep -q 'ACTION_REFRESH_DUAL_RIGHT' "$REFRESH_CONTRACT"
+          grep -q 'CoroutineWorker' "$REFRESH_RECEIVER"
+          grep -q 'WorkManager' "$REFRESH_RECEIVER"
+          grep -q 'NetworkType.CONNECTED' "$REFRESH_RECEIVER"
+          grep -q 'UnicomRepositoryProvider.create' "$REFRESH_RECEIVER"
+          grep -q 'refreshWidgetAccount' "$REPOSITORY"
+          grep -q 'refreshWidgetAccount' "$PROD"
+          grep -q 'quotaRepository.refreshAccount' "$PROD"
+          grep -q 'balanceRepository.refreshBalancesIfNeeded' "$PROD"
           grep -q 'accountsCommittedAction' "$PROD"
           grep -q 'WidgetSnapshotExporter' "$RELEASE"
           grep -q 'WidgetSnapshotExporter' "$DEBUG"
@@ -101,6 +122,7 @@ jobs:
           ! grep -Eqi 'token_online|idcardlastsix|cookie[[:space:]]*[:=]|appid[[:space:]]*[:=]' "$MODELS"
           ! grep -Eqi 'token_online|idcardlastsix|cookie[[:space:]]*[:=]|appid[[:space:]]*[:=]' "$STORE"
           ! grep -Eqi 'm\.client\.10010\.com|m\.10155\.com|ecstest2018|okhttp3\.Request' widget/src/main/kotlin/com/clxmhcs/chinaunicom/widget/*.kt
+          ! grep -Eqi 'm\.client\.10010\.com|m\.10155\.com|ecstest2018|okhttp3\.Request|token_online|idcardlastsix|cookie[[:space:]]*[:=]|appid[[:space:]]*[:=]' "$REFRESH_CONTRACT" "$REFRESH_RECEIVER"
           echo "M12_WIDGET_BOUNDARY=PASS"
 
       - name: Run M12 Widget regression
