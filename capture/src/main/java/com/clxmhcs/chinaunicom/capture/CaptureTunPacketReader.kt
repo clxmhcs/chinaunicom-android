@@ -11,12 +11,14 @@ import java.util.concurrent.locks.LockSupport
 /**
  * Reads raw IP packets from a duplicated TUN descriptor.
  *
- * The reader never stores packet payloads. Every successful read is decoded immediately into
- * bounded metadata and the reusable byte buffer is overwritten by the next read.
+ * Raw packet bytes stay inside one reusable read buffer. M14-B metadata is emitted first; M14-C may
+ * synchronously copy only the current TCP payload into an ephemeral segment for bounded HTTP header
+ * reconstruction. Neither raw packets nor HTTP bodies are persisted.
  */
 internal class CaptureTunPacketReader(
     tunnelInterface: ParcelFileDescriptor,
     private val onPacket: (CapturePacketMetadata) -> Unit,
+    private val onTcpSegment: (CaptureTcpSegment) -> Unit = {},
     private val onFailure: (Throwable) -> Unit,
 ) : Closeable {
     private val running = AtomicBoolean(false)
@@ -60,6 +62,7 @@ internal class CaptureTunPacketReader(
                 }
 
                 CaptureIpPacketDecoder.decode(buffer, count)?.let(onPacket)
+                CaptureTcpSegmentDecoder.decode(buffer, count)?.let(onTcpSegment)
             }
         } catch (error: Throwable) {
             if (running.get()) onFailure(error)
