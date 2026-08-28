@@ -21,6 +21,12 @@ interface UnicomRepository {
      */
     suspend fun refreshWidgetAccount(accountID: UUID, includeBalance: Boolean)
 
+    /**
+     * M13 durable automation transaction. WorkManager enters here instead of owning carrier clients.
+     * Quota, optional shared-gated balance and committed Widget publication stay one App transaction.
+     */
+    suspend fun refreshAutomation(includeBalance: Boolean)
+
     /** Rehydrates the single production AppState after validated account metadata is created. */
     suspend fun reloadAccountsFromPersistence() = Unit
 

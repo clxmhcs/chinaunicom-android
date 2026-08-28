@@ -1,6 +1,7 @@
 package com.clxmhcs.chinaunicom.data
 
 import android.content.Context
+import com.clxmhcs.chinaunicom.automation.DefaultWidgetUpdateCoordinator
 import com.clxmhcs.chinaunicom.core.storage.AndroidAccountMetadataStores
 import com.clxmhcs.chinaunicom.data.account.DefaultAccountRepository
 import com.clxmhcs.chinaunicom.data.balance.AndroidBalanceConfigurationStore
@@ -40,6 +41,7 @@ object UnicomRepositoryProvider {
             context = appContext,
             notifier = GlanceWidgetUpdateNotifier(appContext),
         )
+        val widgetUpdateCoordinator = DefaultWidgetUpdateCoordinator(widgetSnapshotExporter)
         val refreshCoordinator = QuotaRefreshCoordinator(
             accountRepository = accountRepository,
             refreshClient = LoginQuotaRefreshClient(
@@ -72,7 +74,7 @@ object UnicomRepositoryProvider {
                     )
                 }
             },
-            accountsCommittedAction = widgetSnapshotExporter::onAccountsCommitted,
+            accountsCommittedAction = widgetUpdateCoordinator::publish,
         )
     }
 }

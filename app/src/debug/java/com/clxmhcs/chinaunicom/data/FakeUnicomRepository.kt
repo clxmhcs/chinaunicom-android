@@ -54,6 +54,7 @@ internal class FakeUnicomRepository : UnicomRepository {
     override suspend fun refreshAll() = Unit
     override suspend fun refreshAccount(accountID: UUID) = Unit
     override suspend fun refreshWidgetAccount(accountID: UUID, includeBalance: Boolean) = Unit
+    override suspend fun refreshAutomation(includeBalance: Boolean) = Unit
     override suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger) = Unit
     override suspend fun runBalanceAutoRefreshLoop() = Unit
     override suspend fun refreshHomeBalanceManually() = Unit

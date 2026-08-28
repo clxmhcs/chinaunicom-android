@@ -3,6 +3,7 @@ package com.clxmhcs.chinaunicom.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.clxmhcs.chinaunicom.automation.AutomationCoordinator
 import com.clxmhcs.chinaunicom.core.model.DailyUsageBaseline
 import com.clxmhcs.chinaunicom.core.model.PhoneCarrierCorrection
 import com.clxmhcs.chinaunicom.core.model.ShortcutNotificationProfile
@@ -148,6 +149,7 @@ class SettingsM11CViewModel(application: Application) : AndroidViewModel(applica
         val result = refreshRepository.saveWidgetRefreshPolicy(policy)
         if (result.persisted) {
             widgetRepository.reload()
+            AutomationCoordinator.synchronize(app, replaceExisting = true)
             exportCurrentWidgetSnapshots()
             _operationMessage.value = "组件刷新策略已保存"
         } else {
