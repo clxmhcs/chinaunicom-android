@@ -1,6 +1,7 @@
 package com.clxmhcs.chinaunicom.widget
 
 import com.clxmhcs.chinaunicom.core.model.FlowPackage
+import com.clxmhcs.chinaunicom.core.model.PackageCategory
 import com.clxmhcs.chinaunicom.core.model.QuotaType
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.core.model.VoicePackage
@@ -19,14 +20,14 @@ class WidgetSnapshotBuilderTest {
             displayName = "fixture",
             mobile = "10000000000",
             packages = listOf(
-                FlowPackage(id = "domestic", originalName = "国内通用流量", totalMB = 10 * 1024.0, usedMB = 4 * 1024.0, remainingMB = 6 * 1024.0, detectedQuotaType = QuotaType.LIMITED),
-                FlowPackage(id = "province", originalName = "省内流量", totalMB = 3 * 1024.0, usedMB = 1 * 1024.0, remainingMB = 2 * 1024.0, detectedQuotaType = QuotaType.LIMITED),
-                FlowPackage(id = "cell", originalName = "小区流量", totalMB = 2 * 1024.0, usedMB = 0.5 * 1024.0, remainingMB = 1.5 * 1024.0, detectedQuotaType = QuotaType.LIMITED),
-                FlowPackage(id = "campus", originalName = "校区流量", totalMB = 1 * 1024.0, usedMB = 0.25 * 1024.0, remainingMB = 0.75 * 1024.0, detectedQuotaType = QuotaType.LIMITED),
+                FlowPackage(id = "domestic", originalName = "国内通用流量", totalMB = 10 * 1024.0, usedMB = 4 * 1024.0, remainingMB = 6 * 1024.0, detectedQuotaType = QuotaType.LIMITED, detectedCategory = PackageCategory.GENERAL, isShared = false),
+                FlowPackage(id = "province", originalName = "省内流量", totalMB = 3 * 1024.0, usedMB = 1 * 1024.0, remainingMB = 2 * 1024.0, detectedQuotaType = QuotaType.LIMITED, detectedCategory = PackageCategory.GENERAL, isShared = false),
+                FlowPackage(id = "cell", originalName = "小区流量", totalMB = 2 * 1024.0, usedMB = 0.5 * 1024.0, remainingMB = 1.5 * 1024.0, detectedQuotaType = QuotaType.LIMITED, detectedCategory = PackageCategory.GENERAL, isShared = false),
+                FlowPackage(id = "campus", originalName = "校区流量", totalMB = 1 * 1024.0, usedMB = 0.25 * 1024.0, remainingMB = 0.75 * 1024.0, detectedQuotaType = QuotaType.LIMITED, detectedCategory = PackageCategory.GENERAL, isShared = false),
             ),
             voicePackages = listOf(
-                VoicePackage(id = "voice", originalName = "国内语音", totalMinutes = 300.0, usedMinutes = 100.0, remainingMinutes = 200.0),
-                VoicePackage(id = "family", originalName = "一家亲语音", totalMinutes = 100.0, usedMinutes = 20.0, remainingMinutes = 80.0),
+                VoicePackage(id = "voice", originalName = "国内语音", totalMinutes = 300.0, usedMinutes = 100.0, remainingMinutes = 200.0, isUnlimited = false, isShared = false),
+                VoicePackage(id = "family", originalName = "一家亲语音", totalMinutes = 100.0, usedMinutes = 20.0, remainingMinutes = 80.0, isUnlimited = false, isShared = false),
             ),
         )
 
