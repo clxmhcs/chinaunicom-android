@@ -3,6 +3,7 @@ package com.clxmhcs.chinaunicom.capture
 import android.content.Context
 import android.content.Intent
 import android.net.VpnService
+import java.io.File
 
 object CaptureVpnController {
     fun permissionIntent(context: Context): Intent? = VpnService.prepare(context)
@@ -54,4 +55,38 @@ object CaptureVpnController {
     fun readHttpSession(): CaptureHttpSessionSnapshot = CaptureHttpRuntime.snapshot()
 
     fun readRecentHttpMessages(): List<CaptureHttpMessage> = CaptureHttpRuntime.recentMessages()
+
+    fun readMitmConfiguration(context: Context): CaptureMitmConfiguration =
+        CaptureTlsConfigurationStore.create(context).read()
+
+    fun saveMitmConfiguration(context: Context, configuration: CaptureMitmConfiguration) {
+        CaptureTlsConfigurationStore.create(context).write(configuration)
+    }
+
+    fun readCertificateSnapshot(): CaptureCertificateSnapshot = CaptureCertificateManager.snapshot()
+
+    fun certificateInstallationInstructions(): List<String> =
+        CaptureCertificateManager.installationInstructions()
+
+    fun registerRootCertificate(data: ByteArray) {
+        CaptureCertificateManager.registerRootCertificate(data)
+    }
+
+    fun makeInstallableRootCertificate(context: Context): File =
+        CaptureCertificateManager.makeInstallableCertificateFile(context)
+
+    fun confirmRootCertificateTrustByUser() {
+        CaptureCertificateManager.confirmTrustEnabledByUser()
+    }
+
+    fun revokeRootCertificateTrustConfirmation() {
+        CaptureCertificateManager.revokeUserConfirmation()
+    }
+
+    fun resetRootCertificate(context: Context) {
+        CaptureCertificateManager.reset(context)
+        CaptureMitmRuntime.reset()
+    }
+
+    fun readMitmProxySnapshot(): CaptureMitmProxySnapshot = CaptureMitmRuntime.snapshot()
 }
