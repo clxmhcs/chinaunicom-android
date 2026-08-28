@@ -1,0 +1,112 @@
+name: Android M14 Capture
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "capture/**"
+      - "app/**"
+      - "settings.gradle.kts"
+      - "gradle/libs.versions.toml"
+      - ".github/workflows/android-m14-capture-build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "capture/**"
+      - "app/**"
+      - "settings.gradle.kts"
+      - "gradle/libs.versions.toml"
+      - ".github/workflows/android-m14-capture-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  m14-capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+      - name: Ensure Android API 37 SDK
+        shell: bash
+        run: |
+          PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && $1 ~ /android-37/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
+          test -n "$PLATFORM_PACKAGE"
+          sdkmanager --channel=3 "$PLATFORM_PACKAGE"
+
+      - name: Verify M14 capture authority boundary
+        shell: bash
+        run: |
+          ROOT=settings.gradle.kts
+          APP_BUILD=app/build.gradle.kts
+          CAPTURE_BUILD=capture/build.gradle.kts
+          MANIFEST=capture/src/main/AndroidManifest.xml
+          MODELS=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureModels.kt
+          STORE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureRuntimeStore.kt
+          CONTROLLER=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureVpnController.kt
+          SERVICE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureVpnService.kt
+          TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureConfigurationTest.kt
+          DOC=docs/migration/M14_CAPTURE_ARCHITECTURE.md
+
+          for file in "$ROOT" "$APP_BUILD" "$CAPTURE_BUILD" "$MANIFEST" "$MODELS" "$STORE" "$CONTROLLER" "$SERVICE" "$TEST" "$DOC"; do test -f "$file"; done
+
+          grep -q 'include(":capture")' "$ROOT"
+          grep -q 'implementation(project(":capture"))' "$APP_BUILD"
+          grep -q 'm14a1' "$APP_BUILD"
+          grep -q 'minSdk = 30' "$CAPTURE_BUILD"
+
+          grep -q 'android.permission.FOREGROUND_SERVICE' "$MANIFEST"
+          grep -q 'android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED' "$MANIFEST"
+          grep -q 'android.permission.BIND_VPN_SERVICE' "$MANIFEST"
+          grep -q 'android:exported="false"' "$MANIFEST"
+          grep -q 'android:foregroundServiceType="systemExempted"' "$MANIFEST"
+          grep -q 'android.net.VpnService' "$MANIFEST"
+
+          grep -q 'VpnService.prepare' "$CONTROLLER"
+          grep -q 'startForegroundService' "$CONTROLLER"
+          grep -q 'CaptureStartResult.RequiresPermission' "$CONTROLLER"
+          grep -q 'CaptureTunnelState.REQUIRES_PERMISSION' "$CONTROLLER"
+
+          grep -q 'class CaptureVpnService : VpnService()' "$SERVICE"
+          grep -q 'ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED' "$SERVICE"
+          grep -q 'setMtu(MTU)' "$SERVICE"
+          grep -q 'addAddress(TUN_ADDRESS, TUN_PREFIX_LENGTH)' "$SERVICE"
+          grep -q 'addRoute(SAFE_ROUTE_ADDRESS, SAFE_ROUTE_PREFIX_LENGTH)' "$SERVICE"
+          grep -q 'SAFE_ROUTE_ADDRESS = "192.0.2.0"' "$SERVICE"
+          grep -q 'SAFE_ROUTE_PREFIX_LENGTH = 24' "$SERVICE"
+          grep -q 'setBlocking(false)' "$SERVICE"
+          grep -q 'onRevoke' "$SERVICE"
+          grep -q 'START_NOT_STICKY' "$SERVICE"
+
+          grep -q 'chinaunicom.capture.runtime.v1' "$STORE"
+          grep -q 'normalizedConfigurationTrimsAndDeduplicatesHosts' "$TEST"
+          grep -q 'Default-route interception' "$DOC"
+
+          ! grep -Eq '0\.0\.0\.0|::/0|addRoute\([^,]+,[[:space:]]*0\)' "$SERVICE"
+          ! grep -Eqi 'FileInputStream|FileOutputStream|ParcelFileDescriptor\.AutoCloseInputStream|ParcelFileDescriptor\.AutoCloseOutputStream|okhttp3|SSLSocket|X509|CertificateFactory|CONNECT[[:space:]]|HARWriter|MITM' capture/src/main/java
+          ! grep -Eqi 'token_online|idcardlastsix|cookie[[:space:]]*[:=]|ecstest2018|m\.client\.10010\.com|m\.10155\.com|UnicomAPIClient|LoginQuotaRefreshClient' capture/src/main/java
+
+          echo "M14_CAPTURE_BOUNDARY=PASS"
+
+      - name: Run M14 capture regression
+        run: >-
+          gradle
+          :capture:testDebugUnitTest
+          :capture:assembleDebug
+          :app:assembleDebug
+          :app:assembleRelease
+          --stacktrace
