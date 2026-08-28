@@ -64,23 +64,29 @@ jobs:
           TLS_STORE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureTlsConfigurationStore.kt
           CERT_LIFECYCLE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureCertificateLifecycle.kt
           MITM_COORD=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureMitmProxyCoordinator.kt
+          HISTORY=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureHistoryStore.kt
+          HAR_EXPORT=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureHarExporter.kt
+          UI_FACADE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureToolFacade.kt
           READER=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureTunPacketReader.kt
           STORE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureRuntimeStore.kt
           CONTROLLER=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureVpnController.kt
           SERVICE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureVpnService.kt
+          APP_UI=app/src/main/java/com/clxmhcs/chinaunicom/ui/CaptureToolScreen.kt
+          OTHER_UI=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherBusinessScreen.kt
           CONFIG_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureConfigurationTest.kt
           DECODER_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureIpPacketDecoderTest.kt
           RUNTIME_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CapturePacketRuntimeTest.kt
           TCP_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureTcpSegmentDecoderTest.kt
           HTTP_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureHttpStreamPipelineTest.kt
           TLS_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureTlsArchitectureTest.kt
+          HAR_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureHarExporterTest.kt
           DOC=docs/migration/M14_CAPTURE_ARCHITECTURE.md
 
-          for file in "$ROOT" "$APP_BUILD" "$CAPTURE_BUILD" "$MANIFEST" "$MODELS" "$PACKET_MODELS" "$DECODER" "$TCP_DECODER" "$HTTP_PIPELINE" "$TLS_ARCH" "$TLS_STORE" "$CERT_LIFECYCLE" "$MITM_COORD" "$READER" "$STORE" "$CONTROLLER" "$SERVICE" "$CONFIG_TEST" "$DECODER_TEST" "$RUNTIME_TEST" "$TCP_TEST" "$HTTP_TEST" "$TLS_TEST" "$DOC"; do test -f "$file"; done
+          for file in "$ROOT" "$APP_BUILD" "$CAPTURE_BUILD" "$MANIFEST" "$MODELS" "$PACKET_MODELS" "$DECODER" "$TCP_DECODER" "$HTTP_PIPELINE" "$TLS_ARCH" "$TLS_STORE" "$CERT_LIFECYCLE" "$MITM_COORD" "$HISTORY" "$HAR_EXPORT" "$UI_FACADE" "$READER" "$STORE" "$CONTROLLER" "$SERVICE" "$APP_UI" "$OTHER_UI" "$CONFIG_TEST" "$DECODER_TEST" "$RUNTIME_TEST" "$TCP_TEST" "$HTTP_TEST" "$TLS_TEST" "$HAR_TEST" "$DOC"; do test -f "$file"; done
 
           grep -q 'include(":capture")' "$ROOT"
           grep -q 'implementation(project(":capture"))' "$APP_BUILD"
-          grep -q 'm14d1' "$APP_BUILD"
+          grep -q 'm14e1' "$APP_BUILD"
           grep -q 'minSdk = 30' "$CAPTURE_BUILD"
 
           grep -q 'android.permission.FOREGROUND_SERVICE' "$MANIFEST"
@@ -160,6 +166,35 @@ jobs:
           grep -q '!hostCertificateGenerationAvailable' "$MITM_COORD"
           grep -q '!activeTlsDecryptionAvailable' "$MITM_COORD"
 
+          grep -q 'object CaptureHistoryStore' "$HISTORY"
+          grep -q 'CaptureHttpRuntime.recentMessages' "$HISTORY"
+          grep -q 'sortedByDescending' "$HISTORY"
+          ! grep -Eqi 'SharedPreferences|SQLite|RoomDatabase|FileOutputStream|openFileOutput|java\.io\.File' "$HISTORY"
+
+          grep -q 'object CaptureHarExporter' "$HAR_EXPORT"
+          grep -q '\"version\\\": \\"1.2' "$HAR_EXPORT"
+          grep -q '_captureMessageKind' "$HAR_EXPORT"
+          grep -q '_captureStreamId' "$HAR_EXPORT"
+          grep -q '\"bodySize\\\": -1' "$HAR_EXPORT"
+          ! grep -Eqi 'postData|requestBody|responseBody|FileOutputStream|openFileOutput|SQLite|RoomDatabase|SharedPreferences' "$HAR_EXPORT"
+          grep -q 'CaptureHistoryStore.records' "$UI_FACADE"
+          grep -q 'CaptureHarExporter.encode' "$UI_FACADE"
+
+          grep -q 'fun CaptureToolScreen' "$APP_UI"
+          grep -q 'ActivityResultContracts.StartActivityForResult' "$APP_UI"
+          grep -q 'ActivityResultContracts.OpenDocument' "$APP_UI"
+          grep -q 'ActivityResultContracts.CreateDocument' "$APP_UI"
+          grep -q 'CaptureVpnController.permissionIntent' "$APP_UI"
+          grep -q 'CaptureVpnController.start' "$APP_UI"
+          grep -q 'CaptureVpnController.stop' "$APP_UI"
+          grep -q 'CaptureHistoryStore.clear' "$APP_UI"
+          grep -q 'CaptureToolFacade.makeHarExport' "$APP_UI"
+          grep -q 'MAX_IMPORTED_CERTIFICATE_BYTES = 512 \* 1024' "$APP_UI"
+          grep -q '真实 TLS 解密仍保持关闭' "$APP_UI"
+          grep -q '不发布或保存 HTTP Body' "$APP_UI"
+          grep -q 'OtherBusinessEntry("抓包工具", enabled = true)' "$OTHER_UI"
+          grep -q 'CaptureToolScreen' "$OTHER_UI"
+
           grep -q 'chinaunicom.capture.runtime.v1' "$STORE"
           grep -q 'decodesIpv4UdpEndpointsWithoutRetainingPayload' "$DECODER_TEST"
           grep -q 'decodesDirectIpv6TcpEndpoints' "$DECODER_TEST"
@@ -170,14 +205,17 @@ jobs:
           grep -q 'sourceParityGeneratorNeverCreatesFakeCertificateMaterial' "$TLS_TEST"
           grep -q 'productionCoordinatorRefusesTlsInterceptionUntilRealSigningAndRelayExist' "$TLS_TEST"
           grep -q 'installationInstructionsRequireManualAndroid11CaInstall' "$TLS_TEST"
+          grep -q 'exportsStructuredMetadataWithoutBodies' "$HAR_TEST"
+          grep -q 'rejectsEmptyHistory' "$HAR_TEST"
           grep -q 'HTTP body bytes are never published' "$DOC"
           grep -q 'HOST_CERTIFICATE_GENERATION_AVAILABLE=false' "$DOC"
           grep -q 'ACTIVE_TLS_DECRYPTION_AVAILABLE=false' "$DOC"
-          grep -q 'Android 11+' "$DOC"
+          grep -q 'M14-E — HAR/history/export and CaptureTool UI' "$DOC"
+          grep -q 'M14-F — real bidirectional forwarding/default-route capture' "$DOC"
 
           ! grep -Eq '0\.0\.0\.0|::/0|addRoute\([^,]+,[[:space:]]*0\)' "$SERVICE"
           ! grep -Eqi 'okhttp3|SSLSocket|SSLContext|TrustManager|KeyManager|KeyPairGenerator|PrivateKey|X509v3CertificateBuilder|BouncyCastle|HARWriter|CONNECT[[:space:]]' capture/src/main/java
-          ! grep -Eqi 'SharedPreferences|FileOutputStream|openFileOutput|SQLite|RoomDatabase' "$PACKET_MODELS" "$DECODER" "$TCP_DECODER" "$HTTP_PIPELINE" "$READER"
+          ! grep -Eqi 'SharedPreferences|FileOutputStream|openFileOutput|SQLite|RoomDatabase' "$PACKET_MODELS" "$DECODER" "$TCP_DECODER" "$HTTP_PIPELINE" "$READER" "$HISTORY" "$HAR_EXPORT"
           ! grep -Eqi 'token_online|idcardlastsix|cookie[[:space:]]*[:=]|ecstest2018|m\.client\.10010\.com|m\.10155\.com|UnicomAPIClient|LoginQuotaRefreshClient' capture/src/main/java
 
           echo "M14_CAPTURE_BOUNDARY=PASS"
