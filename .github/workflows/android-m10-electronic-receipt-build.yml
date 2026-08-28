@@ -7,6 +7,7 @@ on:
       - "app/**"
       - "core/network/**"
       - "data/broadbandaccount/**"
+      - "gradle/libs.versions.toml"
       - ".github/workflows/android-m10-electronic-receipt-build.yml"
   push:
     branches: [main]
@@ -14,6 +15,7 @@ on:
       - "app/**"
       - "core/network/**"
       - "data/broadbandaccount/**"
+      - "gradle/libs.versions.toml"
       - ".github/workflows/android-m10-electronic-receipt-build.yml"
 
 permissions:
@@ -56,10 +58,13 @@ jobs:
           OTHER=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherBusinessScreen.kt
           APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
           BUILD=app/build.gradle.kts
-          for file in "$MODEL" "$STORAGE" "$VM" "$UI" "$OTHER" "$APP" "$BUILD"; do test -f "$file"; done
+          VERSIONS=gradle/libs.versions.toml
+          for file in "$MODEL" "$STORAGE" "$VM" "$UI" "$OTHER" "$APP" "$BUILD" "$VERSIONS"; do test -f "$file"; done
 
           grep -q 'minSdk = 30' "$BUILD"
           grep -Eq 'versionName = "0\.9\.0-m9[a-z0-9.-]*"' "$BUILD"
+          grep -q 'implementation(libs.androidx.webkit)' "$BUILD"
+          grep -q 'androidx-webkit = { module = "androidx.webkit:webkit"' "$VERSIONS"
           grep -q 'OtherBusinessEntry("电子受理单", enabled = true)' "$OTHER"
           grep -q 'OTHER_ELECTRONIC_RECEIPT_ROUTE = "other/electronic-receipt"' "$APP"
           grep -q 'ElectronicReceiptScreen(' "$APP"
@@ -73,6 +78,8 @@ jobs:
           grep -q 'u_account' "$VM"
           grep -q 'login_type' "$VM"
           grep -q 'iphone_c@12.1300' "$VM"
+          grep -q 'iPhone; CPU iPhone OS' "$VM"
+          ! grep -q 'Linux; Android' "$VM"
           grep -q 'AtomicFile' "$STORAGE"
           grep -q 'stream.fd.sync()' "$STORAGE"
           grep -q 'PdfRenderer' "$UI"
@@ -80,6 +87,9 @@ jobs:
           grep -q '@JavascriptInterface' "$UI"
           grep -q 'window.webkit.messageHandlers.MsJSBridge' "$UI"
           grep -q 'window.webkit.messageHandlers.ElectronicReceiptHost' "$UI"
+          grep -q 'WebViewFeature.DOCUMENT_START_SCRIPT' "$UI"
+          grep -q 'WebViewCompat.addDocumentStartJavaScript' "$UI"
+          grep -q 'RECEIPT_DOCUMENT_START_ORIGINS' "$UI"
           grep -q 'frequentFetch' "$UI"
           grep -q 'showVarify' "$UI"
           grep -q 'ECS0436' "$UI"

@@ -3,7 +3,6 @@ package com.clxmhcs.chinaunicom.ui
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.DocumentsContract
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -274,7 +273,7 @@ class ElectronicReceiptViewModel(application: Application) : AndroidViewModel(ap
     }
 
     private fun receiptUserAgent(): String =
-        "Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0 Mobile Safari/537.36 unicom{version:iphone_c@12.1300};ltst;OSVersion/${Build.VERSION.RELEASE}"
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)  unicom{version:iphone_c@12.1300};ltst;OSVersion/26.0"
 
     private fun downloadPdf(url: String, cookie: String, userAgent: String): ByteArray {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {

@@ -45,6 +45,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.data.broadbandaccount.BroadbandAccountInfo
 import java.io.File
@@ -286,11 +288,23 @@ private fun ElectronicReceiptWebView(
 
                 val nativeBridge = ReceiptNativeBridge(this, session)
                 addJavascriptInterface(nativeBridge, RECEIPT_NATIVE_BRIDGE)
+                val documentStartBridgeInstalled = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
+                if (documentStartBridgeInstalled) {
+                    WebViewCompat.addDocumentStartJavaScript(
+                        this,
+                        BRIDGE_BOOTSTRAP_SCRIPT,
+                        RECEIPT_DOCUMENT_START_ORIGINS,
+                    )
+                } else {
+                    post {
+                        onError("当前 Android System WebView 版本过旧，无法在联通页面启动前建立认证桥接，请更新 Android System WebView 后重试。")
+                    }
+                }
                 webChromeClient = ReceiptBridgeChromeClient(session)
                 webViewClient = object : WebViewClient() {
                     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                         super.onPageStarted(view, url, favicon)
-                        view.evaluateJavascript(BRIDGE_BOOTSTRAP_SCRIPT, null)
+                        if (!documentStartBridgeInstalled) view.evaluateJavascript(BRIDGE_BOOTSTRAP_SCRIPT, null)
                     }
 
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -511,6 +525,13 @@ private fun verificationTriggerScript(session: ElectronicReceiptWebSession): Str
 }
 
 private const val RECEIPT_NATIVE_BRIDGE = "ElectronicReceiptNative"
+
+private val RECEIPT_DOCUMENT_START_ORIGINS = setOf(
+    "https://10010.com",
+    "https://*.10010.com",
+    "https://chinaunicom.cn",
+    "https://*.chinaunicom.cn",
+)
 
 private const val BRIDGE_BOOTSTRAP_SCRIPT = """
 (function(){
