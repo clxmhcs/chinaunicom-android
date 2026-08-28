@@ -1,0 +1,121 @@
+name: Android M13 Automation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "widget/**"
+      - "core/model/**"
+      - "data/refresh/**"
+      - "data/settings/**"
+      - "data/balance/**"
+      - "gradle/libs.versions.toml"
+      - ".github/workflows/android-m13-automation-build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "widget/**"
+      - "core/model/**"
+      - "data/refresh/**"
+      - "data/settings/**"
+      - "data/balance/**"
+      - "gradle/libs.versions.toml"
+      - ".github/workflows/android-m13-automation-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  m13-automation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+      - name: Ensure Android API 37 SDK
+        shell: bash
+        run: |
+          PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && $1 ~ /android-37/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
+          test -n "$PLATFORM_PACKAGE"
+          sdkmanager --channel=3 "$PLATFORM_PACKAGE"
+
+      - name: Verify M13 automation authority boundary
+        shell: bash
+        run: |
+          APP_BUILD=app/build.gradle.kts
+          AUTO=app/src/main/java/com/clxmhcs/chinaunicom/automation/AutomationCoordinator.kt
+          WORKER=app/src/main/java/com/clxmhcs/chinaunicom/automation/QuotaRefreshWorker.kt
+          NOTIFY=app/src/main/java/com/clxmhcs/chinaunicom/automation/NotificationService.kt
+          WIDGET_COORD=app/src/main/java/com/clxmhcs/chinaunicom/automation/WidgetUpdateCoordinator.kt
+          REPOSITORY=app/src/main/java/com/clxmhcs/chinaunicom/data/UnicomRepository.kt
+          PROD=app/src/main/java/com/clxmhcs/chinaunicom/data/ProductionUnicomRepository.kt
+          DEBUG_FAKE=app/src/debug/java/com/clxmhcs/chinaunicom/data/FakeUnicomRepository.kt
+          DEBUG_PROVIDER=app/src/debug/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
+          RELEASE_PROVIDER=app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt
+          MAIN=app/src/main/java/com/clxmhcs/chinaunicom/MainActivity.kt
+          SETTINGS_VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsM11CViewModel.kt
+          SETTINGS=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/WidgetRefreshSettings.kt
+          TEST=app/src/test/java/com/clxmhcs/chinaunicom/automation/AutomationCoordinatorTest.kt
+
+          for file in "$APP_BUILD" "$AUTO" "$WORKER" "$NOTIFY" "$WIDGET_COORD" "$REPOSITORY" "$PROD" "$DEBUG_FAKE" "$DEBUG_PROVIDER" "$RELEASE_PROVIDER" "$MAIN" "$SETTINGS_VM" "$SETTINGS" "$TEST"; do test -f "$file"; done
+
+          grep -q 'minSdk = 30' "$APP_BUILD"
+          grep -q 'm13a1' "$APP_BUILD"
+          grep -q 'OneTimeWorkRequestBuilder<QuotaRefreshWorker>' "$AUTO"
+          grep -q 'WorkManager.getInstance' "$AUTO"
+          grep -q 'NetworkType.CONNECTED' "$AUTO"
+          grep -q 'setBackoffCriteria' "$AUTO"
+          grep -q 'cancelAllWorkByTag' "$AUTO"
+          grep -q 'scheduledMinutes' "$AUTO"
+          grep -q 'compensationMinutes' "$AUTO"
+          grep -q 'failureRetrySeconds' "$AUTO"
+          grep -q 'CoroutineWorker' "$WORKER"
+          grep -q 'UnicomRepositoryProvider.create' "$WORKER"
+          grep -q 'refreshAutomation' "$WORKER"
+          grep -q 'NotificationServiceProvider.current' "$WORKER"
+          grep -q 'AutomationCoordinator.enqueueFollowing' "$WORKER"
+          grep -q 'refreshAutomation' "$REPOSITORY"
+          grep -q 'refreshAutomation' "$PROD"
+          grep -q 'quotaRepository.refreshAll' "$PROD"
+          grep -q 'balanceRepository.refreshBalancesIfNeeded' "$PROD"
+          grep -q 'publishCommittedAccounts' "$PROD"
+          grep -q 'refreshAutomation' "$DEBUG_FAKE"
+          grep -q 'WidgetSnapshotExporter' "$WIDGET_COORD"
+          grep -q 'DefaultWidgetUpdateCoordinator' "$DEBUG_PROVIDER"
+          grep -q 'DefaultWidgetUpdateCoordinator' "$RELEASE_PROVIDER"
+          grep -q 'accountsCommittedAction = widgetUpdateCoordinator::publish' "$DEBUG_PROVIDER"
+          grep -q 'accountsCommittedAction = widgetUpdateCoordinator::publish' "$RELEASE_PROVIDER"
+          grep -q 'AutomationCoordinator.synchronize(this)' "$MAIN"
+          grep -q 'AutomationCoordinator.synchronize(app)' "$SETTINGS_VM"
+          grep -q 'automaticRefreshEnabled' "$SETTINGS"
+          grep -q 'scheduledMinutes' "$SETTINGS"
+
+          ! grep -Eqi 'm\.client\.10010\.com|m\.10155\.com|ecstest2018|okhttp3\.Request|token_online|idcardlastsix|cookie[[:space:]]*[:=]|appid[[:space:]]*[:=]' "$AUTO" "$WORKER" "$NOTIFY" "$WIDGET_COORD"
+          ! grep -Eq 'AlarmManager|SCHEDULE_EXACT_ALARM|USE_EXACT_ALARM' "$AUTO" "$WORKER"
+          echo "M13_AUTOMATION_BOUNDARY=PASS"
+
+      - name: Run M13 automation regression
+        run: >-
+          gradle
+          :data:settings:testDebugUnitTest
+          :data:refresh:testDebugUnitTest
+          :widget:testDebugUnitTest
+          :app:testDebugUnitTest
+          :app:assembleDebug
+          :app:assembleRelease
+          --stacktrace
