@@ -42,7 +42,7 @@ object AndroidSettingsRepositories {
     fun refreshLogic(
         context: Context,
         balanceIntervalSynchronizer: BalanceRefreshIntervalSynchronizer = BalanceRefreshIntervalSynchronizer { true },
-    ): VideoRingSettingsRepository = UnifiedVideoRingSettingsRepository(
+    ): WidgetRefreshSettingsRepository = UnifiedWidgetRefreshSettingsRepository(
         storage = SharedPreferencesRefreshLogicPolicyStorage(context),
         balanceIntervalSynchronizer = balanceIntervalSynchronizer,
     )
@@ -50,4 +50,21 @@ object AndroidSettingsRepositories {
     fun appSettings(context: Context): AppSettingsRepository = DefaultAppSettingsRepository(
         storage = SharedPreferencesAppSettingsStorage(context),
     )
+
+    fun phoneAttribution(context: Context): PhoneAttributionSettingsRepository =
+        DefaultPhoneAttributionSettingsRepository(
+            storage = SharedPreferencesPhoneAttributionSettingsStorage(context),
+            client = com.clxmhcs.chinaunicom.core.network.UnicomPhoneAttributionClient(),
+        )
+
+    fun widgetConfiguration(context: Context): WidgetConfigurationRepository =
+        DefaultWidgetConfigurationRepository(
+            storage = SharedPreferencesWidgetConfigurationStorage(context),
+            refreshSettings = refreshLogic(context),
+        )
+
+    fun shortcutNotifications(context: Context): ShortcutNotificationSettingsRepository =
+        DefaultShortcutNotificationSettingsRepository(
+            storage = SharedPreferencesShortcutNotificationSettingsStorage(context),
+        )
 }
