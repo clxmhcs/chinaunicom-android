@@ -149,7 +149,7 @@ class SettingsM11CViewModel(application: Application) : AndroidViewModel(applica
         val result = refreshRepository.saveWidgetRefreshPolicy(policy)
         if (result.persisted) {
             widgetRepository.reload()
-            AutomationCoordinator.synchronize(app)
+            AutomationCoordinator.synchronize(app, replaceExisting = true)
             exportCurrentWidgetSnapshots()
             _operationMessage.value = "组件刷新策略已保存"
         } else {
