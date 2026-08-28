@@ -18,6 +18,7 @@ android {
 
 dependencies {
     implementation(project(":core:model"))
+    implementation(project(":core:network"))
     implementation(project(":data:refresh"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)

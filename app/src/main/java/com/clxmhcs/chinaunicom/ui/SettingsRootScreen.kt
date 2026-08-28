@@ -17,8 +17,12 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -169,6 +173,19 @@ class SettingsRootViewModel(application: Application) : AndroidViewModel(applica
     private fun nextIntegralMode(current: IntegralRefreshCycleMode) = IntegralRefreshCycleMode.entries.let { it[(it.indexOf(current) + 1) % it.size] }
 }
 
+private enum class SettingsM11CPage {
+    CARRIER_CORRECTION,
+    WIDGET_SINGLE,
+    WIDGET_DUAL,
+    WIDGET_REFRESH,
+    DAILY_BASELINE,
+    PHONE_SEGMENTS,
+    RECEIPT_DIRECTORY,
+    SHORTCUT_NOTIFICATION,
+    CAPTURE_TOOL,
+    APP_MANUAL,
+}
+
 @Composable
 fun SettingsRootScreen(
     settingsViewModel: SettingsRootViewModel = viewModel(),
@@ -179,6 +196,60 @@ fun SettingsRootScreen(
     val appState by settingsViewModel.appState.collectAsState()
     val balanceState by settingsViewModel.balanceState.collectAsState()
     val accounts = appState.accounts.sortedBy { it.sortOrder }
+    val m11cViewModel: SettingsM11CViewModel = viewModel()
+    val broadbandViewModel: BroadbandAccountViewModel = viewModel()
+    val receiptViewModel: ElectronicReceiptViewModel = viewModel()
+    val broadbandState by broadbandViewModel.state.collectAsState()
+    var page by remember { mutableStateOf<SettingsM11CPage?>(null) }
+
+    LaunchedEffect(accounts.map { it.id }) {
+        m11cViewModel.reconcileMobileAccounts(accounts.map { it.id }.toSet())
+    }
+
+    val closeM11CPage = { page = null }
+    when (page) {
+        SettingsM11CPage.CARRIER_CORRECTION -> {
+            CarrierCorrectionSettingsScreen(accounts, broadbandState.accounts, m11cViewModel, closeM11CPage)
+            return
+        }
+        SettingsM11CPage.WIDGET_SINGLE -> {
+            SingleWidgetSettingsScreen(accounts.filter { it.isEnabled }, m11cViewModel, closeM11CPage)
+            return
+        }
+        SettingsM11CPage.WIDGET_DUAL -> {
+            DualWidgetSettingsScreen(accounts.filter { it.isEnabled }, m11cViewModel, closeM11CPage)
+            return
+        }
+        SettingsM11CPage.WIDGET_REFRESH -> {
+            WidgetRefreshSettingsScreen(m11cViewModel, closeM11CPage)
+            return
+        }
+        SettingsM11CPage.DAILY_BASELINE -> {
+            DailyUsageBaselineSettingsScreen(accounts, m11cViewModel, closeM11CPage)
+            return
+        }
+        SettingsM11CPage.PHONE_SEGMENTS -> {
+            PhoneSegmentSettingsScreen(m11cViewModel, closeM11CPage)
+            return
+        }
+        SettingsM11CPage.RECEIPT_DIRECTORY -> {
+            ElectronicReceiptDirectorySettingsScreen(receiptViewModel, closeM11CPage)
+            return
+        }
+        SettingsM11CPage.SHORTCUT_NOTIFICATION -> {
+            ShortcutNotificationSettingsScreen(accounts.filter { it.isEnabled }, m11cViewModel, closeM11CPage)
+            return
+        }
+        SettingsM11CPage.CAPTURE_TOOL -> {
+            CaptureToolSettingsEntryScreen(closeM11CPage)
+            return
+        }
+        SettingsM11CPage.APP_MANUAL -> {
+            AppManualScreen(closeM11CPage)
+            return
+        }
+        null -> Unit
+    }
 
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Text("设置", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold) }
@@ -192,31 +263,33 @@ fun SettingsRootScreen(
                 accounts.forEachIndexed { index, account ->
                     AccountOrderRow(account.displayName.ifBlank { displayMobileNumber(account.mobile, settings) }, index > 0, index < accounts.lastIndex, { settingsViewModel.moveAccount(account.id, -1) }, { settingsViewModel.moveAccount(account.id, 1) })
                 }
-                SettingsDeferredRow("号码归属纠正", "M11-C")
+                SettingsActionRow("号码归属纠正", "显示修正，不改变业务查询") { page = SettingsM11CPage.CARRIER_CORRECTION }
             }
         }
         item { SettingsSection("桌面组件") {
-            SettingsDeferredRow("单号码组件信息编辑", "配置 M11-C / 组件 M12")
-            SettingsDeferredRow("双号码组件信息编辑", "配置 M11-C / 组件 M12")
-            SettingsDeferredRow("组件刷新编辑", "配置 M11-C / 组件 M12")
+            SettingsActionRow("单号码组件信息编辑", "配置 M11-C / 组件主体 M12") { page = SettingsM11CPage.WIDGET_SINGLE }
+            SettingsActionRow("双号码组件信息编辑", "配置 M11-C / 组件主体 M12") { page = SettingsM11CPage.WIDGET_DUAL }
+            SettingsActionRow("组件刷新编辑", "统一 schema-3 刷新 authority") { page = SettingsM11CPage.WIDGET_REFRESH }
         } }
         item { SettingsSection("数据刷新") {
             SettingsActionRow("App刷新逻辑编辑", "统一 schema-3 authority", onOpenRefreshLogic)
-            SettingsDeferredRow("每日用量基准", "M11-C")
+            SettingsActionRow("每日用量基准", "按账号 + 日期只读查看") { page = SettingsM11CPage.DAILY_BASELINE }
         } }
         item { BalanceGroupingEditor(accounts, balanceState.balanceAccountGroups, settings, settingsViewModel::addBalanceGroup, settingsViewModel::deleteBalanceGroup, settingsViewModel::toggleBalanceGroupMember) }
         item { FinancialRefreshEditor(accounts.filter { it.isEnabled }, balanceState.balanceAccountGroups, balanceState.homeBalanceAccountID, settings, settingsViewModel::setHomeBalanceAccount, settingsViewModel::setDefaultFinancialAccount) }
-        item { SettingsSection("运营商号段") { SettingsDeferredRow("号段更新 / 已保存号段", "M11-C") } }
+        item { SettingsSection("运营商号段") {
+            SettingsActionRow("号段更新 / 已保存号段", "远端更新 + 本地回退") { page = SettingsM11CPage.PHONE_SEGMENTS }
+        } }
         item { SettingsSection("数据与安全") {
             SettingsActionRow("凭据信息新增 / 编辑", "本机 CredentialStore", onOpenCredentials)
-            SettingsDeferredRow("电子受理单保存目录", "M11-C")
+            SettingsActionRow("电子受理单保存目录", "复用现有 SAF 导出目录 authority") { page = SettingsM11CPage.RECEIPT_DIRECTORY }
         } }
         item { SettingsSection("工具") {
-            SettingsDeferredRow("快捷指令余量通知", "M11-C")
-            SettingsDeferredRow("抓包工具", "入口 M11 / 主体 M14")
+            SettingsActionRow("快捷指令余量通知", "按账号 UUID 保存通知模板 / A-D 槽位") { page = SettingsM11CPage.SHORTCUT_NOTIFICATION }
+            SettingsActionRow("抓包工具", "入口 M11 / 主体 M14") { page = SettingsM11CPage.CAPTURE_TOOL }
         } }
         item { SettingsSection("关于") {
-            SettingsDeferredRow("App使用说明书", "M11-C")
+            SettingsActionRow("App使用说明书", "本地离线 · 搜索 · 目录 · 继续阅读") { page = SettingsM11CPage.APP_MANUAL }
             Text("Android 最低支持版本：Android 11 / API 30", style = MaterialTheme.typography.bodySmall)
         } }
     }
@@ -320,7 +393,7 @@ fun AppRefreshLogicSettingsScreen(settingsViewModel: SettingsRootViewModel, onBa
             SettingsActionRow("进入页面策略", pageModeTitle(videoRing.entryMode), settingsViewModel::cycleVideoRingEntryMode)
             NumberEditor("缓存有效期", videoRing.cacheValidityMinutes, "分钟", 5, settingsViewModel::changeVideoRingCache)
         } }
-        item { SettingsSection("统一存储说明") { Text("以上业务均读写现有 AppRefreshLogicPolicy schema 3 的同一 SharedPreferences 文档，没有创建第二套刷新设置 authority。", style = MaterialTheme.typography.bodySmall) } }
+        item { SettingsSection("统一存储说明") { Text("以上业务均读写现有 AppRefreshLogicPolicy schema 3 的同一 SharedPreferences 文档；Widget 刷新也写入该文档的 widget 域，没有创建第二套刷新设置 authority。", style = MaterialTheme.typography.bodySmall) } }
     }
 }
 

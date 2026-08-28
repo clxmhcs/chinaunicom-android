@@ -1,0 +1,115 @@
+name: Android M11 Settings
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/model/**"
+      - "core/network/**"
+      - "data/settings/**"
+      - "data/refresh/**"
+      - ".github/workflows/android-m11-settings-build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "core/model/**"
+      - "core/network/**"
+      - "data/settings/**"
+      - "data/refresh/**"
+      - ".github/workflows/android-m11-settings-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  m11-settings:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+      - name: Ensure Android API 37 SDK
+        shell: bash
+        run: |
+          PLATFORM_PACKAGE="$(sdkmanager --list --channel=3 | awk -F'|' '/platforms;android-/ && $1 ~ /android-37/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')"
+          test -n "$PLATFORM_PACKAGE"
+          sdkmanager --channel=3 "$PLATFORM_PACKAGE"
+
+      - name: Verify M11 settings authority boundary
+        shell: bash
+        run: |
+          BUILD=app/build.gradle.kts
+          ROOT=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootScreen.kt
+          GENERAL=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsM11CGeneralScreens.kt
+          WIDGET_UI=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsM11CWidgetScreens.kt
+          VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsM11CViewModel.kt
+          MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/SettingsFeatureModels.kt
+          ATTR=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/PhoneAttributionClient.kt
+          ATTR_REPO=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/PhoneAttributionSettingsRepository.kt
+          STORAGE=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/AndroidM11SettingsStorage.kt
+          WIDGET=data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/WidgetRefreshSettings.kt
+          BASELINE=data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/AndroidDailyUsageBaselineStore.kt
+          RECEIPT=app/src/main/java/com/clxmhcs/chinaunicom/ui/ElectronicReceiptViewModel.kt
+          MANUAL=app/src/main/assets/AppManual.txt
+          for file in "$BUILD" "$ROOT" "$GENERAL" "$WIDGET_UI" "$VM" "$MODEL" "$ATTR" "$ATTR_REPO" "$STORAGE" "$WIDGET" "$BASELINE" "$RECEIPT" "$MANUAL"; do test -f "$file"; done
+
+          grep -q 'minSdk = 30' "$BUILD"
+          grep -q '号码归属纠正' "$ROOT"
+          grep -q '单号码组件信息编辑' "$ROOT"
+          grep -q '双号码组件信息编辑' "$ROOT"
+          grep -q '组件刷新编辑' "$ROOT"
+          grep -q '每日用量基准' "$ROOT"
+          grep -q '号段更新 / 已保存号段' "$ROOT"
+          grep -q '电子受理单保存目录' "$ROOT"
+          grep -q '快捷指令余量通知' "$ROOT"
+          grep -q '抓包工具' "$ROOT"
+          grep -q 'App使用说明书' "$ROOT"
+          grep -q 'UnifiedWidgetRefreshSettingsRepository' "$WIDGET"
+          grep -q 'AppRefreshLogicPolicyCodec.CURRENT_SCHEMA_VERSION' "$WIDGET"
+          grep -q 'DEFAULT_AUTOMATIC_REFRESH_MINUTES' "$MODEL"
+          grep -q 'listOf(8 \* 60, 11 \* 60, 14 \* 60, 17 \* 60)' "$MODEL"
+          grep -q 'SLOT_COUNT = 6' "$MODEL"
+          grep -q 'rightAccountID = right' "$MODEL"
+          grep -q 'PhoneCarrierCorrection' "$ATTR_REPO"
+          grep -q 'SHANDONG_BROADBAND_AREA_CODES' "$ATTR_REPO"
+          grep -q 'https://zj.v.api.aa1.cn/api/phone/2024/' "$ATTR"
+          grep -q 'https://cx.shouji.360.cn/phonearea.php' "$ATTR"
+          grep -q 'CookieJar.NO_COOKIES' "$ATTR"
+          grep -q 'accountID: UUID' "$MODEL"
+          grep -q 'ShortcutNotificationSlot' "$MODEL"
+          grep -q 'DailyUsageBaselineStore' "$BASELINE"
+          grep -q 'max(previous, candidate)' "$BASELINE"
+          grep -q 'ActivityResultContracts.OpenDocumentTree' "$GENERAL"
+          grep -q 'setExportDirectory' "$GENERAL"
+          grep -q 'M12' "$MANUAL"
+          grep -q 'M14' "$MANUAL"
+          ! grep -Eqi 'token_online|appid|idcardlastsix' "$MODEL"
+          ! grep -Eqi 'token_online|appid|idcardlastsix' "$STORAGE"
+          echo "M11_SETTINGS_BOUNDARY=PASS"
+
+      - name: Run M11 regression
+        run: >-
+          gradle
+          :core:model:testDebugUnitTest
+          :core:network:testDebugUnitTest
+          :data:refresh:testDebugUnitTest
+          :data:settings:testDebugUnitTest
+          :app:testDebugUnitTest
+          :app:assembleDebug
+          :app:assembleRelease
+          --stacktrace
