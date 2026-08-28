@@ -60,6 +60,10 @@ jobs:
           DECODER=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureIpPacketDecoder.kt
           TCP_DECODER=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureTcpSegmentDecoder.kt
           HTTP_PIPELINE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureHttpStreamPipeline.kt
+          TLS_ARCH=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureTlsArchitecture.kt
+          TLS_STORE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureTlsConfigurationStore.kt
+          CERT_LIFECYCLE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureCertificateLifecycle.kt
+          MITM_COORD=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureMitmProxyCoordinator.kt
           READER=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureTunPacketReader.kt
           STORE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureRuntimeStore.kt
           CONTROLLER=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureVpnController.kt
@@ -69,13 +73,14 @@ jobs:
           RUNTIME_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CapturePacketRuntimeTest.kt
           TCP_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureTcpSegmentDecoderTest.kt
           HTTP_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureHttpStreamPipelineTest.kt
+          TLS_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureTlsArchitectureTest.kt
           DOC=docs/migration/M14_CAPTURE_ARCHITECTURE.md
 
-          for file in "$ROOT" "$APP_BUILD" "$CAPTURE_BUILD" "$MANIFEST" "$MODELS" "$PACKET_MODELS" "$DECODER" "$TCP_DECODER" "$HTTP_PIPELINE" "$READER" "$STORE" "$CONTROLLER" "$SERVICE" "$CONFIG_TEST" "$DECODER_TEST" "$RUNTIME_TEST" "$TCP_TEST" "$HTTP_TEST" "$DOC"; do test -f "$file"; done
+          for file in "$ROOT" "$APP_BUILD" "$CAPTURE_BUILD" "$MANIFEST" "$MODELS" "$PACKET_MODELS" "$DECODER" "$TCP_DECODER" "$HTTP_PIPELINE" "$TLS_ARCH" "$TLS_STORE" "$CERT_LIFECYCLE" "$MITM_COORD" "$READER" "$STORE" "$CONTROLLER" "$SERVICE" "$CONFIG_TEST" "$DECODER_TEST" "$RUNTIME_TEST" "$TCP_TEST" "$HTTP_TEST" "$TLS_TEST" "$DOC"; do test -f "$file"; done
 
           grep -q 'include(":capture")' "$ROOT"
           grep -q 'implementation(project(":capture"))' "$APP_BUILD"
-          grep -q 'm14c1' "$APP_BUILD"
+          grep -q 'm14d1' "$APP_BUILD"
           grep -q 'minSdk = 30' "$CAPTURE_BUILD"
 
           grep -q 'android.permission.FOREGROUND_SERVICE' "$MANIFEST"
@@ -91,6 +96,12 @@ jobs:
           grep -q 'readRecentPacketMetadata' "$CONTROLLER"
           grep -q 'readHttpSession' "$CONTROLLER"
           grep -q 'readRecentHttpMessages' "$CONTROLLER"
+          grep -q 'readMitmConfiguration' "$CONTROLLER"
+          grep -q 'saveMitmConfiguration' "$CONTROLLER"
+          grep -q 'readCertificateSnapshot' "$CONTROLLER"
+          grep -q 'makeInstallableRootCertificate' "$CONTROLLER"
+          grep -q 'confirmRootCertificateTrustByUser' "$CONTROLLER"
+          grep -q 'readMitmProxySnapshot' "$CONTROLLER"
 
           grep -q 'class CaptureVpnService : VpnService()' "$SERVICE"
           grep -q 'CaptureTunPacketReader' "$SERVICE"
@@ -105,6 +116,7 @@ jobs:
           grep -q 'setBlocking(false)' "$SERVICE"
           grep -q 'onRevoke' "$SERVICE"
           grep -q 'START_NOT_STICKY' "$SERVICE"
+          ! grep -Eqi 'CaptureMitm|CaptureTls|CaptureCertificate|SSLSocket|SSLContext' "$SERVICE"
 
           grep -q 'Os.read' "$READER"
           grep -q 'ParcelFileDescriptor.dup' "$READER"
@@ -130,6 +142,24 @@ jobs:
           grep -q '"set-cookie"' "$HTTP_PIPELINE"
           ! grep -q 'val body:' "$HTTP_PIPELINE"
 
+          grep -q 'data class CaptureMitmConfiguration' "$TLS_ARCH"
+          grep -q 'enum class CaptureCertificateState' "$TLS_ARCH"
+          grep -q 'class CaptureTlsInspector' "$TLS_ARCH"
+          grep -q 'HOST_CERTIFICATE_GENERATION_AVAILABLE: Boolean = false' "$TLS_ARCH"
+          grep -q 'ACTIVE_TLS_DECRYPTION_AVAILABLE: Boolean = false' "$TLS_ARCH"
+          grep -q 'chinaunicom.capture.tls.v1' "$TLS_STORE"
+          grep -q 'object CaptureCertificateManager' "$CERT_LIFECYCLE"
+          grep -q 'CaptureMitmCertificateGenerator' "$CERT_LIFECYCLE"
+          grep -q 'return null' "$CERT_LIFECYCLE"
+          grep -q 'cacheDir' "$CERT_LIFECYCLE"
+          grep -q 'Android 11' "$CERT_LIFECYCLE"
+          grep -q '手动安装 CA 证书' "$CERT_LIFECYCLE"
+          ! grep -q 'KeyChain.createInstallIntent' "$CERT_LIFECYCLE"
+          ! grep -q 'filesDir' "$CERT_LIFECYCLE"
+          grep -q 'class CaptureMitmProxyCoordinator' "$MITM_COORD"
+          grep -q '!hostCertificateGenerationAvailable' "$MITM_COORD"
+          grep -q '!activeTlsDecryptionAvailable' "$MITM_COORD"
+
           grep -q 'chinaunicom.capture.runtime.v1' "$STORE"
           grep -q 'decodesIpv4UdpEndpointsWithoutRetainingPayload' "$DECODER_TEST"
           grep -q 'decodesDirectIpv6TcpEndpoints' "$DECODER_TEST"
@@ -137,10 +167,16 @@ jobs:
           grep -q 'decodesIpv4TcpPayloadWithoutPersistingPacket' "$TCP_TEST"
           grep -q 'reconstructsSplitRequestAndRedactsSensitiveHeaders' "$HTTP_TEST"
           grep -q 'runtimeKeepsOnlyBoundedStructuredMessages' "$HTTP_TEST"
+          grep -q 'sourceParityGeneratorNeverCreatesFakeCertificateMaterial' "$TLS_TEST"
+          grep -q 'productionCoordinatorRefusesTlsInterceptionUntilRealSigningAndRelayExist' "$TLS_TEST"
+          grep -q 'installationInstructionsRequireManualAndroid11CaInstall' "$TLS_TEST"
           grep -q 'HTTP body bytes are never published' "$DOC"
+          grep -q 'HOST_CERTIFICATE_GENERATION_AVAILABLE=false' "$DOC"
+          grep -q 'ACTIVE_TLS_DECRYPTION_AVAILABLE=false' "$DOC"
+          grep -q 'Android 11+' "$DOC"
 
           ! grep -Eq '0\.0\.0\.0|::/0|addRoute\([^,]+,[[:space:]]*0\)' "$SERVICE"
-          ! grep -Eqi 'FileOutputStream|ParcelFileDescriptor\.AutoCloseOutputStream|okhttp3|SSLSocket|SSLContext|TrustManager|KeyManager|X509|CertificateFactory|HARWriter|MITM' capture/src/main/java
+          ! grep -Eqi 'okhttp3|SSLSocket|SSLContext|TrustManager|KeyManager|KeyPairGenerator|PrivateKey|X509v3CertificateBuilder|BouncyCastle|HARWriter|CONNECT[[:space:]]' capture/src/main/java
           ! grep -Eqi 'SharedPreferences|FileOutputStream|openFileOutput|SQLite|RoomDatabase' "$PACKET_MODELS" "$DECODER" "$TCP_DECODER" "$HTTP_PIPELINE" "$READER"
           ! grep -Eqi 'token_online|idcardlastsix|cookie[[:space:]]*[:=]|ecstest2018|m\.client\.10010\.com|m\.10155\.com|UnicomAPIClient|LoginQuotaRefreshClient' capture/src/main/java
 
