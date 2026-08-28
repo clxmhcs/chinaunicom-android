@@ -55,12 +55,43 @@ Implemented as architecture/state management only, matching the actual capabilit
 - Android 11+ certificate flow is manual: an ordinary app cannot install a CA certificate through `KeyChain.createInstallIntent()`, so the user must install the exported CA from system Settings.
 - Trust completion is recorded only after explicit user confirmation; it is not presented as a privileged/system trust-store probe.
 - `CaptureMitmProxyCoordinator` mirrors the iOS orchestration states but production M14-D cannot enter READY/RUNNING while real host-certificate signing and TLS relay remain unavailable.
-- Controller seams expose future M14-E UI operations for configuration, certificate status/instructions, certificate registration/export, trust confirmation/reset, and MITM proxy state.
+- Controller seams expose M14-E UI operations for configuration, certificate status/instructions, certificate registration/export, trust confirmation/reset, and MITM proxy state.
 
 Important Android platform limitation:
 - On Android 7+ many apps do not trust user-added CAs by default unless their Network Security Configuration opts in, and certificate pinning can independently prevent interception. M14-D therefore does not claim that installing a user CA makes arbitrary third-party HTTPS decryptable.
 
-Still deliberately disabled after M14-D:
+## M14-E — HAR/history/export and CaptureTool UI
+
+Implemented against the capabilities that actually exist after M14-D:
+- `其它业务 → 抓包工具` functional entry in the Android main App.
+- Compose status page for VPN state, packet counters and structured HTTP counters.
+- User-driven `VpnService.prepare(...)` permission launch and explicit start/stop controls.
+- Editable capture host/path/additional-host configuration using the existing M14-A store.
+- Editable HTTPS/MITM include/exclude configuration using the existing M14-D store.
+- Certificate state UI with explicit root-certificate import, explicit user export through Android Storage Access Framework, user trust confirmation/revocation and reset.
+- UI always displays that dynamic host-certificate generation and active TLS decryption are unavailable while the M14-D production capability switches are false.
+- Capture history is only a view over M14-C's bounded process-local 128-message ring. `CaptureHistoryStore` does not create a database, preference store or second payload collection.
+- Search over method, host, target, status, stream ID and already-redacted header values.
+- Detail page for overview, stream and headers. The Body section explicitly states that HTTP bodies are not published or stored.
+- User-requested HAR 1.2 export through the Android Storage Access Framework.
+- HAR export is metadata-only: it contains only fields already present in `CaptureHttpMessage`, keeps sensitive headers redacted, has no `postData`, request body or response body, and does not create automatic background export files.
+- HAR response/request counterparts that are not known from the directional structured message remain empty/zero rather than being fabricated; `_captureMessageKind` and `_captureStreamId` preserve the actual source message type.
+
+Source parity note:
+- The iOS `CaptureRecordHistoryStore` in the supplied source is also in-memory only. Android therefore does not invent durable capture-history persistence in M14-E.
+- The iOS UI/HAR layer can model bodies because its `CaptureRecord` type has body fields; Android M14-C deliberately does not publish body bytes, so M14-E exports only the data its source pipeline actually owns.
+
+## M14 is not yet real full-device capture
+
+M14-E does **not** close the remaining transport gap:
+- the VPN still routes only `192.0.2.0/24` TEST-NET traffic;
+- packet forwarding back to the network is not implemented;
+- normal device traffic is not sent through the TUN;
+- therefore ordinary browser/App traffic cannot yet be used as proof of real CaptureTool interception.
+
+This is intentional. Enabling `0.0.0.0/0` before a proven bidirectional forwarding path would break device connectivity and would create a false-positive capture implementation.
+
+Still deliberately disabled after M14-E:
 - Default-route interception (`0.0.0.0/0` / `::/0`).
 - Packet forwarding back to the network.
 - User-space TCP/IP transport implementation.
@@ -70,10 +101,7 @@ Still deliberately disabled after M14-D:
 - Dynamic host-certificate signing.
 - Automatic CA installation.
 - SNI ClientHello parsing.
-- HAR export.
-- Capture history UI.
-
-The restricted TEST-NET route remains deliberate. M14-D proves the TLS/certificate state boundaries without taking ownership of normal device connectivity or creating a false-positive "HTTPS interception ready" state. Default-route capture must not be enabled until a bidirectional forwarding path is proven.
+- Persistent packet or HTTP-body history.
 
 ## Authority and privacy boundary
 
@@ -81,10 +109,13 @@ The capture module must not contain China Unicom credentials, login state, `toke
 
 M14-D may write only a user-requested root-certificate export to the app cache. Certificate bytes are not captured network payload and the in-process certificate registry is resettable. No private key, host certificate, TLS plaintext, CONNECT payload, or decrypted HTTPS body is generated, stored, or exported in M14-D.
 
+M14-E may write structured metadata only when the user explicitly selects an export destination through Android's Storage Access Framework. Capture history itself remains process-local. No automatic HAR export, background capture archive, request body, response body, cookie secret, token or raw packet is persisted.
+
 ## Planned order
 
 1. M14-A — VPN permission, lifecycle, safe TUN boundary. **Done**
 2. M14-B — packet reader / decoder and session pipeline. **Done**
 3. M14-C — TCP/HTTP reconstruction and filtering. **Done**
-4. M14-D — HTTPS/TLS architecture and certificate lifecycle. **Implemented, awaiting CI**
-5. M14-E — HAR/history/export and capture UI acceptance.
+4. M14-D — HTTPS/TLS architecture and certificate lifecycle. **Done**
+5. M14-E — HAR/history/export and CaptureTool UI. **Implemented, awaiting CI and UI/device acceptance**
+6. M14-F — real bidirectional forwarding/default-route capture, followed by full real-device CaptureTool acceptance. **Not started**
