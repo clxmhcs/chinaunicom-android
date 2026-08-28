@@ -65,24 +65,24 @@ internal object AutomationNotificationContentRenderer {
         val notificationNumber = maskedMobile(account.mobile)
         val packageName = account.packageName.trim().ifEmpty { "联通余量" }
 
-        val variables = linkedMapOf(
-            "[套餐名称]" to compactPlanName(packageName),
-            "[完整套餐名称]" to packageName,
-            "[手机号]" to notificationNumber,
-            "[通知号码]" to notificationNumber,
-            "[主流量.已用]" to flowText(primaryUsed),
-            "[主流量.剩余]" to flowText(primaryRemaining),
-            "[主流量.总量]" to primaryTotal?.let(::flowText).orEmpty().ifEmpty { "--" },
-            "[流量共余]" to flowText(totalRemaining),
-            "[总流量]" to totalQuota?.let(::flowText).orEmpty().ifEmpty { "--" },
-            "[在线时长]" to onlineDurationText(usage, updatedAt),
-            "[本次用量]" to usage.intervalUsedMB?.let { flowText(max(0.0, it)) } ?: "--",
-            "[今日用量]" to usage.todayUsedMB?.let { flowText(max(0.0, it)) } ?: "--",
-            "[语音余量]" to voiceRemaining?.let(::minutesText) ?: "--",
-            "[账户余额]" to account.balanceYuan?.takeIf(Double::isFinite)?.let(::balanceText) ?: "--",
-            "[余额]" to account.balanceYuan?.takeIf(Double::isFinite)?.let(::balanceText) ?: "--",
-            "[数据截至]" to dataTimeFormatter.format(updatedAt.atZone(ZoneId.systemDefault())),
-        )
+        val variables = LinkedHashMap<String, String>().apply {
+            put("[套餐名称]", compactPlanName(packageName))
+            put("[完整套餐名称]", packageName)
+            put("[手机号]", notificationNumber)
+            put("[通知号码]", notificationNumber)
+            put("[主流量.已用]", flowText(primaryUsed))
+            put("[主流量.剩余]", flowText(primaryRemaining))
+            put("[主流量.总量]", primaryTotal?.let(::flowText).orEmpty().ifEmpty { "--" })
+            put("[流量共余]", flowText(totalRemaining))
+            put("[总流量]", totalQuota?.let(::flowText).orEmpty().ifEmpty { "--" })
+            put("[在线时长]", onlineDurationText(usage, updatedAt))
+            put("[本次用量]", usage.intervalUsedMB?.let { flowText(max(0.0, it)) } ?: "--")
+            put("[今日用量]", usage.todayUsedMB?.let { flowText(max(0.0, it)) } ?: "--")
+            put("[语音余量]", voiceRemaining?.let(::minutesText) ?: "--")
+            put("[账户余额]", account.balanceYuan?.takeIf(Double::isFinite)?.let(::balanceText) ?: "--")
+            put("[余额]", account.balanceYuan?.takeIf(Double::isFinite)?.let(::balanceText) ?: "--")
+            put("[数据截至]", dataTimeFormatter.format(updatedAt.atZone(ZoneId.systemDefault())))
+        }
 
         val title = replaceVariables(settings.titleTemplate, variables).trim().ifEmpty { "联通余量" }
         val subtitle = replaceVariables(settings.subtitleTemplate, variables).trim()
