@@ -1,5 +1,6 @@
 package com.clxmhcs.chinaunicom.widget
 
+import android.content.ComponentName
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -8,10 +9,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.LocalContext
 import androidx.glance.LocalSize
+import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.action.actionSendBroadcast
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
@@ -28,6 +32,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.clxmhcs.chinaunicom.core.model.WidgetDualSide
 import com.clxmhcs.chinaunicom.core.model.WidgetDualSlotKind
 import com.clxmhcs.chinaunicom.data.integral.AndroidIntegralDiskCache
 import java.time.ZoneId
@@ -76,6 +81,7 @@ class GlanceWidgetUpdateNotifier(private val context: Context) : WidgetUpdateNot
 
 @Composable
 private fun SingleQuotaContent(snapshot: WidgetQuotaSnapshot?) {
+    val context = LocalContext.current
     val size = LocalSize.current
     val isLarge = size.height >= 180.dp
     Column(
@@ -84,7 +90,14 @@ private fun SingleQuotaContent(snapshot: WidgetQuotaSnapshot?) {
         if (snapshot == null) {
             Text("联通余量", style = titleStyle())
             Spacer(GlanceModifier.height(8.dp))
-            Text("请先打开 App 添加并刷新号码", style = secondaryStyle())
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("请先打开 App 添加并刷新号码", modifier = GlanceModifier.defaultWeight(), style = secondaryStyle())
+                Text(
+                    "刷新",
+                    modifier = GlanceModifier.clickable(singleRefreshAction(context)),
+                    style = secondaryStyle(),
+                )
+            }
             return@Column
         }
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -93,6 +106,12 @@ private fun SingleQuotaContent(snapshot: WidgetQuotaSnapshot?) {
                 Text(snapshot.mobile, style = secondaryStyle())
             }
             Text("${formatTime(snapshot.updatedAt)} 更新", style = secondaryStyle())
+            Spacer(GlanceModifier.width(6.dp))
+            Text(
+                "刷新",
+                modifier = GlanceModifier.clickable(singleRefreshAction(context)),
+                style = secondaryStyle(),
+            )
         }
         Spacer(GlanceModifier.height(7.dp))
         Row(modifier = GlanceModifier.fillMaxWidth()) {
@@ -129,9 +148,19 @@ private fun DualQuotaContent(
     Row(
         modifier = GlanceModifier.fillMaxSize().background(ColorProvider(Color.White)).padding(9.dp),
     ) {
-        DualAccountPanel(snapshot?.left, leftIntegral, GlanceModifier.defaultWeight())
+        DualAccountPanel(
+            account = snapshot?.left,
+            integralValue = leftIntegral,
+            side = WidgetDualSide.LEFT,
+            modifier = GlanceModifier.defaultWeight(),
+        )
         Spacer(GlanceModifier.width(8.dp))
-        DualAccountPanel(snapshot?.right, rightIntegral, GlanceModifier.defaultWeight())
+        DualAccountPanel(
+            account = snapshot?.right,
+            integralValue = rightIntegral,
+            side = WidgetDualSide.RIGHT,
+            modifier = GlanceModifier.defaultWeight(),
+        )
     }
 }
 
@@ -139,17 +168,32 @@ private fun DualQuotaContent(
 private fun DualAccountPanel(
     account: WidgetDualAccountSnapshot?,
     integralValue: Int?,
+    side: WidgetDualSide,
     modifier: GlanceModifier,
 ) {
+    val context = LocalContext.current
     Column(modifier = modifier) {
         if (account == null) {
             Text("未绑定号码", style = titleStyle())
-            Text("请在 App 设置中配置", style = secondaryStyle())
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("请在 App 设置中配置", modifier = GlanceModifier.defaultWeight(), style = secondaryStyle())
+                Text(
+                    "刷新",
+                    modifier = GlanceModifier.clickable(dualRefreshAction(context, side)),
+                    style = tinyStyle(),
+                )
+            }
             return@Column
         }
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("••••${account.mobileSuffix}", modifier = GlanceModifier.defaultWeight(), style = titleStyle())
             Text(formatTime(account.updatedAt), style = secondaryStyle())
+            Spacer(GlanceModifier.width(3.dp))
+            Text(
+                "刷新",
+                modifier = GlanceModifier.clickable(dualRefreshAction(context, side)),
+                style = tinyStyle(),
+            )
         }
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             Text("今日 ${formatToday(account.todayUsageGB)}", modifier = GlanceModifier.defaultWeight(), style = secondaryStyle())
@@ -200,6 +244,19 @@ private fun DualCell(item: WidgetDualDashboardItem, integralValue: Int?, modifie
         Text(value, maxLines = 1, style = tinyValueStyle())
     }
 }
+
+private fun singleRefreshAction(context: Context) = actionSendBroadcast(
+    action = WidgetRefreshActionContract.ACTION_REFRESH_SINGLE,
+    componentName = ComponentName(context.packageName, WidgetRefreshActionContract.RECEIVER_CLASS_NAME),
+)
+
+private fun dualRefreshAction(context: Context, side: WidgetDualSide) = actionSendBroadcast(
+    action = when (side) {
+        WidgetDualSide.LEFT -> WidgetRefreshActionContract.ACTION_REFRESH_DUAL_LEFT
+        WidgetDualSide.RIGHT -> WidgetRefreshActionContract.ACTION_REFRESH_DUAL_RIGHT
+    },
+    componentName = ComponentName(context.packageName, WidgetRefreshActionContract.RECEIVER_CLASS_NAME),
+)
 
 private fun formatToday(gb: Double): String {
     if (!gb.isFinite()) return "--"
