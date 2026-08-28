@@ -12,6 +12,7 @@ import android.os.ParcelFileDescriptor
 
 class CaptureVpnService : VpnService() {
     private var tunnelInterface: ParcelFileDescriptor? = null
+    private var packetReader: CaptureTunPacketReader? = null
     private val store by lazy { CaptureRuntimeStore.create(this) }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -29,6 +30,7 @@ class CaptureVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        closePacketReader()
         closeTunnelInterface()
         stopForeground(STOP_FOREGROUND_REMOVE)
         val current = store.readState().state
@@ -69,8 +71,15 @@ class CaptureVpnService : VpnService() {
                 ?: error("系统未返回可用的 VPN 接口")
 
             tunnelInterface = descriptor
+            CapturePacketRuntime.beginSession()
+            packetReader = CaptureTunPacketReader(
+                tunnelInterface = descriptor,
+                onPacket = CapturePacketRuntime::accept,
+                onFailure = ::handlePacketReaderFailure,
+            ).also(CaptureTunPacketReader::start)
             store.writeState(CaptureStateSnapshot(CaptureTunnelState.RUNNING, RUNNING_MESSAGE))
         } catch (error: Exception) {
+            closePacketReader()
             closeTunnelInterface()
             store.writeState(
                 CaptureStateSnapshot(
@@ -83,12 +92,32 @@ class CaptureVpnService : VpnService() {
         }
     }
 
+    private fun handlePacketReaderFailure(error: Throwable) {
+        if (store.readState().state == CaptureTunnelState.STOPPING) return
+        store.writeState(
+            CaptureStateSnapshot(
+                CaptureTunnelState.FAILED,
+                error.message?.take(180) ?: "TUN 包读取失败",
+            ),
+        )
+        closePacketReader()
+        closeTunnelInterface()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
     private fun stopCapture(message: String) {
         store.writeState(CaptureStateSnapshot(CaptureTunnelState.STOPPING, "正在停止抓包"))
+        closePacketReader()
         closeTunnelInterface()
         store.writeState(CaptureStateSnapshot(CaptureTunnelState.STOPPED, message))
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private fun closePacketReader() {
+        packetReader?.close()
+        packetReader = null
     }
 
     private fun closeTunnelInterface() {
@@ -152,6 +181,6 @@ class CaptureVpnService : VpnService() {
         private const val NOTIFICATION_CHANNEL_NAME = "联通余量抓包 VPN"
         private const val NOTIFICATION_TITLE = "联通余量抓包工具"
         private const val NOTIFICATION_ID = 1401
-        private const val RUNNING_MESSAGE = "VPN 捕获骨架已运行；M14-A 尚未启用全量流量转发"
+        private const val RUNNING_MESSAGE = "VPN 已运行；M14-B 正在读取保留网段 IP 包元数据，尚未启用全量流量转发"
     }
 }
