@@ -2,6 +2,8 @@ package com.clxmhcs.chinaunicom.widget
 
 import com.clxmhcs.chinaunicom.core.model.DailyUsageBaseline
 import com.clxmhcs.chinaunicom.core.model.FlowPackage
+import com.clxmhcs.chinaunicom.core.model.PackageCategory
+import com.clxmhcs.chinaunicom.core.model.QuotaType
 import com.clxmhcs.chinaunicom.data.refresh.DailyUsageBaselineStore
 import java.time.Instant
 import java.time.ZoneId
@@ -55,6 +57,9 @@ class WidgetDailyUsageCalculatorTest {
         totalMB = 1000.0,
         usedMB = used,
         remainingMB = 1000.0 - used,
+        detectedQuotaType = QuotaType.LIMITED,
+        detectedCategory = PackageCategory.GENERAL,
+        isShared = false,
     )
 
     private class FakeBaselineStore(
