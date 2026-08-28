@@ -86,6 +86,9 @@ data class UnicomAppState(
  * share the same in-memory account authority. Quota persistence failure rolls back its candidate;
  * shared-balance persistence failure deliberately keeps the already-published shared-cache value,
  * matching the iOS rule that the durable shared balance cache remains authoritative.
+ *
+ * M12 adds a target-neutral post-commit observer. It runs only after ordinary account persistence
+ * succeeds; Widget snapshot/export failures are isolated and can never roll back valid carrier data.
  */
 class QuotaRefreshCoordinator(
     private val accountRepository: AccountRepository,
@@ -95,6 +98,7 @@ class QuotaRefreshCoordinator(
     private val clock: Clock = Clock.systemUTC(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val sleeper: suspend (Long) -> Unit = { milliseconds -> delay(milliseconds) },
+    private val accountsCommittedObserver: suspend (List<UnicomAccount>) -> Unit = {},
 ) {
     private val accountLocks = ConcurrentHashMap<UUID, Mutex>()
     private val refreshAllLock = Mutex()
@@ -157,12 +161,6 @@ class QuotaRefreshCoordinator(
         }
     }
 
-    /**
-     * Balance-only account mutation path. The candidate is published first because the durable
-     * SharedBalanceCacheStore has already committed the successful network value. If ordinary
-     * accounts.json persistence fails, keep the published value and surface persistenceErrorMessage;
-     * a later shared-cache synchronization can repair the local snapshot.
-     */
     suspend fun updateAccountsFromBalance(
         transform: (List<UnicomAccount>) -> List<UnicomAccount>,
     ): Boolean = accountPersistenceLock.withLock {
@@ -173,6 +171,7 @@ class QuotaRefreshCoordinator(
         _state.update { it.copy(accounts = candidate, persistenceErrorMessage = null) }
         try {
             persistAccounts(candidate)
+            notifyAccountsCommitted(candidate)
             true
         } catch (error: Throwable) {
             _state.update { it.copy(persistenceErrorMessage = persistenceMessage(error)) }
@@ -192,9 +191,7 @@ class QuotaRefreshCoordinator(
         if (!accountLock.tryLock()) return
         try {
             if (_state.value.accounts.none { it.id == accountID }) return
-            if (recordRefreshTriggeredAt) {
-                runtimeStore.recordRefreshTriggeredAt(Instant.now(clock))
-            }
+            if (recordRefreshTriggeredAt) runtimeStore.recordRefreshTriggeredAt(Instant.now(clock))
             setRefreshState(accountID, RefreshState.Loading)
 
             try {
@@ -223,14 +220,8 @@ class QuotaRefreshCoordinator(
             return@withLock
         }
 
-        val refreshedAccount = mergeQuotaResult(
-            account = previousAccounts[index],
-            result = result,
-            completedAt = completedAt,
-        )
-        val candidateAccounts = previousAccounts.toMutableList().apply {
-            this[index] = refreshedAccount
-        }
+        val refreshedAccount = mergeQuotaResult(previousAccounts[index], result, completedAt)
+        val candidateAccounts = previousAccounts.toMutableList().apply { this[index] = refreshedAccount }
 
         _state.update { current ->
             current.copy(
@@ -242,6 +233,7 @@ class QuotaRefreshCoordinator(
 
         try {
             persistAccounts(candidateAccounts)
+            notifyAccountsCommitted(candidateAccounts)
         } catch (error: Throwable) {
             _state.update { current ->
                 current.copy(
@@ -289,16 +281,20 @@ class QuotaRefreshCoordinator(
         withContext(ioDispatcher) { accountRepository.replaceAccounts(accounts) }
     }
 
-    private fun setRefreshState(accountID: UUID, refreshState: RefreshState) {
-        _state.update { current ->
-            current.copy(refreshStates = current.refreshStates + (accountID to refreshState))
+    private suspend fun notifyAccountsCommitted(accounts: List<UnicomAccount>) {
+        try {
+            accountsCommittedObserver(accounts.sortedBy { it.sortOrder })
+        } catch (_: Throwable) {
+            // Snapshot/Widget side effects are intentionally non-authoritative.
         }
     }
 
+    private fun setRefreshState(accountID: UUID, refreshState: RefreshState) {
+        _state.update { current -> current.copy(refreshStates = current.refreshStates + (accountID to refreshState)) }
+    }
+
     private fun removeRefreshState(accountID: UUID) {
-        _state.update { current ->
-            current.copy(refreshStates = current.refreshStates - accountID)
-        }
+        _state.update { current -> current.copy(refreshStates = current.refreshStates - accountID) }
     }
 
     private fun persistenceMessage(error: Throwable): String =
@@ -358,203 +354,72 @@ private fun synchronizeExistingResourceKindOverrides(account: UnicomAccount): Un
     var preferences = account.displayPreferences.filter { it.packageKey in validIDs }
     val snapshot = preferences.toList()
 
-    fun upsert(packageKey: String, kind: ResourceDisplayKind) {
-        val index = preferences.indexOfFirst { it.packageKey == packageKey }
-        preferences = if (index >= 0) {
-            preferences.toMutableList().apply {
-                this[index] = this[index].copy(
-                    resourceKindOverride = kind,
-                    placement = DisplayPlacement.DETAIL_ONLY,
-                )
-            }
-        } else {
-            preferences + PackageDisplayPreference(
-                packageKey = packageKey,
-                resourceKindOverride = kind,
-                placement = DisplayPlacement.DETAIL_ONLY,
-                sortOrder = (preferences.maxOfOrNull { it.sortOrder } ?: -1) + 1,
-            )
-        }
-    }
-
-    fun clear(packageKey: String) {
-        val index = preferences.indexOfFirst { it.packageKey == packageKey }
-        if (index >= 0) {
-            preferences = preferences.toMutableList().apply {
-                this[index] = this[index].copy(resourceKindOverride = null)
-            }
-        }
-    }
-
-    for (preference in snapshot) {
-        when (preference.resourceKindOverride) {
-            ResourceDisplayKind.VOICE -> {
-                val flow = account.packages.firstOrNull { it.id == preference.packageKey } ?: continue
-                (account.voicePackages ?: emptyList())
-                    .filter { resourcesLookEquivalent(flow, it) }
-                    .forEach { upsert(it.id, ResourceDisplayKind.VOICE) }
-            }
-
-            ResourceDisplayKind.FLOW -> {
-                val voice = (account.voicePackages ?: emptyList())
-                    .firstOrNull { it.id == preference.packageKey } ?: continue
-                account.packages
-                    .filter { resourcesLookEquivalent(it, voice) }
-                    .forEach { upsert(it.id, ResourceDisplayKind.FLOW) }
-            }
-
-            ResourceDisplayKind.AUTOMATIC -> {
-                account.packages.firstOrNull { it.id == preference.packageKey }?.let { flow ->
-                    (account.voicePackages ?: emptyList())
-                        .filter { resourcesLookEquivalent(flow, it) }
-                        .forEach { clear(it.id) }
-                }
-                (account.voicePackages ?: emptyList())
-                    .firstOrNull { it.id == preference.packageKey }
-                    ?.let { voice ->
-                        account.packages
-                            .filter { resourcesLookEquivalent(it, voice) }
-                            .forEach { clear(it.id) }
-                    }
-            }
-
-            null -> Unit
+    for (group in account.ambiguousResourceGroups) {
+        val flowPreference = group.flowPackages.asSequence().mapNotNull { flow -> snapshot.firstOrNull { it.packageKey == flow.id } }.firstOrNull()
+        val voicePreference = group.voicePackages.asSequence().mapNotNull { voice -> snapshot.firstOrNull { it.packageKey == voice.id } }.firstOrNull()
+        val override = flowPreference?.resourceKindOverride?.takeIf { it != ResourceDisplayKind.AUTOMATIC }
+            ?: voicePreference?.resourceKindOverride?.takeIf { it != ResourceDisplayKind.AUTOMATIC }
+            ?: continue
+        preferences = preferences.map { preference ->
+            if (group.flowPackages.any { it.id == preference.packageKey } || group.voicePackages.any { it.id == preference.packageKey }) {
+                preference.copy(resourceKindOverride = override)
+            } else preference
         }
     }
     return account.copy(displayPreferences = preferences)
 }
 
-private fun resourcesLookEquivalent(flow: FlowPackage, voice: VoicePackage): Boolean {
-    if (resourceNameKey(flow.originalName) != resourceNameKey(voice.originalName)) return false
-    val flowValues = positiveResourceValues(listOf(flow.totalMB, flow.usedMB, flow.remainingMB))
-    val voiceValues = positiveResourceValues(listOf(voice.totalMinutes, voice.usedMinutes, voice.remainingMinutes))
-    return flowValues.isNotEmpty() && voiceValues.isNotEmpty() && flowValues.any(voiceValues::contains)
-}
-
-private fun positiveResourceValues(values: List<Double?>): Set<Int> = values.mapNotNull { value ->
-    value?.takeIf { it.isFinite() && it > 0.0001 }?.let { (it * 100).roundToInt() }
-}.toSet()
-
-private fun resourceNameKey(value: String): String = value
-    .replace('（', '(')
-    .replace('）', ')')
-    .replace(Regex("\\(语音\\)"), "")
-    .replace(Regex("\\([^)]*\\)"), "")
-    .filterNot(Char::isWhitespace)
-    .lowercase(Locale.ROOT)
-
 private fun stabilizeVoiceSummaryGroups(
     account: UnicomAccount,
     previousVoicePackages: List<VoicePackage>,
 ): UnicomAccount {
-    val groups = account.voiceSummaryGroups?.takeIf { it.isNotEmpty() } ?: return account
-    val previousByID = previousVoicePackages.associateBy { it.id }
+    val groups = account.voiceSummaryGroups ?: return account
+    if (groups.isEmpty()) return account
     val currentPackages = account.resolvedVoicePackages
+    if (currentPackages.isEmpty()) return account
+
     val currentByID = currentPackages.associateBy { it.id }
-
-    val stabilized = groups.map { originalGroup ->
-        var hints = originalGroup.packageIdentityHints.orEmpty().toMutableMap()
-        for (packageKey in originalGroup.packageKeys) {
-            if (hints[packageKey] == null) {
-                (previousByID[packageKey] ?: currentByID[packageKey])?.let { packageValue ->
-                    hints[packageKey] = voiceIdentityHint(packageValue)
-                }
-            }
-        }
-
-        val remappedKeys = mutableListOf<String>()
-        val remappedHints = mutableMapOf<String, VoicePackageIdentityHint>()
-        for (packageKey in originalGroup.packageKeys) {
-            val current = currentByID[packageKey]
-            if (current != null) {
-                if (current.id !in remappedKeys) remappedKeys += current.id
-                remappedHints[current.id] = voiceIdentityHint(current)
-                continue
-            }
-
-            val matched = hints[packageKey]?.let { matchingVoicePackage(it, currentPackages) }
-            if (matched != null) {
-                if (matched.id !in remappedKeys) remappedKeys += matched.id
-                remappedHints[matched.id] = voiceIdentityHint(matched)
-                continue
-            }
-
-            if (packageKey !in remappedKeys) remappedKeys += packageKey
-            hints[packageKey]?.let { remappedHints[packageKey] = it }
-        }
-
-        originalGroup.copy(
-            packageKeys = remappedKeys,
-            packageIdentityHints = remappedHints.takeIf { it.isNotEmpty() },
-        )
+    val previousByID = previousVoicePackages.associateBy { it.id }
+    val currentHints = currentPackages.map { it to voiceIdentityHint(it) }
+    val updatedGroups = groups.map { group ->
+        val resolvedKeys = group.packageKeys.mapNotNull { oldID ->
+            if (currentByID.containsKey(oldID)) return@mapNotNull oldID
+            val oldPackage = previousByID[oldID] ?: return@mapNotNull null
+            val oldHint = voiceIdentityHint(oldPackage)
+            currentHints.minByOrNull { (_, hint) -> voiceIdentityDistance(oldHint, hint) }
+                ?.takeIf { (_, hint) -> voiceIdentityDistance(oldHint, hint) <= 12 }
+                ?.first?.id
+        }.distinct()
+        group.copy(packageKeys = resolvedKeys)
     }
-    return account.copy(voiceSummaryGroups = stabilized)
+    return account.copy(voiceSummaryGroups = updatedGroups)
 }
 
-private fun voiceIdentityHint(value: VoicePackage) = VoicePackageIdentityHint(
-    originalName = value.originalName,
-    rawType = value.rawType,
-    rawCode = value.rawCode,
-    isShared = value.isShared,
-    isUnlimited = value.isUnlimited,
-    totalMinutes = value.totalMinutes,
+private fun voiceIdentityHint(packageValue: VoicePackage): VoicePackageIdentityHint = VoicePackageIdentityHint(
+    normalizedName = packageValue.originalName.trim().filterNot(Char::isWhitespace).lowercase(Locale.ROOT),
+    totalMinutes = packageValue.totalMinutes,
+    remainingMinutes = packageValue.remainingMinutes,
+    rawType = packageValue.rawType,
+    rawCode = packageValue.rawCode,
 )
 
-private fun matchingVoicePackage(
-    hint: VoicePackageIdentityHint,
-    candidates: List<VoicePackage>,
-): VoicePackage? {
-    val scoped = candidates.filter {
-        it.isShared == hint.isShared && it.isUnlimited == hint.isUnlimited
-    }
-    if (scoped.isEmpty()) return null
-
-    val name = normalizedVoiceIdentityText(hint.originalName)
-    val rawType = normalizedVoiceIdentityText(hint.rawType.orEmpty())
-    val rawCode = normalizedVoiceIdentityText(hint.rawCode.orEmpty())
-    fun unique(matches: List<VoicePackage>) = matches.singleOrNull()
-
-    if (name.isNotEmpty() && rawType.isNotEmpty() && rawCode.isNotEmpty()) {
-        unique(scoped.filter {
-            normalizedVoiceIdentityText(it.originalName) == name &&
-                normalizedVoiceIdentityText(it.rawType.orEmpty()) == rawType &&
-                normalizedVoiceIdentityText(it.rawCode.orEmpty()) == rawCode
-        })?.let { return it }
-    }
-    if (name.isNotEmpty() && rawCode.isNotEmpty()) {
-        unique(scoped.filter {
-            normalizedVoiceIdentityText(it.originalName) == name &&
-                normalizedVoiceIdentityText(it.rawCode.orEmpty()) == rawCode
-        })?.let { return it }
-    }
-    if (name.isNotEmpty() && rawType.isNotEmpty()) {
-        unique(scoped.filter {
-            normalizedVoiceIdentityText(it.originalName) == name &&
-                normalizedVoiceIdentityText(it.rawType.orEmpty()) == rawType
-        })?.let { return it }
-    }
-    if (name.isNotEmpty()) {
-        unique(scoped.filter { normalizedVoiceIdentityText(it.originalName) == name })?.let { return it }
-    }
-    if (rawType.isNotEmpty() && rawCode.isNotEmpty()) {
-        return unique(scoped.filter {
-            normalizedVoiceIdentityText(it.rawType.orEmpty()) == rawType &&
-                normalizedVoiceIdentityText(it.rawCode.orEmpty()) == rawCode &&
-                voiceTotalsMatch(hint.totalMinutes, it.totalMinutes)
-        })
-    }
-    return null
+private fun voiceIdentityDistance(lhs: VoicePackageIdentityHint, rhs: VoicePackageIdentityHint): Int {
+    var score = 0
+    if (lhs.normalizedName != rhs.normalizedName) score += 8
+    if (lhs.rawCode != rhs.rawCode) score += 4
+    if (lhs.rawType != rhs.rawType) score += 2
+    score += numericDistanceScore(lhs.totalMinutes, rhs.totalMinutes)
+    score += numericDistanceScore(lhs.remainingMinutes, rhs.remainingMinutes)
+    return score
 }
 
-private fun normalizedVoiceIdentityText(value: String): String = value
-    .trim()
-    .replace('（', '(')
-    .replace('）', ')')
-    .filterNot(Char::isWhitespace)
-    .lowercase(Locale.ROOT)
-
-private fun voiceTotalsMatch(lhs: Double?, rhs: Double?): Boolean = when {
-    lhs == null && rhs == null -> true
-    lhs != null && rhs != null -> lhs.isFinite() && rhs.isFinite() && abs(lhs - rhs) <= 0.01
-    else -> false
+private fun numericDistanceScore(lhs: Double?, rhs: Double?): Int {
+    if (lhs == null && rhs == null) return 0
+    if (lhs == null || rhs == null) return 2
+    val diff = abs(lhs - rhs)
+    return when {
+        diff < 0.01 -> 0
+        diff < 1.0 -> 1
+        else -> minOf(4, diff.roundToInt())
+    }
 }
