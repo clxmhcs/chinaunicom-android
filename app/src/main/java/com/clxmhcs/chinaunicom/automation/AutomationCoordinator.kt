@@ -18,72 +18,90 @@ import java.util.concurrent.TimeUnit
 /**
  * M13 automatic-refresh scheduler authority.
  *
- * WorkManager owns durable execution. This class only translates the already-persisted M11 Widget
- * refresh policy into one queued occurrence per configured wall-clock slot. Carrier networking is
- * intentionally absent here and remains behind UnicomRepository.
+ * WorkManager owns one durable, globally serialized Work chain. This class only translates the
+ * already-persisted M11 Widget refresh policy into the nearest configured wall-clock occurrence.
+ * Carrier networking is intentionally absent here and remains behind UnicomRepository.
  */
 object AutomationCoordinator {
     internal const val WORK_TAG = "m13-quota-automation"
-    private const val UNIQUE_WORK_PREFIX = "m13-quota-automation"
+    internal const val UNIQUE_WORK_NAME = "m13-quota-automation"
     private const val MIN_BACKOFF_SECONDS = 10L
 
-    fun synchronize(context: Context) {
+    /**
+     * Reconciles durable work with current settings.
+     *
+     * App startup uses KEEP so reopening the UI cannot cancel an in-flight background refresh.
+     * A user policy change uses REPLACE so stale times are removed immediately.
+     */
+    fun synchronize(
+        context: Context,
+        replaceExisting: Boolean = false,
+    ) {
         val app = context.applicationContext
         val workManager = WorkManager.getInstance(app)
         val policy = AndroidSettingsRepositories.refreshLogic(app)
             .loadWidgetRefreshPolicy()
             .normalized()
 
-        workManager.cancelAllWorkByTag(WORK_TAG)
-        if (!policy.automaticRefreshEnabled) return
+        if (!policy.automaticRefreshEnabled) {
+            workManager.cancelUniqueWork(UNIQUE_WORK_NAME)
+            return
+        }
 
         val now = ZonedDateTime.now()
-        policy.scheduledMinutes.forEach { scheduledMinute ->
-            val target = nextAutomationOccurrence(
-                now = now,
-                scheduledMinute = scheduledMinute,
-                compensationMinutes = policy.compensationMinutes,
-            )
-            enqueueOccurrence(
-                workManager = workManager,
-                policy = policy,
-                scheduledMinute = scheduledMinute,
-                target = target,
-                now = now,
-            )
+        val occurrence = nextPolicyAutomationOccurrence(
+            now = now,
+            scheduledMinutes = policy.scheduledMinutes,
+            compensationMinutes = policy.compensationMinutes,
+        ) ?: run {
+            workManager.cancelUniqueWork(UNIQUE_WORK_NAME)
+            return
         }
+
+        enqueueOccurrence(
+            workManager = workManager,
+            policy = policy,
+            occurrence = occurrence,
+            now = now,
+            existingWorkPolicy = if (replaceExisting) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
+        )
     }
 
-    /** Called only after a scheduled occurrence reaches a terminal result. */
-    internal fun enqueueFollowing(
-        context: Context,
-        scheduledMinute: Int,
-    ) {
+    /**
+     * Appends exactly one next configured occurrence to the same unique chain. This is invoked only
+     * after the current scheduled occurrence reaches a terminal domain result, so automatic carrier
+     * refreshes stay serialized even when Android releases delayed work after Doze.
+     */
+    internal fun enqueueFollowing(context: Context) {
         val app = context.applicationContext
         val policy = AndroidSettingsRepositories.refreshLogic(app)
             .loadWidgetRefreshPolicy()
             .normalized()
-        if (!policy.automaticRefreshEnabled || scheduledMinute !in policy.scheduledMinutes) return
+        if (!policy.automaticRefreshEnabled) return
 
         val now = ZonedDateTime.now()
-        val target = nextFutureAutomationOccurrence(now, scheduledMinute)
+        val occurrence = nextFuturePolicyAutomationOccurrence(
+            now = now,
+            scheduledMinutes = policy.scheduledMinutes,
+        ) ?: return
+
         enqueueOccurrence(
             workManager = WorkManager.getInstance(app),
             policy = policy,
-            scheduledMinute = scheduledMinute,
-            target = target,
+            occurrence = occurrence,
             now = now,
+            existingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE,
         )
     }
 
     private fun enqueueOccurrence(
         workManager: WorkManager,
         policy: WidgetRefreshPolicy,
-        scheduledMinute: Int,
-        target: ZonedDateTime,
+        occurrence: AutomationOccurrence,
         now: ZonedDateTime,
+        existingWorkPolicy: ExistingWorkPolicy,
     ) {
-        val delayMillis = Duration.between(now.toInstant(), target.toInstant())
+        val delayMillis = Duration.between(now.toInstant(), occurrence.targetAt.toInstant())
             .toMillis()
             .coerceAtLeast(0L)
         val backoffSeconds = policy.failureRetrySeconds.toLong().coerceAtLeast(MIN_BACKOFF_SECONDS)
@@ -95,24 +113,28 @@ object AutomationCoordinator {
             )
             .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
             .setBackoffCriteria(BackoffPolicy.LINEAR, backoffSeconds, TimeUnit.SECONDS)
-            .setInputData(workDataOf(QuotaRefreshWorker.KEY_SCHEDULED_MINUTE to scheduledMinute))
+            .setInputData(
+                workDataOf(QuotaRefreshWorker.KEY_SCHEDULED_MINUTE to occurrence.scheduledMinute),
+            )
             .addTag(WORK_TAG)
             .build()
 
         workManager.enqueueUniqueWork(
-            occurrenceWorkName(scheduledMinute, target),
-            ExistingWorkPolicy.KEEP,
+            UNIQUE_WORK_NAME,
+            existingWorkPolicy,
             request,
         )
     }
-
-    private fun occurrenceWorkName(scheduledMinute: Int, target: ZonedDateTime): String =
-        "$UNIQUE_WORK_PREFIX-${target.toInstant().epochSecond}-$scheduledMinute"
 }
+
+internal data class AutomationOccurrence(
+    val scheduledMinute: Int,
+    val targetAt: ZonedDateTime,
+)
 
 /**
  * Initial synchronization may compensate a just-missed slot, matching the existing M11 policy.
- * Once the compensation window has passed, the slot is queued for the next local day.
+ * Once the compensation window has passed, that individual slot is considered for the next day.
  */
 internal fun nextAutomationOccurrence(
     now: ZonedDateTime,
@@ -133,7 +155,7 @@ internal fun nextAutomationOccurrence(
     }
 }
 
-/** Strictly future occurrence used after a Worker finishes, preventing same-window reschedule loops. */
+/** Strictly future occurrence for one configured wall-clock minute. */
 internal fun nextFutureAutomationOccurrence(
     now: ZonedDateTime,
     scheduledMinute: Int,
@@ -144,3 +166,34 @@ internal fun nextFutureAutomationOccurrence(
         .plusMinutes(minute.toLong())
     return if (todayTarget.isAfter(now)) todayTarget else todayTarget.plusDays(1)
 }
+
+/** Chooses one nearest initial occurrence across the complete normalized policy. */
+internal fun nextPolicyAutomationOccurrence(
+    now: ZonedDateTime,
+    scheduledMinutes: List<Int>,
+    compensationMinutes: Int,
+): AutomationOccurrence? = scheduledMinutes
+    .filter { it in 0 until 24 * 60 }
+    .distinct()
+    .map { minute ->
+        AutomationOccurrence(
+            scheduledMinute = minute,
+            targetAt = nextAutomationOccurrence(now, minute, compensationMinutes),
+        )
+    }
+    .minWithOrNull(compareBy<AutomationOccurrence>({ it.targetAt.toInstant() }, { it.scheduledMinute }))
+
+/** Chooses one strictly future occurrence across all configured slots. */
+internal fun nextFuturePolicyAutomationOccurrence(
+    now: ZonedDateTime,
+    scheduledMinutes: List<Int>,
+): AutomationOccurrence? = scheduledMinutes
+    .filter { it in 0 until 24 * 60 }
+    .distinct()
+    .map { minute ->
+        AutomationOccurrence(
+            scheduledMinute = minute,
+            targetAt = nextFutureAutomationOccurrence(now, minute),
+        )
+    }
+    .minWithOrNull(compareBy<AutomationOccurrence>({ it.targetAt.toInstant() }, { it.scheduledMinute }))
