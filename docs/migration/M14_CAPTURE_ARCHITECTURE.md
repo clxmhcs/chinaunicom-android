@@ -18,36 +18,50 @@ Implemented:
 
 Implemented:
 - Nonblocking TUN packet reader using a duplicated file descriptor.
-- Immediate raw-packet decoding into bounded metadata; raw bytes are never retained or persisted.
+- Immediate raw-packet decoding into bounded metadata; raw packet arrays are never persisted.
 - IPv4 metadata decoding with header-length validation, protocol, endpoints, fragmentation state and safe TCP/UDP port extraction.
 - IPv6 base-header decoding with protocol, endpoints and direct TCP/UDP port extraction.
 - Process-local capture session counters for packets, bytes, TCP, UDP and other protocols.
 - Recent metadata ring limited to 128 records.
 - Controller read APIs for future CaptureTool UI.
-- Packet parser/session unit fixtures.
 
-Still deliberately disabled after M14-B:
-- Default-route interception (`0.0.0.0/0`).
+## M14-C — bounded TCP / cleartext HTTP reconstruction
+
+Implemented:
+- Ephemeral TCP segment decoding for direct IPv4/IPv6 TCP packets.
+- IPv4 fragmented packets are excluded from TCP stream reconstruction rather than guessed.
+- Directional TCP stream keys and TCP sequence tracking.
+- Bounded in-memory ordered reconstruction with overlap handling and a small pending out-of-order segment queue.
+- Maximum 64 active directional streams.
+- Maximum 64 KiB per stream and 16 pending segments per stream.
+- HTTP/1.x request and response header detection after `\r\n\r\n` reconstruction.
+- Parsed structured messages contain request method/target/host or response status plus headers only.
+- `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, token/API-key style headers are redacted before publication.
+- HTTP body bytes are never published to `CaptureHttpMessage` and are discarded when the completed header is parsed.
+- Recent structured HTTP messages are process-local and limited to 128 records.
+- `CaptureVpnController` exposes only bounded structured HTTP snapshots for later UI work.
+
+Still deliberately disabled after M14-C:
+- Default-route interception (`0.0.0.0/0` / `::/0`).
 - Packet forwarding back to the network.
 - User-space TCP/IP transport implementation.
 - DNS interception.
-- HTTP stream reconstruction or parsing.
 - HTTPS interception / CONNECT proxying.
 - TLS MITM.
 - CA generation or installation.
 - HAR export.
 - Capture history UI.
 
-The restricted route remains deliberate. M14-B can prove packet I/O and decoding on the reserved route without taking ownership of normal device connectivity. Default-route capture must not be enabled until a bidirectional forwarding path is proven.
+The restricted TEST-NET route remains deliberate. M14-C proves the parser/reassembly path without taking ownership of normal device connectivity. Default-route capture must not be enabled until a bidirectional forwarding path is proven.
 
 ## Authority and privacy boundary
 
-The capture module must not contain China Unicom credentials, login state, `token_online`, cookies, carrier API clients, or existing repository refresh code. Raw packet byte arrays must not be written to SharedPreferences, databases, files, logs, or long-lived collections during M14-B. Only bounded packet metadata and aggregate counters may remain in process memory.
+The capture module must not contain China Unicom credentials, login state, `token_online`, cookies from the carrier repository, carrier API clients, or existing repository refresh code. TUN raw packet arrays must not be written to SharedPreferences, databases, files, logs, or long-lived collections. M14-C permits only bounded ephemeral TCP payload buffering required to reconstruct cleartext HTTP headers; HTTP bodies are not published or persisted, and sensitive authentication/cookie header values are redacted before becoming structured capture records.
 
 ## Planned order
 
 1. M14-A — VPN permission, lifecycle, safe TUN boundary. **Done**
-2. M14-B — packet reader / decoder and session pipeline. **Implemented, awaiting CI**
-3. M14-C — TCP/HTTP reconstruction and filtering.
+2. M14-B — packet reader / decoder and session pipeline. **Done**
+3. M14-C — TCP/HTTP reconstruction and filtering. **Implemented, awaiting CI**
 4. M14-D — HTTPS/TLS architecture and certificate lifecycle.
 5. M14-E — HAR/history/export and capture UI acceptance.
