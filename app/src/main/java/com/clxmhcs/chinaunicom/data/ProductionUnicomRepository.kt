@@ -42,6 +42,14 @@ class ProductionUnicomRepository(
         publishCommittedAccounts()
     }
 
+    override suspend fun refreshAutomation(includeBalance: Boolean) {
+        quotaRepository.refreshAll()
+        if (includeBalance) {
+            balanceRepository.refreshBalancesIfNeeded()
+        }
+        publishCommittedAccounts()
+    }
+
     override suspend fun reloadAccountsFromPersistence() {
         reloadAccountsFromPersistenceAction()
         publishCommittedAccounts()
