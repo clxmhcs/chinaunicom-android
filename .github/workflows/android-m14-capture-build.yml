@@ -58,6 +58,8 @@ jobs:
           MODELS=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureModels.kt
           PACKET_MODELS=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CapturePacketModels.kt
           DECODER=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureIpPacketDecoder.kt
+          TCP_DECODER=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureTcpSegmentDecoder.kt
+          HTTP_PIPELINE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureHttpStreamPipeline.kt
           READER=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureTunPacketReader.kt
           STORE=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureRuntimeStore.kt
           CONTROLLER=capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureVpnController.kt
@@ -65,13 +67,15 @@ jobs:
           CONFIG_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureConfigurationTest.kt
           DECODER_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureIpPacketDecoderTest.kt
           RUNTIME_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CapturePacketRuntimeTest.kt
+          TCP_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureTcpSegmentDecoderTest.kt
+          HTTP_TEST=capture/src/test/java/com/clxmhcs/chinaunicom/capture/CaptureHttpStreamPipelineTest.kt
           DOC=docs/migration/M14_CAPTURE_ARCHITECTURE.md
 
-          for file in "$ROOT" "$APP_BUILD" "$CAPTURE_BUILD" "$MANIFEST" "$MODELS" "$PACKET_MODELS" "$DECODER" "$READER" "$STORE" "$CONTROLLER" "$SERVICE" "$CONFIG_TEST" "$DECODER_TEST" "$RUNTIME_TEST" "$DOC"; do test -f "$file"; done
+          for file in "$ROOT" "$APP_BUILD" "$CAPTURE_BUILD" "$MANIFEST" "$MODELS" "$PACKET_MODELS" "$DECODER" "$TCP_DECODER" "$HTTP_PIPELINE" "$READER" "$STORE" "$CONTROLLER" "$SERVICE" "$CONFIG_TEST" "$DECODER_TEST" "$RUNTIME_TEST" "$TCP_TEST" "$HTTP_TEST" "$DOC"; do test -f "$file"; done
 
           grep -q 'include(":capture")' "$ROOT"
           grep -q 'implementation(project(":capture"))' "$APP_BUILD"
-          grep -q 'm14b1' "$APP_BUILD"
+          grep -q 'm14c1' "$APP_BUILD"
           grep -q 'minSdk = 30' "$CAPTURE_BUILD"
 
           grep -q 'android.permission.FOREGROUND_SERVICE' "$MANIFEST"
@@ -85,10 +89,14 @@ jobs:
           grep -q 'startForegroundService' "$CONTROLLER"
           grep -q 'readPacketSession' "$CONTROLLER"
           grep -q 'readRecentPacketMetadata' "$CONTROLLER"
+          grep -q 'readHttpSession' "$CONTROLLER"
+          grep -q 'readRecentHttpMessages' "$CONTROLLER"
 
           grep -q 'class CaptureVpnService : VpnService()' "$SERVICE"
           grep -q 'CaptureTunPacketReader' "$SERVICE"
           grep -q 'CapturePacketRuntime.beginSession' "$SERVICE"
+          grep -q 'CaptureHttpRuntime.beginSession' "$SERVICE"
+          grep -q 'onTcpSegment' "$SERVICE"
           grep -q 'setMtu(MTU)' "$SERVICE"
           grep -q 'addAddress(TUN_ADDRESS, TUN_PREFIX_LENGTH)' "$SERVICE"
           grep -q 'addRoute(SAFE_ROUTE_ADDRESS, SAFE_ROUTE_PREFIX_LENGTH)' "$SERVICE"
@@ -101,19 +109,39 @@ jobs:
           grep -q 'Os.read' "$READER"
           grep -q 'ParcelFileDescriptor.dup' "$READER"
           grep -q 'CaptureIpPacketDecoder.decode' "$READER"
+          grep -q 'CaptureTcpSegmentDecoder.decode' "$READER"
           grep -q 'RECENT_PACKET_LIMIT = 128' "$PACKET_MODELS"
           grep -q 'CaptureIpVersion.IPV4' "$DECODER"
           grep -q 'CaptureIpVersion.IPV6' "$DECODER"
           grep -q 'IPV4_FRAGMENT_OFFSET_MASK' "$DECODER"
+
+          grep -q 'data class CaptureTcpSegment' "$TCP_DECODER"
+          grep -q 'IPV4_FRAGMENT_OFFSET_MASK' "$TCP_DECODER"
+          grep -q 'payload.copyOfRange' "$TCP_DECODER"
+          grep -q 'class CaptureHttpStreamPipeline' "$HTTP_PIPELINE"
+          grep -q 'MAX_STREAMS = 64' "$HTTP_PIPELINE"
+          grep -q 'MAX_STREAM_BYTES = 64 \* 1024' "$HTTP_PIPELINE"
+          grep -q 'MAX_PENDING_SEGMENTS = 16' "$HTTP_PIPELINE"
+          grep -q 'MAX_HEADER_BYTES = 32 \* 1024' "$HTTP_PIPELINE"
+          grep -q 'RECENT_MESSAGE_LIMIT = 128' "$HTTP_PIPELINE"
+          grep -q 'REDACTED = "\[REDACTED\]"' "$HTTP_PIPELINE"
+          grep -q '"authorization"' "$HTTP_PIPELINE"
+          grep -q '"cookie"' "$HTTP_PIPELINE"
+          grep -q '"set-cookie"' "$HTTP_PIPELINE"
+          ! grep -q 'val body:' "$HTTP_PIPELINE"
+
           grep -q 'chinaunicom.capture.runtime.v1' "$STORE"
           grep -q 'decodesIpv4UdpEndpointsWithoutRetainingPayload' "$DECODER_TEST"
           grep -q 'decodesDirectIpv6TcpEndpoints' "$DECODER_TEST"
           grep -q 'sessionTracksCountsAndBoundsRecentMetadata' "$RUNTIME_TEST"
-          grep -q 'raw bytes are never retained or persisted' "$DOC"
+          grep -q 'decodesIpv4TcpPayloadWithoutPersistingPacket' "$TCP_TEST"
+          grep -q 'reconstructsSplitRequestAndRedactsSensitiveHeaders' "$HTTP_TEST"
+          grep -q 'runtimeKeepsOnlyBoundedStructuredMessages' "$HTTP_TEST"
+          grep -q 'HTTP body bytes are never published' "$DOC"
 
           ! grep -Eq '0\.0\.0\.0|::/0|addRoute\([^,]+,[[:space:]]*0\)' "$SERVICE"
-          ! grep -Eqi 'FileOutputStream|ParcelFileDescriptor\.AutoCloseOutputStream|okhttp3|SSLSocket|X509|CertificateFactory|CONNECT[[:space:]]|HARWriter|MITM' capture/src/main/java
-          ! grep -Eqi 'SharedPreferences|FileOutputStream|openFileOutput|SQLite|RoomDatabase' "$PACKET_MODELS" "$DECODER" "$READER"
+          ! grep -Eqi 'FileOutputStream|ParcelFileDescriptor\.AutoCloseOutputStream|okhttp3|SSLSocket|SSLContext|TrustManager|KeyManager|X509|CertificateFactory|HARWriter|MITM' capture/src/main/java
+          ! grep -Eqi 'SharedPreferences|FileOutputStream|openFileOutput|SQLite|RoomDatabase' "$PACKET_MODELS" "$DECODER" "$TCP_DECODER" "$HTTP_PIPELINE" "$READER"
           ! grep -Eqi 'token_online|idcardlastsix|cookie[[:space:]]*[:=]|ecstest2018|m\.client\.10010\.com|m\.10155\.com|UnicomAPIClient|LoginQuotaRefreshClient' capture/src/main/java
 
           echo "M14_CAPTURE_BOUNDARY=PASS"
