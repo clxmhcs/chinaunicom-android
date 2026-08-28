@@ -247,7 +247,8 @@ class UnicomAppointmentTicketClient(
         return value.toString().trim().takeIf { it.isNotEmpty() }
     }
 
-    private fun JSONObject.firstText(vararg keys: String): String? = keys.firstNotNullOfOrNull(::text)
+    private fun JSONObject.firstText(vararg keys: String): String? =
+        keys.firstNotNullOfOrNull { key -> text(key) }
 
     private fun JSONObject.firstInt(vararg keys: String): Int? = keys.firstNotNullOfOrNull { key ->
         val value = opt(key)
