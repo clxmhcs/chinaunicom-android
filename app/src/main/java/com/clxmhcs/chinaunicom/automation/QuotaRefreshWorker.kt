@@ -3,9 +3,9 @@ package com.clxmhcs.chinaunicom.automation
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import androidx.work.workDataOf
 import com.clxmhcs.chinaunicom.data.UnicomRepositoryProvider
 import com.clxmhcs.chinaunicom.data.settings.AndroidSettingsRepositories
+import kotlinx.coroutines.CancellationException
 
 /**
  * Durable M13 automatic-refresh execution entry.
@@ -41,8 +41,10 @@ class QuotaRefreshWorker(
                     scheduledMinute = scheduledMinute,
                 )
             }
-            AutomationCoordinator.enqueueFollowing(applicationContext, scheduledMinute)
+            AutomationCoordinator.enqueueFollowing(applicationContext)
             Result.success()
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Throwable) {
             if (runAttemptCount < MAX_RETRY_ATTEMPTS) {
                 Result.retry()
@@ -53,19 +55,16 @@ class QuotaRefreshWorker(
                         error = error,
                     )
                 }
-                AutomationCoordinator.enqueueFollowing(applicationContext, scheduledMinute)
-                Result.failure(
-                    workDataOf(
-                        KEY_FAILURE_MESSAGE to (error.message?.take(240) ?: error::class.java.simpleName),
-                    ),
-                )
+                AutomationCoordinator.enqueueFollowing(applicationContext)
+                // The current scheduled occurrence is terminal after bounded retries. Mark the
+                // Work node successful so its already-appended future occurrence is not poisoned.
+                Result.success()
             }
         }
     }
 
     companion object {
         internal const val KEY_SCHEDULED_MINUTE = "scheduledMinute"
-        private const val KEY_FAILURE_MESSAGE = "failureMessage"
         private const val INVALID_SCHEDULED_MINUTE = -1
         private const val MAX_RETRY_ATTEMPTS = 2
     }
