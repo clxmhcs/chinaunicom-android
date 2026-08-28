@@ -43,11 +43,12 @@ internal object AutomationNotificationContentRenderer {
         val totalUsed = flowPackages.sumOf { max(0.0, it.usedMB ?: 0.0) }
         val totalRemaining = flowPackages.sumOf { max(0.0, it.remainingMB ?: 0.0) }
         val totals = flowPackages.mapNotNull { packageValue ->
-            val total = packageValue.totalMB
+            val rawTotal = packageValue.totalMB
+            val rawUsed = packageValue.usedMB
+            val rawRemaining = packageValue.remainingMB
             when {
-                total != null && total.isFinite() && total > 0 -> max(0.0, total)
-                packageValue.usedMB != null && packageValue.remainingMB != null ->
-                    max(0.0, packageValue.usedMB) + max(0.0, packageValue.remainingMB)
+                rawTotal != null && rawTotal.isFinite() && rawTotal > 0 -> max(0.0, rawTotal)
+                rawUsed != null && rawRemaining != null -> max(0.0, rawUsed) + max(0.0, rawRemaining)
                 else -> null
             }
         }
