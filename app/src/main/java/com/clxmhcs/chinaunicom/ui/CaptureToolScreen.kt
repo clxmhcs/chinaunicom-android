@@ -58,16 +58,13 @@ import java.util.Locale
 
 private const val MAX_IMPORTED_CERTIFICATE_BYTES = 512 * 1024
 
-/** M14-E functional CaptureTool UI. Visual parity is intentionally deferred to the later UI pass. */
+/** M14-E functional CaptureTool UI. Visual parity remains deferred to the final UI pass. */
 @Composable
 fun CaptureToolScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     var selectedMessage by remember { mutableStateOf<CaptureHttpMessage?>(null) }
-    if (selectedMessage != null) {
-        CaptureHttpMessageDetailScreen(
-            message = selectedMessage!!,
-            onBack = { selectedMessage = null },
-        )
+    selectedMessage?.let { message ->
+        CaptureHttpMessageDetailScreen(message = message, onBack = { selectedMessage = null })
         return
     }
 
@@ -109,7 +106,7 @@ fun CaptureToolScreen(onBack: () -> Unit) {
     ) {
         if (CaptureVpnController.isPermissionGranted(context)) {
             CaptureVpnController.start(context)
-            operationMessage = "VPN 授权已完成，正在启动抓包服务"
+            operationMessage = "VPN 授权完成，正在启动抓包服务"
         } else {
             operationMessage = "未获得系统 VPN 授权"
         }
@@ -139,7 +136,7 @@ fun CaptureToolScreen(onBack: () -> Unit) {
                 } ?: error("无法读取证书文件")
                 CaptureVpnController.registerRootCertificate(bytes)
                 refresh()
-                "根证书已导入；如需 HTTPS 架构测试，请按系统设置手动安装"
+                "根证书已导入；如需测试证书生命周期，请在系统设置中手动安装 CA"
             }.getOrElse { "证书导入失败：${it.message ?: "未知错误"}" }
         }
     }
@@ -166,21 +163,17 @@ fun CaptureToolScreen(onBack: () -> Unit) {
 
     val keyword = searchText.trim()
     val filteredRecords = remember(records, keyword) {
-        if (keyword.isEmpty()) {
-            records
-        } else {
-            records.filter { message ->
-                listOfNotNull(
-                    message.method,
-                    message.target,
-                    message.host,
-                    message.statusCode?.toString(),
-                    message.streamID,
-                ).any { it.contains(keyword, ignoreCase = true) } ||
-                    message.headers.any { (name, value) ->
-                        name.contains(keyword, ignoreCase = true) || value.contains(keyword, ignoreCase = true)
-                    }
-            }
+        if (keyword.isEmpty()) records else records.filter { message ->
+            listOfNotNull(
+                message.method,
+                message.target,
+                message.host,
+                message.statusCode?.toString(),
+                message.streamID,
+            ).any { it.contains(keyword, ignoreCase = true) } ||
+                message.headers.any { (name, value) ->
+                    name.contains(keyword, ignoreCase = true) || value.contains(keyword, ignoreCase = true)
+                }
         }
     }
 
@@ -188,17 +181,7 @@ fun CaptureToolScreen(onBack: () -> Unit) {
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                TextButton(onClick = onBack) { Text("返回") }
-                Text("抓包工具", style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.padding(20.dp))
-            }
-        }
-
+        item { CapturePageHeader(title = "抓包工具", onBack = onBack) }
         item {
             CaptureStatusCard(
                 tunnelState = tunnelState,
@@ -221,7 +204,6 @@ fun CaptureToolScreen(onBack: () -> Unit) {
                 },
             )
         }
-
         item {
             CaptureConfigurationCard(
                 targetHost = targetHost,
@@ -246,7 +228,6 @@ fun CaptureToolScreen(onBack: () -> Unit) {
                 },
             )
         }
-
         item {
             CaptureTlsCard(
                 enabled = mitmEnabled,
@@ -269,7 +250,7 @@ fun CaptureToolScreen(onBack: () -> Unit) {
                             excludedHosts = parseHostList(excludedHosts),
                         ),
                     )
-                    operationMessage = "HTTPS/MITM 配置已保存；当前真实 TLS 解密能力仍为关闭"
+                    operationMessage = "HTTPS/MITM 配置已保存；真实 TLS 解密仍保持关闭"
                     refresh()
                 },
                 onImportCertificate = {
@@ -307,61 +288,35 @@ fun CaptureToolScreen(onBack: () -> Unit) {
                 },
             )
         }
-
-        item {
-            operationMessage?.let {
+        operationMessage?.let { message ->
+            item {
                 Text(
-                    text = it,
+                    text = message,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
         }
-
         item {
-            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text("抓包记录", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "仅显示当前进程内最多 128 条结构化 HTTP Header 记录；不保存 HTTP Body，也不写数据库。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    OutlinedTextField(
-                        value = searchText,
-                        onValueChange = { searchText = it },
-                        label = { Text("搜索 Host / URL / Method / 状态码") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = {
-                                CaptureHistoryStore.clear()
-                                refresh()
-                                operationMessage = "当前抓包记录已清空"
-                            },
-                            enabled = records.isNotEmpty(),
-                        ) { Text("清空") }
-                        Button(
-                            onClick = {
-                                operationMessage = runCatching {
-                                    pendingHarBytes = CaptureToolFacade.makeHarExport()
-                                    harExportLauncher.launch(CaptureHarExporter.defaultFileName())
-                                    "正在选择 HAR 导出位置"
-                                }.getOrElse { "HAR 导出失败：${it.message ?: "未知错误"}" }
-                            },
-                            enabled = records.isNotEmpty(),
-                        ) { Text("导出 HAR") }
-                    }
-                }
-            }
+            CaptureHistoryControls(
+                searchText = searchText,
+                onSearchTextChange = { searchText = it },
+                hasRecords = records.isNotEmpty(),
+                onClear = {
+                    CaptureHistoryStore.clear()
+                    refresh()
+                    operationMessage = "当前抓包记录已清空"
+                },
+                onExport = {
+                    operationMessage = runCatching {
+                        pendingHarBytes = CaptureToolFacade.makeHarExport()
+                        harExportLauncher.launch(CaptureHarExporter.defaultFileName())
+                        "正在选择 HAR 导出位置"
+                    }.getOrElse { "HAR 导出失败：${it.message ?: "未知错误"}" }
+                },
+            )
         }
-
         if (filteredRecords.isEmpty()) {
             item {
                 Text(
@@ -372,14 +327,22 @@ fun CaptureToolScreen(onBack: () -> Unit) {
             }
         } else {
             items(filteredRecords, key = { it.messageID }) { message ->
-                CaptureHttpMessageRow(
-                    message = message,
-                    onClick = { selectedMessage = message },
-                )
+                CaptureHttpMessageRow(message = message, onClick = { selectedMessage = message })
             }
         }
-
         item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+@Composable
+private fun CapturePageHeader(title: String, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        TextButton(onClick = onBack) { Text("返回") }
+        Text(title, style = MaterialTheme.typography.headlineSmall)
+        Text("   ")
     }
 }
 
@@ -391,31 +354,22 @@ private fun CaptureStatusCard(
     onStart: () -> Unit,
     onStop: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("运行状态", style = MaterialTheme.typography.titleMedium)
-            Text("VPN：${tunnelState.state.name}")
-            tunnelState.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-            Text("Packet：${packetSession.packetCount}  ·  TCP：${packetSession.tcpPacketCount}  ·  UDP：${packetSession.udpPacketCount}")
-            Text("HTTP：${httpSession.messageCount}  ·  请求：${httpSession.requestCount}  ·  响应：${httpSession.responseCount}")
-            Text(
-                "当前仍使用 192.0.2.0/24 TEST-NET 安全路由，不接管设备默认网络。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = onStart,
-                    enabled = tunnelState.state != CaptureTunnelState.RUNNING && tunnelState.state != CaptureTunnelState.STARTING,
-                ) { Text("开始抓包") }
-                OutlinedButton(
-                    onClick = onStop,
-                    enabled = tunnelState.state != CaptureTunnelState.STOPPED,
-                ) { Text("停止") }
-            }
+    CaptureCard(title = "运行状态") {
+        Text("VPN：${tunnelState.state.name}")
+        tunnelState.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        Text("Packet：${packetSession.packetCount} · TCP：${packetSession.tcpPacketCount} · UDP：${packetSession.udpPacketCount}")
+        Text("HTTP：${httpSession.messageCount} · 请求：${httpSession.requestCount} · 响应：${httpSession.responseCount}")
+        Text(
+            "当前仍使用 192.0.2.0/24 TEST-NET 安全路由，不接管设备默认网络。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = onStart,
+                enabled = tunnelState.state != CaptureTunnelState.RUNNING && tunnelState.state != CaptureTunnelState.STARTING,
+            ) { Text("开始抓包") }
+            OutlinedButton(onClick = onStop, enabled = tunnelState.state != CaptureTunnelState.STOPPED) { Text("停止") }
         }
     }
 }
@@ -432,38 +386,12 @@ private fun CaptureConfigurationCard(
     onAdditionalHostsChange: (String) -> Unit,
     onSave: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("抓包过滤", style = MaterialTheme.typography.titleMedium)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("抓取全部配置主机")
-                Switch(checked = captureAllHosts, onCheckedChange = onCaptureAllHostsChange)
-            }
-            OutlinedTextField(
-                value = targetHost,
-                onValueChange = onTargetHostChange,
-                label = { Text("目标 Host") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = targetPath,
-                onValueChange = onTargetPathChange,
-                label = { Text("目标 Path") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = additionalHosts,
-                onValueChange = onAdditionalHostsChange,
-                label = { Text("附加 Host，逗号分隔") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Button(onClick = onSave) { Text("保存过滤配置") }
-        }
+    CaptureCard(title = "抓包过滤") {
+        ToggleLine("抓取全部配置主机", captureAllHosts, onCaptureAllHostsChange)
+        OutlinedTextField(targetHost, onTargetHostChange, label = { Text("目标 Host") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(targetPath, onTargetPathChange, label = { Text("目标 Path") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(additionalHosts, onAdditionalHostsChange, label = { Text("附加 Host，逗号分隔") }, modifier = Modifier.fillMaxWidth())
+        Button(onClick = onSave) { Text("保存过滤配置") }
     }
 }
 
@@ -486,64 +414,61 @@ private fun CaptureTlsCard(
     onRevokeTrust: () -> Unit,
     onResetCertificate: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("HTTPS / 证书", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "当前仅迁移 TLS/MITM 配置与证书生命周期。动态站点证书签名和真实 TLS 解密仍未启用。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("启用 MITM 配置")
-                Switch(checked = enabled, onCheckedChange = onEnabledChange)
-            }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("HTTPS 规则")
-                Switch(checked = interceptHttps, onCheckedChange = onInterceptHttpsChange)
-            }
-            OutlinedTextField(
-                value = includedHosts,
-                onValueChange = onIncludedHostsChange,
-                label = { Text("包含 Host，逗号分隔") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = excludedHosts,
-                onValueChange = onExcludedHostsChange,
-                label = { Text("排除 Host，逗号分隔") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Button(onClick = onSave) { Text("保存 HTTPS 配置") }
-            HorizontalDivider()
-            Text("证书状态：${certificateSnapshot.state.name}")
-            Text("MITM 状态：${proxySnapshot.state.name}")
-            Text("动态证书：${if (certificateSnapshot.hostCertificateGenerationAvailable) "可用" else "不可用"}")
-            Text("TLS 解密：${if (certificateSnapshot.activeTlsDecryptionAvailable) "可用" else "不可用"}")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onImportCertificate) { Text("导入根证书") }
-                OutlinedButton(
-                    onClick = onExportCertificate,
-                    enabled = certificateSnapshot.hasRootCertificate,
-                ) { Text("导出证书") }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = onConfirmTrust,
-                    enabled = certificateSnapshot.hasRootCertificate && !certificateSnapshot.userConfirmedTrusted,
-                ) { Text("确认已安装") }
-                OutlinedButton(
-                    onClick = onRevokeTrust,
-                    enabled = certificateSnapshot.userConfirmedTrusted,
-                ) { Text("撤销确认") }
-            }
-            TextButton(
-                onClick = onResetCertificate,
-                enabled = certificateSnapshot.hasRootCertificate,
-            ) { Text("重置证书") }
+    CaptureCard(title = "HTTPS / 证书") {
+        Text(
+            "当前仅迁移 TLS/MITM 配置与证书生命周期。动态站点证书签名和真实 TLS 解密仍未启用。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        ToggleLine("启用 MITM 配置", enabled, onEnabledChange)
+        ToggleLine("HTTPS 规则", interceptHttps, onInterceptHttpsChange)
+        OutlinedTextField(includedHosts, onIncludedHostsChange, label = { Text("包含 Host，逗号分隔") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(excludedHosts, onExcludedHostsChange, label = { Text("排除 Host，逗号分隔") }, modifier = Modifier.fillMaxWidth())
+        Button(onClick = onSave) { Text("保存 HTTPS 配置") }
+        HorizontalDivider()
+        Text("证书状态：${certificateSnapshot.state.name}")
+        Text("MITM 状态：${proxySnapshot.state.name}")
+        Text("动态证书：${if (certificateSnapshot.hostCertificateGenerationAvailable) "可用" else "不可用"}")
+        Text("TLS 解密：${if (certificateSnapshot.activeTlsDecryptionAvailable) "可用" else "不可用"}")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onImportCertificate) { Text("导入根证书") }
+            OutlinedButton(onClick = onExportCertificate, enabled = certificateSnapshot.hasRootCertificate) { Text("导出证书") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = onConfirmTrust,
+                enabled = certificateSnapshot.hasRootCertificate && !certificateSnapshot.userConfirmedTrusted,
+            ) { Text("确认已安装") }
+            OutlinedButton(onClick = onRevokeTrust, enabled = certificateSnapshot.userConfirmedTrusted) { Text("撤销确认") }
+        }
+        TextButton(onClick = onResetCertificate, enabled = certificateSnapshot.hasRootCertificate) { Text("重置证书") }
+    }
+}
+
+@Composable
+private fun CaptureHistoryControls(
+    searchText: String,
+    onSearchTextChange: (String) -> Unit,
+    hasRecords: Boolean,
+    onClear: () -> Unit,
+    onExport: () -> Unit,
+) {
+    CaptureCard(title = "抓包记录") {
+        Text(
+            "仅显示当前进程内最多 128 条结构化 HTTP Header 记录；不保存 HTTP Body，也不写数据库。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = onSearchTextChange,
+            label = { Text("搜索 Host / URL / Method / 状态码") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onClear, enabled = hasRecords) { Text("清空") }
+            Button(onClick = onExport, enabled = hasRecords) { Text("导出 HAR") }
         }
     }
 }
@@ -551,10 +476,7 @@ private fun CaptureTlsCard(
 @Composable
 private fun CaptureHttpMessageRow(message: CaptureHttpMessage, onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(onClick = onClick),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -566,11 +488,7 @@ private fun CaptureHttpMessageRow(message: CaptureHttpMessage, onClick: () -> Un
                     style = MaterialTheme.typography.labelLarge,
                     fontFamily = FontFamily.Monospace,
                 )
-                Text(
-                    message.statusCode?.toString() ?: message.kind.name,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text(message.statusCode?.toString() ?: message.kind.name, style = MaterialTheme.typography.labelMedium)
             }
             Text(
                 text = message.host ?: message.target ?: message.streamID,
@@ -579,39 +497,19 @@ private fun CaptureHttpMessageRow(message: CaptureHttpMessage, onClick: () -> Un
                 style = MaterialTheme.typography.bodyMedium,
             )
             message.target?.let {
-                Text(
-                    it,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontFamily = FontFamily.Monospace,
-                )
+                Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
             }
-            Text(
-                formatTime(message.capturedAtEpochMillis),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text(formatTime(message.capturedAtEpochMillis), style = MaterialTheme.typography.labelSmall)
         }
     }
 }
 
 @Composable
 private fun CaptureHttpMessageDetailScreen(message: CaptureHttpMessage, onBack: () -> Unit) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { CapturePageHeader(title = "请求详情", onBack = onBack) }
         item {
-            Row(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onBack) { Text("返回") }
-                Text("请求详情", style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.padding(20.dp))
-            }
-        }
-        item {
-            DetailCard("Overview") {
+            CaptureCard(title = "Overview") {
                 DetailLine("类型", message.kind.name)
                 DetailLine("方法", message.method ?: "—")
                 DetailLine("状态码", message.statusCode?.toString() ?: "—")
@@ -621,12 +519,10 @@ private fun CaptureHttpMessageDetailScreen(message: CaptureHttpMessage, onBack: 
             }
         }
         item {
-            DetailCard("Stream") {
-                Text(message.streamID, fontFamily = FontFamily.Monospace)
-            }
+            CaptureCard(title = "Stream") { Text(message.streamID, fontFamily = FontFamily.Monospace) }
         }
         item {
-            DetailCard("Headers") {
+            CaptureCard(title = "Headers") {
                 if (message.headers.isEmpty()) {
                     Text("无 Header", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
@@ -637,26 +533,31 @@ private fun CaptureHttpMessageDetailScreen(message: CaptureHttpMessage, onBack: 
             }
         }
         item {
-            DetailCard("Body") {
-                Text(
-                    "M14-C/M14-E 安全边界不发布或保存 HTTP Body。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            CaptureCard(title = "Body") {
+                Text("M14-C/M14-E 安全边界不发布或保存 HTTP Body。", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-private fun DetailCard(title: String, content: @Composable Column.() -> Unit) {
+private fun CaptureCard(title: String, content: @Composable () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             content()
         }
+    }
+}
+
+@Composable
+private fun ToggleLine(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label)
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -693,7 +594,5 @@ private fun readLimitedBytes(input: InputStream, maxBytes: Int): ByteArray {
         require(total <= maxBytes) { "证书文件超过 ${maxBytes / 1024} KiB 限制" }
         output.write(buffer, 0, count)
     }
-    val result = output.toByteArray()
-    require(result.isNotEmpty()) { "证书文件为空" }
-    return result
+    return output.toByteArray().also { require(it.isNotEmpty()) { "证书文件为空" } }
 }
