@@ -24,6 +24,9 @@ class AndroidQuotaRefreshRuntimeStore(context: Context) : QuotaRefreshRuntimeSto
         }
     }
 
+    /** Source-equivalent AppStore.clearAll cleanup for the non-secret refresh cooldown marker. */
+    fun clear(): Boolean = preferences.edit().remove(LAST_TRIGGERED_AT_KEY).commit()
+
     companion object {
         private const val PREFERENCES_NAME = "chinaunicom.quota.refresh.runtime.v1"
         private const val LAST_TRIGGERED_AT_KEY = "lastRefreshTriggeredAt"

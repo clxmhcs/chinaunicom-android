@@ -167,6 +167,21 @@ class SettingsRootViewModel(application: Application) : AndroidViewModel(applica
     fun cycleVideoRingEntryMode() = refreshRepository.saveVideoRingRefreshPolicy(videoRingRefreshPolicy.value.copy(entryMode = nextPageEntryMode(videoRingRefreshPolicy.value.entryMode)))
     fun changeVideoRingCache(delta: Int) = refreshRepository.saveVideoRingRefreshPolicy(videoRingRefreshPolicy.value.copy(cacheValidityMinutes = (videoRingRefreshPolicy.value.cacheValidityMinutes + delta).coerceIn(1, 1440)))
 
+    /** Rehydrates long-lived Settings StateFlows after the destructive-maintenance coordinator resets storage. */
+    fun reloadAfterMaintenance() {
+        appSettingsRepository.load()
+        refreshRepository.loadQuotaRefreshPolicy()
+        refreshRepository.loadBalanceRefreshPolicy()
+        refreshRepository.loadOrderedBusinessRefreshPolicy()
+        refreshRepository.loadMyPackageRefreshPolicy()
+        refreshRepository.loadPhoneBillRefreshPolicy()
+        refreshRepository.loadIntegralRefreshPolicy()
+        refreshRepository.loadOrderRefreshPolicy()
+        refreshRepository.loadRebateGiftRefreshPolicy()
+        refreshRepository.loadVideoRingRefreshPolicy()
+        refreshRepository.loadWidgetRefreshPolicy()
+    }
+
     private inline fun saveAppSettings(transform: AppSettings.() -> AppSettings) { appSettingsRepository.save(appSettings.value.transform()) }
     private fun nextCachedMode(current: CachedBusinessEntryMode) = CachedBusinessEntryMode.entries.let { it[(it.indexOf(current) + 1) % it.size] }
     private fun nextPageEntryMode(current: PageEntryRefreshMode) = PageEntryRefreshMode.entries.let { it[(it.indexOf(current) + 1) % it.size] }
@@ -184,6 +199,7 @@ private enum class SettingsM11CPage {
     SHORTCUT_NOTIFICATION,
     CAPTURE_TOOL,
     APP_MANUAL,
+    CLEAR_ACCOUNTS,
 }
 
 @Composable
@@ -196,13 +212,15 @@ fun SettingsRootScreen(
     val appState by settingsViewModel.appState.collectAsState()
     val balanceState by settingsViewModel.balanceState.collectAsState()
     val accounts = appState.accounts.sortedBy { it.sortOrder }
-    val m11cViewModel: SettingsM11CViewModel = viewModel()
+    var maintenanceGeneration by remember { mutableStateOf(0) }
+    var clearSession by remember { mutableStateOf(0) }
+    val m11cViewModel: SettingsM11CViewModel = viewModel(key = "settings-m11c-$maintenanceGeneration")
     val broadbandViewModel: BroadbandAccountViewModel = viewModel()
     val receiptViewModel: ElectronicReceiptViewModel = viewModel()
     val broadbandState by broadbandViewModel.state.collectAsState()
     var page by remember { mutableStateOf<SettingsM11CPage?>(null) }
 
-    LaunchedEffect(accounts.map { it.id }) {
+    LaunchedEffect(accounts.map { it.id }, maintenanceGeneration) {
         m11cViewModel.reconcileMobileAccounts(accounts.map { it.id }.toSet())
     }
 
@@ -246,6 +264,18 @@ fun SettingsRootScreen(
         }
         SettingsM11CPage.APP_MANUAL -> {
             AppManualScreen(closeM11CPage)
+            return
+        }
+        SettingsM11CPage.CLEAR_ACCOUNTS -> {
+            SettingsClearAccountsScreen(
+                viewModel = viewModel(key = "settings-clear-$clearSession"),
+                onAccountsChanged = { clearedAll ->
+                    broadbandViewModel.reload()
+                    if (clearedAll) settingsViewModel.reloadAfterMaintenance()
+                    maintenanceGeneration += 1
+                },
+                onBack = closeM11CPage,
+            )
             return
         }
         null -> Unit
@@ -292,6 +322,15 @@ fun SettingsRootScreen(
             SettingsActionRow("App使用说明书", "本地离线 · 搜索 · 目录 · 继续阅读") { page = SettingsM11CPage.APP_MANUAL }
             Text("Android 最低支持版本：Android 11 / API 30", style = MaterialTheme.typography.bodySmall)
         } }
+        item {
+            SettingsSection("维护") {
+                SettingsActionRow("清空账户与凭据", "需要身份验证 · 支持选择删除 / 全部清空") {
+                    clearSession += 1
+                    page = SettingsM11CPage.CLEAR_ACCOUNTS
+                }
+                Text("全部清空不会删除已经保存的电子受理单 PDF。", style = MaterialTheme.typography.bodySmall)
+            }
+        }
     }
 }
 
