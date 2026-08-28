@@ -21,5 +21,6 @@ dependencies {
     implementation(project(":core:login"))
     implementation(project(":data:account"))
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit4)
 }
