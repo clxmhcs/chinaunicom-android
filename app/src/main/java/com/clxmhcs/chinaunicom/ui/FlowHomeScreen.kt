@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -390,6 +389,7 @@ private fun FlowAccountCard(
         it.isNotEmpty() && it != account.mobile && it != account.packageName
     }
     val cardSurface = MaterialTheme.colorScheme.surface
+    val lastErrorMessage = account.lastErrorMessage
 
     Box(
         modifier = Modifier
@@ -407,7 +407,7 @@ private fun FlowAccountCard(
     ) {
         Box(
             modifier = Modifier
-                .matchParentSize()
+                .fillMaxSize()
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
@@ -553,9 +553,9 @@ private fun FlowAccountCard(
                 }
             }
 
-            if (refreshState is RefreshState.Failed && account.lastErrorMessage?.isNotBlank() == true) {
+            if (refreshState is RefreshState.Failed && lastErrorMessage?.isNotBlank() == true) {
                 Text(
-                    account.lastErrorMessage,
+                    lastErrorMessage,
                     modifier = Modifier.padding(top = 14.dp),
                     fontSize = 12.sp,
                     lineHeight = 17.sp,
@@ -576,9 +576,11 @@ private fun selectedUsageText(account: UnicomAccount, formatter: FlowFormatter):
         "不限量"
     } else {
         val totals = selected.mapNotNull { packageValue ->
+            val packageUsedMB = packageValue.usedMB
+            val packageRemainingMB = packageValue.remainingMB
             packageValue.totalMB?.takeIf { it > 0 }
-                ?: if (packageValue.usedMB != null && packageValue.remainingMB != null) {
-                    packageValue.usedMB.coerceAtLeast(0.0) + packageValue.remainingMB.coerceAtLeast(0.0)
+                ?: if (packageUsedMB != null && packageRemainingMB != null) {
+                    packageUsedMB.coerceAtLeast(0.0) + packageRemainingMB.coerceAtLeast(0.0)
                 } else null
         }
         formatter.string(totals.takeIf { it.isNotEmpty() }?.sum())
