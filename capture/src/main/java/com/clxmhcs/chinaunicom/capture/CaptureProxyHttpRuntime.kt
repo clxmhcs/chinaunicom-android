@@ -35,3 +35,8 @@ internal object CaptureProxyHttpRuntime {
 
     fun recentMessages(): List<CaptureHttpMessage> = synchronized(lock) { recentMessages.toList() }
 }
+
+/** Keeps the proxy publisher callsite explicit without widening CaptureHttpRuntime's public API. */
+internal fun CaptureHttpRuntime.publish(message: CaptureHttpMessage) {
+    CaptureProxyHttpRuntime.publish(message)
+}
