@@ -396,7 +396,7 @@ private fun RemainingFlowSummaryCard(
             }
             if (unlimited != null) {
                 Text(
-                    remainingUnlimitedText(unlimited.speedLimitMB, formatter),
+                    remainingUnlimitedText(unlimited.speedLimitMB),
                     fontSize = 20.sp,
                     lineHeight = 24.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -471,7 +471,7 @@ private fun RemainingFlowSectionCard(
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     if (unlimited != null) {
                         Text(
-                            remainingUnlimitedText(unlimited.speedLimitMB, formatter),
+                            remainingUnlimitedText(unlimited.speedLimitMB),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
@@ -573,7 +573,7 @@ private fun RemainingFlowPackageRow(
             )
             Text(
                 if (packageValue.resolvedIsUnlimited) {
-                    remainingUnlimitedText(packageValue.speedLimitMB, formatter)
+                    remainingUnlimitedText(packageValue.speedLimitMB)
                 } else {
                     "剩余 ${formatter.string(packageValue.remainingMB)} / 共 ${remainingFlowTotalText(packageValue, formatter)}"
                 },
@@ -638,7 +638,7 @@ private data class RemainingCountQuotaConfiguration(
                 updatedAt = snapshot.updatedAt,
                 remainingTitle = "剩余语音",
                 usedTitle = "已用语音",
-                sectionTitle = "语音套餐",
+                sectionTitle = "套餐内语音&语音包",
                 emptyTitle = "暂无语音套餐",
                 emptyDescription = "本次首页刷新没有返回可展示的语音套餐。",
             )
@@ -656,9 +656,9 @@ private data class RemainingCountQuotaConfiguration(
                 updatedAt = snapshot.updatedAt,
                 remainingTitle = "剩余短信",
                 usedTitle = "已用短信",
-                sectionTitle = "短信套餐",
+                sectionTitle = "套餐内短信&短信包",
                 emptyTitle = "暂无短信套餐",
-                emptyDescription = "本次首页刷新没有返回可展示的短信套餐。",
+                emptyDescription = "当前号码暂无可展示的短信套餐。本页使用首页最近一次刷新缓存，不会单独查询。",
             )
         }
     }
@@ -1172,14 +1172,19 @@ private fun remainingFlowTotalText(packageValue: RemainingFlowPackage, formatter
     return formatter.string(total)
 }
 
-private fun remainingUnlimitedText(speedLimitMB: Double?, formatter: FlowFormatter): String {
+private fun remainingUnlimitedText(speedLimitMB: Double?): String {
     val speedLimit = speedLimitMB?.takeIf { it.isFinite() && it > 0.0 } ?: return "不限量"
-    return "不限量·${formatter.string(speedLimit)}限速"
+    val compactLimit = if (speedLimit >= 1024.0) {
+        "${remainingNumber(speedLimit / 1024.0)}G限速"
+    } else {
+        "${remainingNumber(speedLimit)}MB限速"
+    }
+    return "不限量·$compactLimit"
 }
 
 private fun remainingCountText(value: Double?, kind: RemainingCountKind): String {
     val number = remainingNumber(value)
-    return if (number == "--") number else "$number ${kind.unitText}"
+    return if (number == "--") number else "$number${kind.unitText}"
 }
 
 private fun remainingNumber(value: Double?): String {
