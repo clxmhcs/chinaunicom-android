@@ -70,7 +70,7 @@ Implemented against the capabilities that actually exist after M14-D:
 - Editable HTTPS/MITM include/exclude configuration using the existing M14-D store.
 - Certificate state UI with explicit root-certificate import, explicit user export through Android Storage Access Framework, user trust confirmation/revocation and reset.
 - UI always displays that dynamic host-certificate generation and active TLS decryption are unavailable while the M14-D production capability switches are false.
-- Capture history is only a view over M14-C's bounded process-local 128-message ring. `CaptureHistoryStore` does not create a database, preference store or second payload collection.
+- Capture history is a bounded process-local structured-message view; `CaptureHistoryStore` does not create a database, preference store or second payload collection.
 - Search over method, host, target, status, stream ID and already-redacted header values.
 - Detail page for overview, stream and headers. The Body section explicitly states that HTTP bodies are not published or stored.
 - User-requested HAR 1.2 export through the Android Storage Access Framework.
@@ -79,29 +79,43 @@ Implemented against the capabilities that actually exist after M14-D:
 
 Source parity note:
 - The iOS `CaptureRecordHistoryStore` in the supplied source is also in-memory only. Android therefore does not invent durable capture-history persistence in M14-E.
-- The iOS UI/HAR layer can model bodies because its `CaptureRecord` type has body fields; Android M14-C deliberately does not publish body bytes, so M14-E exports only the data its source pipeline actually owns.
+- The user explicitly chose to skip decrypted-capture real-device acceptance; M14-D's disabled TLS-decryption capability remains visible and unchanged.
 
-## M14 is not yet real full-device capture
+## M14-F — source-parity local HTTP/HTTPS proxy forwarding
 
-M14-E does **not** close the remaining transport gap:
-- the VPN still routes only `192.0.2.0/24` TEST-NET traffic;
-- packet forwarding back to the network is not implemented;
-- normal device traffic is not sent through the TUN;
-- therefore ordinary browser/App traffic cannot yet be used as proof of real CaptureTool interception.
+The original Android planning note called M14-F "real bidirectional forwarding/default-route capture". Inspection of the current compiled iOS Packet Tunnel implementation shows that this would exceed the actual iOS behavior: the production iOS provider deliberately keeps only the TEST-NET `192.0.2.0/24` route and attaches an HTTP/HTTPS proxy at `127.0.0.1:9090` because a complete user-space TCP/IP stack is not implemented.
 
-This is intentional. Enabling `0.0.0.0/0` before a proven bidirectional forwarding path would break device connectivity and would create a false-positive capture implementation.
+Android M14-F therefore follows the current iOS behavior instead of inventing a second transport architecture.
 
-Still deliberately disabled after M14-E:
+Implemented:
+- `CaptureLocalProxyServer` binds only to `127.0.0.1:9090`.
+- Android `VpnService.Builder.setHttpProxy(...)` advertises the loopback proxy to applications that honor the VPN HTTP proxy recommendation.
+- The TUN route remains the safe TEST-NET route; `0.0.0.0/0` and `::/0` remain disabled.
+- Every upstream TCP socket is passed to `VpnService.protect(...)` before `connect(...)` to avoid VPN/proxy recursion.
+- HTTP proxy requests are parsed only through the bounded header delimiter.
+- Absolute-form HTTP request targets are rewritten to origin-form before forwarding to the origin server.
+- `Proxy-Connection` and `Proxy-Authorization` are removed from origin forwarding.
+- Plain HTTP request and response bodies are relayed but never copied into capture history.
+- HTTPS `CONNECT host:port` establishes a protected upstream socket, returns `200 Connection Established`, then relays opaque bytes in both directions.
+- Bytes after the CONNECT handshake are never interpreted as TLS plaintext, never passed to the HTTP parser and never persisted.
+- Proxy request/response metadata is published through the same `CaptureHttpHeaderParser`, so sensitive headers are redacted before entering the process-local history.
+- Host/path filters affect recording only; unmatched traffic is still forwarded so capture configuration cannot intentionally break connectivity.
+- Proxy workers and pending accepted connections are bounded.
+- Passive M14-C TUN metadata and M14-F proxy metadata are combined only at the structured history/controller layer, with the visible history still capped at 128 records.
+
+Android platform note:
+- `VpnService.Builder.setHttpProxy(...)` is a proxy recommendation. Android allows applications to ignore it, so M14-F does not claim universal full-device interception.
+- This matches the source-parity goal better than enabling a default route without a complete TCP/IP forwarding stack.
+
+Still deliberately disabled after M14-F:
 - Default-route interception (`0.0.0.0/0` / `::/0`).
-- Packet forwarding back to the network.
-- User-space TCP/IP transport implementation.
+- User-space IP/TCP stack for arbitrary non-proxy traffic.
 - DNS interception.
-- CONNECT proxying.
-- TLS socket relay / TLS MITM.
+- TLS socket termination / TLS MITM.
 - Dynamic host-certificate signing.
 - Automatic CA installation.
 - SNI ClientHello parsing.
-- Persistent packet or HTTP-body history.
+- Persistent packet, TLS payload or HTTP-body history.
 
 ## Authority and privacy boundary
 
@@ -111,11 +125,14 @@ M14-D may write only a user-requested root-certificate export to the app cache. 
 
 M14-E may write structured metadata only when the user explicitly selects an export destination through Android's Storage Access Framework. Capture history itself remains process-local. No automatic HAR export, background capture archive, request body, response body, cookie secret, token or raw packet is persisted.
 
+M14-F may transiently relay HTTP bodies and opaque CONNECT bytes between sockets because forwarding requires it, but those bytes are not published, retained, logged, exported or copied into a capture record. Only bounded/redacted HTTP header metadata enters history.
+
 ## Planned order
 
 1. M14-A — VPN permission, lifecycle, safe TUN boundary. **Done**
 2. M14-B — packet reader / decoder and session pipeline. **Done**
 3. M14-C — TCP/HTTP reconstruction and filtering. **Done**
 4. M14-D — HTTPS/TLS architecture and certificate lifecycle. **Done**
-5. M14-E — HAR/history/export and CaptureTool UI. **Implemented, awaiting CI and UI/device acceptance**
-6. M14-F — real bidirectional forwarding/default-route capture, followed by full real-device CaptureTool acceptance. **Not started**
+5. M14-E — HAR/history/export and CaptureTool UI. **Done; decrypted-capture device acceptance skipped by user**
+6. M14-F — source-parity loopback HTTP proxy + HTTPS CONNECT passthrough. **Implemented; awaiting CI**
+7. Android-FINAL — whole-project regression/security/Android 11 acceptance.

@@ -52,9 +52,21 @@ object CaptureVpnController {
 
     fun readRecentPacketMetadata(): List<CapturePacketMetadata> = CapturePacketRuntime.recentPackets()
 
-    fun readHttpSession(): CaptureHttpSessionSnapshot = CaptureHttpRuntime.snapshot()
+    fun readHttpSession(): CaptureHttpSessionSnapshot {
+        val passive = CaptureHttpRuntime.snapshot()
+        val proxy = CaptureProxyHttpRuntime.snapshot()
+        return CaptureHttpSessionSnapshot(
+            messageCount = passive.messageCount + proxy.messageCount,
+            requestCount = passive.requestCount + proxy.requestCount,
+            responseCount = passive.responseCount + proxy.responseCount,
+            droppedStreamCount = passive.droppedStreamCount + proxy.droppedStreamCount,
+        )
+    }
 
-    fun readRecentHttpMessages(): List<CaptureHttpMessage> = CaptureHttpRuntime.recentMessages()
+    fun readRecentHttpMessages(): List<CaptureHttpMessage> =
+        (CaptureHttpRuntime.recentMessages() + CaptureProxyHttpRuntime.recentMessages())
+            .sortedByDescending { it.capturedAtEpochMillis }
+            .take(128)
 
     fun readMitmConfiguration(context: Context): CaptureMitmConfiguration =
         CaptureTlsConfigurationStore.create(context).read()
