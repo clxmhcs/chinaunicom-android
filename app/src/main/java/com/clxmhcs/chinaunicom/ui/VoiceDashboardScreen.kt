@@ -57,7 +57,7 @@ fun VoiceDashboardScreen(
                     onSelectAccount = { detailAccountID = it.id.toString() },
                 )
             } else {
-                VoiceDashboardContent(
+                IosVoiceDashboardContent(
                     state = state,
                     onOpenAccount = { detailAccountID = it.id.toString() },
                 )
