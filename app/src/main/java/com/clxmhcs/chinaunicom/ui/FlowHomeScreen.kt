@@ -30,7 +30,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -61,8 +60,6 @@ import com.clxmhcs.chinaunicom.core.model.RemainingFlowCategory
 import com.clxmhcs.chinaunicom.core.model.RemainingFlowPackage
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.core.parser.FlowFormatter
-import com.clxmhcs.chinaunicom.core.parser.flowPackageDisplayText
-import com.clxmhcs.chinaunicom.ui.components.UnicomQuotaCard
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -772,90 +769,12 @@ private fun FlowRemainingDetail(
     onSelectAccount: (UnicomAccount) -> Unit,
     onRefreshAccount: () -> Unit,
 ) {
-    val snapshot = account.remainingQuerySnapshot
-    val expanded = remember(account.id) { mutableStateMapOf<RemainingFlowCategory, Boolean>() }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onBack) { Text("返回") }
-                Spacer(Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("余量详情", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(account.mobile, style = MaterialTheme.typography.bodySmall)
-                }
-                TextButton(onClick = onRefreshAccount) { Text("刷新") }
-            }
-        }
-
-        item {
-            AccountSelector(accounts = accounts, selected = account, onSelect = onSelectAccount)
-        }
-
-        if (account.visibleDetailPackages.isNotEmpty()) {
-            item { Text("首页资源", style = MaterialTheme.typography.titleMedium) }
-            items(account.visibleDetailPackages, key = { "root:${it.id}" }) { packageValue ->
-                val display = flowPackageDisplayText(account, packageValue, DisplayUnit.AUTOMATIC)
-                UnicomQuotaCard(
-                    title = display.title,
-                    subtitle = account.mobile,
-                    remaining = display.remainingText,
-                    detail = display.detailText,
-                    progress = display.progress?.toFloat() ?: 0f,
-                )
-            }
-        }
-
-        if (snapshot == null) {
-            item { DashboardMessageCard("当前账号尚无余量查询快照。执行流量刷新后会在这里展示分类余量、套餐和成员数据。") }
-        } else {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("联通余量快照", style = MaterialTheme.typography.titleMedium)
-                    Text("更新时间：${formatTime(snapshot.updatedAt)}", style = MaterialTheme.typography.bodySmall)
-                    if (snapshot.members.isNotEmpty()) {
-                        Text("成员号卡：${snapshot.members.joinToString("、") { it.maskedNumber }}", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-
-            val categoryOrder = listOf(
-                RemainingFlowCategory.GENERAL,
-                RemainingFlowCategory.EXCLUSIVE,
-                RemainingFlowCategory.OTHER,
-            )
-            categoryOrder.forEach { category ->
-                val packages = snapshot.flowPackages.filter { packageValue ->
-                    when (category) {
-                        RemainingFlowCategory.GENERAL -> packageValue.category == RemainingFlowCategory.GENERAL
-                        RemainingFlowCategory.EXCLUSIVE -> packageValue.category == RemainingFlowCategory.EXCLUSIVE
-                        RemainingFlowCategory.OTHER -> packageValue.category == RemainingFlowCategory.OTHER ||
-                            packageValue.category == RemainingFlowCategory.UNKNOWN || packageValue.category == null
-                        RemainingFlowCategory.UNKNOWN -> false
-                    }
-                }
-                val summary = snapshot.flowSummaries.firstOrNull { it.category == category }
-                if (summary != null || packages.isNotEmpty()) {
-                    item(key = "category:${category.rawValue}") {
-                        RemainingFlowCategorySection(
-                            category = category,
-                            summaryRemainingMB = summary?.remainingMB,
-                            summaryUsedMB = summary?.usedMB,
-                            packages = packages,
-                            isExpanded = expanded[category] == true,
-                            onToggle = { expanded[category] = expanded[category] != true },
-                        )
-                    }
-                }
-            }
-
-            item { VoiceSnapshotSummary(account) }
-        }
-    }
+    // RemainingQueryView.swift is a cached-snapshot presentation and does not own refresh or
+    // account-switching authority. Keep the legacy signature so UI-01 call sites stay unchanged,
+    // but delegate UI-02 presentation to the iOS-parity screen.
+    @Suppress("UNUSED_VARIABLE")
+    val legacyAuthority = Triple(accounts, onSelectAccount, onRefreshAccount)
+    IosRemainingQueryScreen(account = account, onBack = onBack)
 }
 
 @Composable
