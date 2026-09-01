@@ -189,7 +189,7 @@ private fun FlowDashboardContent(
                     Text(
                         "共 ${state.accounts.size} 个号码",
                         modifier = Modifier.fillMaxWidth(),
-                        fontSize = 15.sp,
+                        fontSize = 12.86.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
                         textAlign = TextAlign.Center,
                     )
@@ -222,9 +222,9 @@ private fun FlowDashboardHeader(
             ) {
                 Text(
                     "流量",
-                    fontSize = 36.sp,
+                    fontSize = 30.86.sp,
                     lineHeight = 43.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight(467),
                 )
                 FlowBalancePill(
                     balance = homeBalance,
@@ -248,14 +248,14 @@ private fun FlowDashboardHeader(
             Text(
                 "流量数据刷新时，会同步刷新语音相关数据。",
                 modifier = Modifier.weight(1f),
-                fontSize = 12.sp,
+                fontSize = 10.29.sp,
                 lineHeight = 16.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
                 maxLines = 2,
             )
             Text(
                 latest?.let { "已更新：${formatTime(it)}" } ?: "尚未更新",
-                fontSize = 12.sp,
+                fontSize = 10.29.sp,
                 lineHeight = 16.sp,
                 color = Color(0xFF29AD6B),
                 maxLines = 1,
@@ -305,17 +305,17 @@ private fun FlowBalancePill(
     ) {
         Text(
             text,
-            fontSize = 18.sp,
+            fontSize = 15.43.sp,
             lineHeight = 22.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Normal,
             color = Color.Red,
             maxLines = 1,
         )
         Text(
             "›",
-            fontSize = 18.sp,
+            fontSize = 15.43.sp,
             lineHeight = 18.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight(467),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
         )
     }
@@ -350,17 +350,17 @@ private fun FlowRefreshAllPill(
             } else {
                 Text(
                     "↻",
-                    fontSize = 18.sp,
+                    fontSize = 15.43.sp,
                     lineHeight = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Normal,
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
             Text(
                 if (loading) "更新中" else "刷新全部",
-                fontSize = 14.sp,
+                fontSize = 12.sp,
                 lineHeight = 18.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Normal,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled || loading) 1f else 0.42f),
             )
         }
@@ -460,7 +460,7 @@ private fun FlowAccountCard(
                         mobileText,
                         fontSize = 17.14.sp,
                         lineHeight = 21.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Normal,
                         maxLines = 1,
                     )
                     attribution?.let {
@@ -501,7 +501,7 @@ private fun FlowAccountCard(
                     "›",
                     fontSize = 20.sp,
                     lineHeight = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f),
                 )
             }
@@ -611,7 +611,7 @@ private fun FlowSummaryUsageRow(
                 "${summary.name}：",
                 fontSize = 14.sp,
                 lineHeight = 18.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Normal,
                 maxLines = 1,
             )
             Text(
@@ -701,7 +701,7 @@ private fun FlowCardEmptyContent(account: UnicomAccount, modifier: Modifier = Mo
     }
 
     Column(modifier = modifier.padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Text(title, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
+        Text(title, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Normal)
         message?.let {
             Text(
                 it,
@@ -733,10 +733,10 @@ private fun FlowEmptyState() {
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
             contentAlignment = Alignment.Center,
         ) {
-            Text("SIM", color = MaterialTheme.colorScheme.primary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("SIM", color = MaterialTheme.colorScheme.primary, fontSize = 18.sp, fontWeight = FontWeight(467))
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("还没有联通号码", fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold)
+            Text("还没有联通号码", fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.Normal)
             Text(
                 "手动填写手机号和已有 Cookie。凭据只保存在本机安全存储中。",
                 fontSize = 15.sp,
@@ -823,7 +823,7 @@ private fun RemainingFlowCategorySection(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                Text(categoryTitle(category), modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                Text(categoryTitle(category), modifier = Modifier.weight(1f), fontWeight = FontWeight.Normal)
                 summaryRemainingMB?.let { Text("剩余 ${formatter.string(it)}", style = MaterialTheme.typography.bodySmall) }
             }
             summaryUsedMB?.let { Text("已用 ${formatter.string(it)}", style = MaterialTheme.typography.labelSmall) }
@@ -868,7 +868,7 @@ private fun VoiceSnapshotSummary(account: UnicomAccount) {
         tonalElevation = 1.dp,
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("语音余量", fontWeight = FontWeight.SemiBold)
+            Text("语音余量", fontWeight = FontWeight.Normal)
             Text("剩余 ${formatMinutes(voice.remainingMinutes)} · 已用 ${formatMinutes(voice.usedMinutes)}", style = MaterialTheme.typography.bodySmall)
             (voice.packages + voice.unsharedPackages).distinctBy { it.id }.take(6).forEach { packageValue ->
                 Text("${packageValue.name}：剩余 ${formatMinutes(packageValue.remainingMinutes)}", style = MaterialTheme.typography.bodySmall)
