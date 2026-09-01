@@ -37,7 +37,6 @@ import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.core.parser.FlowFormatter
 import com.clxmhcs.chinaunicom.data.integral.IntegralLoadState
 import com.clxmhcs.chinaunicom.data.orderedbusiness.OrderedBusinessRefreshState
-import com.clxmhcs.chinaunicom.data.phonebill.PhoneBillLoadState
 import java.util.Locale
 import java.util.UUID
 
@@ -136,24 +135,11 @@ fun OrderedBusinessEntryScreen(account: UnicomAccount, businessViewModel: Compre
 
 @Composable
 fun PhoneBillEntryScreen(account: UnicomAccount, businessViewModel: ComprehensiveBusinessViewModel, onBack: () -> Unit) {
-    val state by businessViewModel.phoneBillState.collectAsState()
-    LaunchedEffect(account.id) { businessViewModel.loadPhoneBill(account) }
-    EntryList("账单查询", account.mobile, onBack) {
-        item {
-            TextButton(onClick = { businessViewModel.refreshPhoneBill(account) }) {
-                Text(if (state.loadState is PhoneBillLoadState.Loading) "加载中" else "刷新当前月")
-            }
-        }
-        if (state.months.isNotEmpty()) item {
-            Row { state.months.take(6).forEach { month ->
-                TextButton(onClick = { businessViewModel.selectPhoneBillMonth(month, account) }) { Text(month.title) }
-            } }
-        }
-        (state.loadState as? PhoneBillLoadState.Failed)?.let { failure -> item { MessageCard(failure.message) } }
-        state.snapshot?.let { snapshot ->
-            item { MessageCard("${snapshot.month.subtitle} ${snapshot.month.title}\n实付 ${snapshot.summary.realPayFee} 元\n${snapshot.userBills.joinToString("\n") { "${it.mobile}：${it.payable} 元" }}") }
-        } ?: item { MessageCard("暂无账单快照。") }
-    }
+    IosPhoneBillScreen(
+        account = account,
+        businessViewModel = businessViewModel,
+        onBack = onBack,
+    )
 }
 
 @Composable
