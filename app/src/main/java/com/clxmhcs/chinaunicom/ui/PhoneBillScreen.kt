@@ -53,6 +53,7 @@ import com.clxmhcs.chinaunicom.core.model.BillItemSection
 import com.clxmhcs.chinaunicom.core.model.BillMonth
 import com.clxmhcs.chinaunicom.core.model.PhoneBillSnapshot
 import com.clxmhcs.chinaunicom.core.model.PhoneBillSummary
+import com.clxmhcs.chinaunicom.core.model.UnavailableBalanceDetail
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.core.model.UserBill
 import com.clxmhcs.chinaunicom.data.phonebill.PhoneBillCachePolicy
@@ -91,6 +92,8 @@ internal fun IosPhoneBillScreen(
     val policy by businessViewModel.phoneBillRefreshPolicy.collectAsState()
     val settings = LocalAppSettings.current
     var scope by rememberSaveable { mutableStateOf(BillScope.USER.name) }
+    var showsUnavailableBalanceDetail by rememberSaveable { mutableStateOf(false) }
+    val displayMobile = if (settings.hideMobileMiddleDigits) compactMaskMobile(account.mobile) else account.mobile
 
     LaunchedEffect(account.id) { businessViewModel.loadPhoneBill(account) }
 
@@ -100,7 +103,7 @@ internal fun IosPhoneBillScreen(
             .background(BillPageBackground),
     ) {
         PhoneBillHeader(
-            mobile = if (settings.hideMobileMiddleDigits) compactMaskMobile(account.mobile) else account.mobile,
+            mobile = displayMobile,
             months = state.months,
             selectedMonth = state.requestedMonth ?: state.selectedMonth,
             loading = state.loadState is PhoneBillLoadState.Loading,
@@ -124,6 +127,7 @@ internal fun IosPhoneBillScreen(
                             selectedScope = BillScope.valueOf(scope),
                             hideMobileMiddleDigits = settings.hideMobileMiddleDigits,
                             onScopeChange = { scope = it.name },
+                            onOpenUnavailableBalance = { showsUnavailableBalanceDetail = true },
                         )
                     }
                     state.loadState is PhoneBillLoadState.Failed -> {
@@ -140,6 +144,21 @@ internal fun IosPhoneBillScreen(
                 PhoneBillLoadingOverlay()
             }
         }
+    }
+
+    if (showsUnavailableBalanceDetail) {
+        UnavailableBalanceDetailDialog(
+            detail = account.unavailableBalanceDetail ?: UnavailableBalanceDetail(
+                currentBalance = null,
+                unavailableLimitFee = null,
+                frozenFee = null,
+                totalUnavailable = null,
+                limitItems = emptyList(),
+                frozenItems = emptyList(),
+            ),
+            displayMobile = displayMobile,
+            onDismiss = { showsUnavailableBalanceDetail = false },
+        )
     }
 }
 
@@ -284,6 +303,7 @@ private fun PhoneBillContent(
     selectedScope: BillScope,
     hideMobileMiddleDigits: Boolean,
     onScopeChange: (BillScope) -> Unit,
+    onOpenUnavailableBalance: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -305,6 +325,7 @@ private fun PhoneBillContent(
             snapshot = snapshot,
             policy = refreshPolicy,
             modifier = Modifier.padding(horizontal = 7.dp),
+            onOpenUnavailableBalance = onOpenUnavailableBalance,
         )
 
         Surface(
@@ -339,6 +360,7 @@ private fun BillSummaryCard(
     snapshot: PhoneBillSnapshot,
     policy: PhoneBillRefreshPolicy,
     modifier: Modifier = Modifier,
+    onOpenUnavailableBalance: () -> Unit,
 ) {
     val nextQueryTime = remember(snapshot, policy) {
         PhoneBillCachePolicy(PhoneBillPolicyProvider { policy })
@@ -428,15 +450,39 @@ private fun BillSummaryCard(
             }
         }
 
-        Text(
-            "不可用金额  ?",
+        Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 10.dp, end = 10.dp, start = 8.dp, bottom = 6.dp),
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
-            color = BillSecondary,
-        )
+                .padding(top = 10.dp, end = 10.dp)
+                .clip(CircleShape)
+                .clickable(onClick = onOpenUnavailableBalance)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                "不可用金额",
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                color = BillSecondary,
+            )
+            Box(
+                modifier = Modifier
+                    .size(14.dp)
+                    .clip(CircleShape)
+                    .background(BillSecondary.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "?",
+                    fontSize = 9.sp,
+                    lineHeight = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = BillSecondary,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
     }
 }
 
