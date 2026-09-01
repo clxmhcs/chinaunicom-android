@@ -66,6 +66,7 @@ class ComprehensiveBusinessViewModel(
         accountRepository = accountRepository,
     )
     val phoneBillState = phoneBillStore.state
+    val phoneBillRefreshPolicy = settingsRepository.phoneBillRefreshPolicy
 
     val integralStore: IntegralStore = AndroidIntegralStores.create(
         context = appContext,
