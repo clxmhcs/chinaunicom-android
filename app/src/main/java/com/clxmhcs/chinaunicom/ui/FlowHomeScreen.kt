@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -48,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.clxmhcs.chinaunicom.R
 import com.clxmhcs.chinaunicom.core.design.ChinaUnicomColors
 import com.clxmhcs.chinaunicom.core.design.ChinaUnicomDimensions
@@ -77,31 +80,51 @@ fun FlowHomeScreen(
     flowViewModel: FlowViewModel,
 ) {
     val uiState by flowViewModel.uiState.collectAsState()
+    val phoneBillViewModel: ComprehensiveBusinessViewModel = viewModel()
     var detailAccountID by rememberSaveable { mutableStateOf<String?>(null) }
+    var phoneBillAccountID by rememberSaveable { mutableStateOf<String?>(null) }
 
     when (val state = uiState) {
         FlowUiState.Loading -> DashboardMessage("加载中…")
         is FlowUiState.Error -> DashboardMessage(state.message)
         is FlowUiState.Content -> {
+            val phoneBillAccount = phoneBillAccountID?.let { id ->
+                state.accounts.firstOrNull { it.id.toString() == id }
+            }
             val detailAccount = detailAccountID?.let { id ->
                 state.accounts.firstOrNull { it.id.toString() == id }
             }
-            if (detailAccount != null) {
-                FlowRemainingDetail(
-                    account = detailAccount,
-                    accounts = state.accounts,
-                    onBack = { detailAccountID = null },
-                    onSelectAccount = { detailAccountID = it.id.toString() },
-                    onRefreshAccount = { flowViewModel.refreshAccount(detailAccount.id) },
-                )
-            } else {
-                FlowDashboardContent(
-                    state = state,
-                    onRefreshAll = flowViewModel::refresh,
-                    onRefreshBalance = flowViewModel::refreshHomeBalanceManually,
-                    onRefreshAccount = flowViewModel::refreshAccount,
-                    onOpenAccount = { detailAccountID = it.id.toString() },
-                )
+            when {
+                phoneBillAccount != null -> {
+                    PhoneBillEntryScreen(
+                        account = phoneBillAccount,
+                        businessViewModel = phoneBillViewModel,
+                        onBack = { phoneBillAccountID = null },
+                    )
+                }
+                detailAccount != null -> {
+                    FlowRemainingDetail(
+                        account = detailAccount,
+                        accounts = state.accounts,
+                        onBack = { detailAccountID = null },
+                        onSelectAccount = { detailAccountID = it.id.toString() },
+                        onRefreshAccount = { flowViewModel.refreshAccount(detailAccount.id) },
+                    )
+                }
+                else -> {
+                    FlowDashboardContent(
+                        state = state,
+                        onRefreshAll = flowViewModel::refresh,
+                        onRefreshBalance = flowViewModel::refreshHomeBalanceManually,
+                        onOpenBalanceBill = { requestedAccountID ->
+                            val resolvedAccountID = flowViewModel.financialRepresentativeAccountID(requestedAccountID)
+                                ?: requestedAccountID
+                            phoneBillAccountID = resolvedAccountID.toString()
+                        },
+                        onRefreshAccount = flowViewModel::refreshAccount,
+                        onOpenAccount = { detailAccountID = it.id.toString() },
+                    )
+                }
             }
         }
     }
@@ -124,6 +147,7 @@ private fun FlowDashboardContent(
     state: FlowUiState.Content,
     onRefreshAll: () -> Unit,
     onRefreshBalance: () -> Unit,
+    onOpenBalanceBill: (java.util.UUID) -> Unit,
     onRefreshAccount: (java.util.UUID) -> Unit,
     onOpenAccount: (UnicomAccount) -> Unit,
 ) {
@@ -160,11 +184,13 @@ private fun FlowDashboardContent(
                 FlowDashboardHeader(
                     latest = latest,
                     homeBalance = state.homeBalanceAccount?.balanceYuan?.takeIf { it.isFinite() },
+                    homeBalanceAccountID = state.homeBalanceAccount?.id,
                     balanceState = state.balanceState.balanceRefreshState,
                     isRefreshingAll = state.appState.isRefreshingAll,
                     hasAccounts = state.accounts.isNotEmpty(),
                     onRefreshAll = onRefreshAll,
                     onRefreshBalance = onRefreshBalance,
+                    onOpenBalanceBill = onOpenBalanceBill,
                 )
             }
 
@@ -204,11 +230,13 @@ private fun FlowDashboardContent(
 private fun FlowDashboardHeader(
     latest: Instant?,
     homeBalance: Double?,
+    homeBalanceAccountID: java.util.UUID?,
     balanceState: BalanceRefreshState,
     isRefreshingAll: Boolean,
     hasAccounts: Boolean,
     onRefreshAll: () -> Unit,
     onRefreshBalance: () -> Unit,
+    onOpenBalanceBill: (java.util.UUID) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
@@ -230,7 +258,11 @@ private fun FlowDashboardHeader(
                 FlowBalancePill(
                     balance = homeBalance,
                     state = balanceState,
-                    onClick = onRefreshBalance,
+                    canOpenBill = homeBalanceAccountID != null,
+                    onRefresh = onRefreshBalance,
+                    onOpenBill = {
+                        homeBalanceAccountID?.let(onOpenBalanceBill)
+                    },
                 )
             }
 
@@ -269,7 +301,9 @@ private fun FlowDashboardHeader(
 private fun FlowBalancePill(
     balance: Double?,
     state: BalanceRefreshState,
-    onClick: () -> Unit,
+    canOpenBill: Boolean,
+    onRefresh: () -> Unit,
+    onOpenBill: () -> Unit,
 ) {
     val pillBrush = when (state) {
         BalanceRefreshState.LOADING -> Brush.linearGradient(
@@ -295,30 +329,54 @@ private fun FlowBalancePill(
     }
     val text = balance?.let { "[余额：${String.format(Locale.US, "%.2f", it)}元]" } ?: "[余额：--]"
 
-    Row(
+    Box(
         modifier = Modifier
             .clip(CircleShape)
-            .background(pillBrush)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 9.dp, vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .background(pillBrush),
     ) {
-        Text(
-            text,
-            fontSize = 15.43.sp,
-            lineHeight = 22.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color.Red,
-            maxLines = 1,
-        )
-        Text(
-            "›",
-            fontSize = 15.43.sp,
-            lineHeight = 18.sp,
-            fontWeight = FontWeight(467),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text,
+                fontSize = 15.43.sp,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color.Red,
+                maxLines = 1,
+            )
+            Text(
+                "›",
+                fontSize = 15.43.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight(467),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+            )
+        }
+
+        Row(modifier = Modifier.matchParentSize()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable(
+                        onClickLabel = "手动刷新余额",
+                        onClick = onRefresh,
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable(
+                        enabled = canOpenBill,
+                        onClickLabel = "查看话费账单",
+                        onClick = onOpenBill,
+                    ),
+            )
+        }
     }
 }
 
