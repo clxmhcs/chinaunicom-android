@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -399,25 +400,21 @@ private fun FlowAccountCard(
             )
             .clip(shape)
             .background(cardSurface)
+            .drawWithCache {
+                val gradient = Brush.linearGradient(
+                    colors = listOf(
+                        theme.softAccent.copy(alpha = 0.68f),
+                        theme.softAccent.copy(alpha = 0.32f),
+                        Color.Transparent,
+                    ),
+                    start = Offset(size.width, 0f),
+                    end = Offset(size.width * 0.50f, size.height * 0.50f),
+                )
+                onDrawBehind { drawRect(gradient) }
+            }
             .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f), shape)
             .clickable(onClick = onOpen),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            theme.softAccent.copy(alpha = 0.68f),
-                            theme.softAccent.copy(alpha = 0.32f),
-                            Color.Transparent,
-                        ),
-                        center = Offset(1200f, 0f),
-                        radius = 900f,
-                    ),
-                ),
-        )
-
         Image(
             painter = painterResource(R.drawable.china_unicom_knot_watermark),
             contentDescription = null,
