@@ -2,6 +2,7 @@ package com.clxmhcs.chinaunicom.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,18 +49,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.clxmhcs.chinaunicom.R
 import com.clxmhcs.chinaunicom.core.model.DisplayUnit
 import com.clxmhcs.chinaunicom.core.model.FlowPackage
 import com.clxmhcs.chinaunicom.core.model.FlowSummary
@@ -517,7 +524,7 @@ private fun FlowDisplaySettingsDialog(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
-                    .padding(top = 12.dp)
+                    .padding(top = 8.dp)
                     .clip(RoundedCornerShape(topStart = 38.dp, topEnd = 38.dp))
                     .background(FlowDetailBackground),
             ) {
@@ -529,11 +536,11 @@ private fun FlowDisplaySettingsDialog(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 18.dp, top = 12.dp, end = 18.dp, bottom = 36.dp),
-                    verticalArrangement = Arrangement.spacedBy(22.dp),
+                    contentPadding = PaddingValues(start = 18.dp, top = 6.dp, end = 18.dp, bottom = 36.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                     item(key = "preview") {
-                        FlowDisplaySection(title = "首页预览") {
+                        FlowDisplaySection(title = "首页预览", wrapsContentInCard = false) {
                             FlowPreviewAccountCard(
                                 account = account,
                                 formatter = formatter,
@@ -551,8 +558,8 @@ private fun FlowDisplaySettingsDialog(
                                 account.ambiguousResourceGroups.forEach { group ->
                                     Text(
                                         group.displayName,
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                        fontSize = 10.5.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = FlowDetailSecondary,
                                     )
@@ -601,8 +608,8 @@ private fun FlowDisplaySettingsDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { viewModel.addSummaryGroup(account.id) }
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                                fontSize = 15.sp,
+                                    .padding(horizontal = 14.dp, vertical = 11.dp),
+                                fontSize = 13.sp,
                                 color = FlowDetailBlue,
                             )
                         }
@@ -691,7 +698,7 @@ private fun FlowDisplaySettingsTopBar(editMode: Boolean, onToggleEdit: () -> Uni
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(78.dp)
+            .height(58.dp)
             .padding(horizontal = 18.dp),
     ) {
         Surface(
@@ -700,12 +707,12 @@ private fun FlowDisplaySettingsTopBar(editMode: Boolean, onToggleEdit: () -> Uni
                 .clickable(onClick = onToggleEdit),
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 5.dp,
+            shadowElevation = 4.dp,
         ) {
             Text(
                 if (editMode) "结束编辑" else "编辑",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                fontSize = 16.sp,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                fontSize = 14.sp,
                 color = FlowDetailBlue,
             )
         }
@@ -713,7 +720,8 @@ private fun FlowDisplaySettingsTopBar(editMode: Boolean, onToggleEdit: () -> Uni
         Text(
             "显示内容",
             modifier = Modifier.align(Alignment.Center),
-            fontSize = 20.sp,
+            fontSize = 17.sp,
+            lineHeight = 21.sp,
             fontWeight = FontWeight.SemiBold,
         )
 
@@ -723,12 +731,12 @@ private fun FlowDisplaySettingsTopBar(editMode: Boolean, onToggleEdit: () -> Uni
                 .clickable(onClick = onDone),
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 5.dp,
+            shadowElevation = 4.dp,
         ) {
             Text(
                 "完成",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                fontSize = 16.sp,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = FlowDetailBlue,
             )
@@ -740,24 +748,36 @@ private fun FlowDisplaySettingsTopBar(editMode: Boolean, onToggleEdit: () -> Uni
 private fun FlowDisplaySection(
     title: String,
     footer: String? = null,
+    wrapsContentInCard: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(title, modifier = Modifier.padding(start = 18.dp), fontSize = 14.sp, color = FlowDetailSecondary)
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(26.dp),
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 0.dp,
-        ) {
-            Column { content() }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            title,
+            modifier = Modifier.padding(start = 12.dp),
+            fontSize = 12.5.sp,
+            lineHeight = 16.sp,
+            color = FlowDetailSecondary,
+        )
+        if (wrapsContentInCard) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.035f)),
+                shadowElevation = 0.dp,
+            ) {
+                Column { content() }
+            }
+        } else {
+            content()
         }
         if (footer != null) {
             Text(
                 footer,
-                modifier = Modifier.padding(horizontal = 18.dp),
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
+                modifier = Modifier.padding(horizontal = 12.dp),
+                fontSize = 11.sp,
+                lineHeight = 15.dp.value.sp,
                 color = FlowDetailSecondary,
             )
         }
@@ -775,40 +795,103 @@ private fun FlowPreviewAccountCard(
     val selected = account.visibleDetailPackages.filter { it.id in selectedIDs }
     val used = selected.sumOf { it.safeUsedMB }
     val total = selected.mapNotNull { it.totalMB }.sum().takeIf { it > 0.0 }
-    val cardShape = RoundedCornerShape(26.dp)
+    val cardShape = RoundedCornerShape(24.dp)
+    var cardSize by remember { mutableStateOf(IntSize.Zero) }
+    val watermarkSide = with(LocalDensity.current) {
+        (minOf(cardSize.width, cardSize.height) * 0.74f).toDp()
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .onSizeChanged { cardSize = it }
             .clip(cardShape)
             .background(MaterialTheme.colorScheme.surface)
             .drawWithCache {
                 val gradient = Brush.linearGradient(
-                    colors = listOf(Color(0xFFFFE0B8).copy(alpha = 0.75f), Color(0xFFFFE0B8).copy(alpha = 0.35f), Color.Transparent),
+                    colors = listOf(
+                        Color(0xFFFFE0B8).copy(alpha = 0.68f),
+                        Color(0xFFFFE0B8).copy(alpha = 0.32f),
+                        Color.Transparent,
+                    ),
                     start = Offset(size.width, 0f),
                     end = Offset(size.width * 0.50f, size.height * 0.50f),
                 )
                 onDrawBehind { drawRect(gradient) }
             }
-            .padding(horizontal = 18.dp, vertical = 17.dp),
+            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f), cardShape),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("⌘", color = Color(0xFFFF8F1F), fontSize = 18.sp)
-                Spacer(Modifier.width(10.dp))
-                Text(mobile, modifier = Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                Text(account.lastUpdatedAt?.let { flowDetailTimeOnly(it) } ?: "--", fontSize = 13.sp, color = FlowDetailSecondary)
-            }
-            Text(account.packageName.ifBlank { "联通套餐" }, fontSize = 14.sp, color = FlowDetailSecondary)
-            if (selected.isNotEmpty()) {
+        Image(
+            painter = painterResource(R.drawable.china_unicom_knot_watermark),
+            contentDescription = null,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(watermarkSide),
+            alpha = 0.045f,
+        )
+
+        Column(
+            modifier = Modifier.padding(start = 17.dp, top = 16.dp, end = 17.dp, bottom = 15.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.5.dp),
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.china_unicom_knot_watermark),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(Color(0xFFFF8F1F)),
+                    modifier = Modifier.size(15.5.dp),
+                )
                 Text(
-                    "［ 已用：${formatter.string(used)}，总流量：${total?.let(formatter::string) ?: "不限量"} ］",
-                    fontSize = 14.sp,
-                    color = Color(0xFFFF8F1F),
+                    mobile,
+                    modifier = Modifier.weight(1f),
+                    fontSize = 15.5.sp,
+                    lineHeight = 19.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                )
+                Text(
+                    account.lastUpdatedAt?.let { flowDetailTimeOnly(it) } ?: "--",
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    color = FlowDetailSecondary,
+                    maxLines = 1,
                 )
             }
-            account.visibleSummaryGroups.forEach { group ->
-                FlowPreviewSummaryRow(account.summary(group), formatter)
+
+            Column(
+                modifier = Modifier.padding(top = 7.dp),
+                verticalArrangement = Arrangement.spacedBy(6.5.dp),
+            ) {
+                Text(
+                    account.packageName.ifBlank { "联通套餐" },
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
+                    color = FlowDetailSecondary,
+                    maxLines = 1,
+                )
+                if (selected.isNotEmpty()) {
+                    Text(
+                        "［ 已用：${formatter.string(used)}，总流量：${total?.let(formatter::string) ?: "不限量"} ］",
+                        fontSize = 12.8.sp,
+                        lineHeight = 16.sp,
+                        color = Color(0xFFFF8F1F),
+                        maxLines = 1,
+                    )
+                }
+            }
+
+            if (account.visibleSummaryGroups.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.padding(top = 15.5.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.5.dp),
+                ) {
+                    account.visibleSummaryGroups.forEach { group ->
+                        FlowPreviewSummaryRow(account.summary(group), formatter)
+                    }
+                }
             }
         }
     }
@@ -823,21 +906,23 @@ private fun FlowPreviewSummaryRow(summary: FlowSummary, formatter: FlowFormatter
         (used / shownTotal).coerceIn(0.0, 1.0)
     } else summary.usedFraction ?: 0.0
 
-    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(5.5.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("${summary.name}：", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Text("已用 ${formatter.string(summary.usedMB)}", fontSize = 11.sp, color = FlowDetailSecondary)
+            Text("${summary.name}：", fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text("已用 ${formatter.string(summary.usedMB)}", fontSize = 9.5.sp, lineHeight = 12.sp, color = FlowDetailSecondary)
             Spacer(Modifier.weight(1f))
             Text(
                 if (summary.isUnlimited) "不限量" else "剩余 ${formatter.string(summary.remainingMB)}/共 ${formatter.string(summary.totalMB)}",
-                fontSize = 11.sp,
+                fontSize = 9.5.sp,
+                lineHeight = 12.sp,
                 color = FlowDetailSecondary,
+                maxLines = 1,
             )
         }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(5.dp)
+                .height(4.dp)
                 .clip(CircleShape)
                 .background(FlowDetailBlue.copy(alpha = 0.12f)),
         ) {
@@ -845,7 +930,7 @@ private fun FlowPreviewSummaryRow(summary: FlowSummary, formatter: FlowFormatter
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(fraction.toFloat().coerceIn(0f, 1f))
-                        .height(5.dp)
+                        .height(4.dp)
                         .clip(CircleShape)
                         .background(FlowDetailBlue),
                 )
@@ -856,29 +941,86 @@ private fun FlowPreviewSummaryRow(summary: FlowSummary, formatter: FlowFormatter
 
 @Composable
 private fun FlowAmbiguousResourceRow(name: String, kind: String, value: String, glyph: String, onClick: () -> Unit) {
+    val isVoice = kind == "语音候选"
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(34.dp)
-                .clip(RoundedCornerShape(9.dp))
-                .background(FlowDetailBlue.copy(alpha = 0.09f)),
+                .size(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(FlowDetailBlue.copy(alpha = 0.10f)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(glyph, color = FlowDetailBlue, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            FlowCandidateGlyph(isVoice = isVoice)
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(name, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(kind, fontSize = 11.5.sp, color = FlowDetailSecondary)
+            Text(
+                name,
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(kind, fontSize = 10.5.sp, lineHeight = 13.sp, color = FlowDetailSecondary)
         }
-        Text(value, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FlowDetailSecondary, textAlign = TextAlign.End)
-        Text("›", fontSize = 25.sp, color = FlowDetailTertiary)
+        Text(
+            value,
+            fontSize = 11.sp,
+            lineHeight = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = FlowDetailSecondary,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+        )
+        Text("›", fontSize = 14.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, color = FlowDetailTertiary)
+    }
+}
+
+@Composable
+private fun FlowCandidateGlyph(isVoice: Boolean) {
+    Canvas(modifier = Modifier.size(17.dp)) {
+        if (isVoice) {
+            val stroke = size.minDimension * 0.19f
+            drawLine(
+                color = FlowDetailBlue,
+                start = Offset(size.width * 0.25f, size.height * 0.18f),
+                end = Offset(size.width * 0.20f, size.height * 0.48f),
+                strokeWidth = stroke,
+            )
+            drawLine(
+                color = FlowDetailBlue,
+                start = Offset(size.width * 0.20f, size.height * 0.48f),
+                end = Offset(size.width * 0.53f, size.height * 0.80f),
+                strokeWidth = stroke,
+            )
+            drawLine(
+                color = FlowDetailBlue,
+                start = Offset(size.width * 0.53f, size.height * 0.80f),
+                end = Offset(size.width * 0.82f, size.height * 0.74f),
+                strokeWidth = stroke,
+            )
+        } else {
+            val barWidth = size.width * 0.18f
+            val gap = size.width * 0.10f
+            val bottom = size.height * 0.84f
+            val left = size.width * 0.14f
+            listOf(0.42f, 0.66f, 0.88f).forEachIndexed { index, heightFraction ->
+                val h = size.height * heightFraction
+                drawRoundRect(
+                    color = FlowDetailBlue,
+                    topLeft = Offset(left + index * (barWidth + gap), bottom - h),
+                    size = androidx.compose.ui.geometry.Size(barWidth, h),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth * 0.35f, barWidth * 0.35f),
+                )
+            }
+        }
     }
 }
 
@@ -897,38 +1039,38 @@ private fun FlowSummaryManagementRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpen)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(34.dp)
+                .size(30.dp)
                 .clip(RoundedCornerShape(9.dp))
-                .background(FlowDetailBlue.copy(alpha = 0.09f)),
+                .background(FlowDetailBlue.copy(alpha = 0.10f)),
             contentAlignment = Alignment.Center,
         ) {
-            Text("▥", fontSize = 18.sp, color = FlowDetailBlue, fontWeight = FontWeight.Bold)
+            FlowCandidateGlyph(isVoice = false)
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(group.name, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
+            Text(group.name, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 when {
                     summary.packageCount == 0 -> "尚未选择流量包"
                     summary.isUnlimited -> "${formatter.string(summary.usedMB)} / 不限量"
                     else -> "${formatter.string(summary.usedMB)} / ${formatter.string(summary.totalMB)}"
                 },
-                fontSize = 11.5.sp,
+                fontSize = 10.5.sp,
                 color = FlowDetailSecondary,
             )
-            Text("已选 ${summary.packageCount} 个流量包", fontSize = 10.5.sp, color = FlowDetailTertiary)
+            Text("已选 ${summary.packageCount} 个流量包", fontSize = 9.5.sp, color = FlowDetailTertiary)
         }
         if (!group.isVisibleOnHome) Text("首页隐藏", fontSize = 11.sp, color = FlowDetailSecondary)
         if (editMode) {
             Text("↑", modifier = Modifier.clickable(onClick = onMoveUp).padding(5.dp), color = FlowDetailBlue)
             Text("↓", modifier = Modifier.clickable(onClick = onMoveDown).padding(5.dp), color = FlowDetailBlue)
         } else {
-            Text("›", fontSize = 25.sp, color = FlowDetailTertiary)
+            Text("›", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = FlowDetailTertiary)
         }
     }
 }
