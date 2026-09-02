@@ -1,0 +1,43 @@
+name: UI13 Display Settings Refinement Patch
+
+on:
+  push:
+    branches:
+      - ui-13-display-settings-ios-refinement
+    paths:
+      - scripts/ui13_display_settings_refinement.py
+      - .github/workflows/ui13-display-settings-refinement.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ui-13-display-settings-ios-refinement
+
+      - name: Apply iOS-derived refinement
+        run: python3 scripts/ui13_display_settings_refinement.py
+
+      - name: Verify visual parity anchors
+        run: |
+          FILE=app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          grep -F '.height(58.dp)' "$FILE"
+          grep -F 'wrapsContentInCard = false' "$FILE"
+          grep -F 'RoundedCornerShape(24.dp)' "$FILE"
+          grep -F 'copy(alpha = 0.68f)' "$FILE"
+          grep -F 'minOf(cardSize.width, cardSize.height) * 0.74f' "$FILE"
+          grep -F '.size(28.dp)' "$FILE"
+          grep -F 'FlowCandidateGlyph(isVoice = isVoice)' "$FILE"
+
+      - name: Commit app source change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          git commit -m 'UI-13: refine display settings to iOS source'
+          git push origin HEAD:ui-13-display-settings-ios-refinement
