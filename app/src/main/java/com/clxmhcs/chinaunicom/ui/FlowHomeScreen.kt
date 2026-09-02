@@ -1,5 +1,8 @@
 package com.clxmhcs.chinaunicom.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -304,34 +309,107 @@ private fun FlowBalancePill(
     onRefresh: () -> Unit,
     onOpenBill: () -> Unit,
 ) {
-    val pillBrush = when (state) {
-        BalanceRefreshState.LOADING -> Brush.linearGradient(
-            listOf(
-                Color(0x85FF4057),
-                Color(0x85FF8F38),
-                Color(0x855FC77F),
-                Color(0x8533A8FA),
-                Color(0x85756BF9),
-            ),
+    // iOS DashboardView.BalancePillBackground parity:
+    // while loading, choose 5 of 7 colors every 0.85 s and ease between 0.26/0.52 opacity.
+    // The repository already keeps LOADING visible for at least five seconds.
+    val loadingPalette = remember {
+        listOf(
+            Color(red = 1.00f, green = 0.25f, blue = 0.34f),
+            Color(red = 1.00f, green = 0.56f, blue = 0.22f),
+            Color(red = 1.00f, green = 0.84f, blue = 0.22f),
+            Color(red = 0.38f, green = 0.78f, blue = 0.50f),
+            Color(red = 0.20f, green = 0.66f, blue = 0.98f),
+            Color(red = 0.46f, green = 0.42f, blue = 0.98f),
+            Color(red = 0.86f, green = 0.36f, blue = 0.86f),
         )
-        BalanceRefreshState.FAILED -> Brush.horizontalGradient(
-            listOf(Color.Red.copy(alpha = 0.10f), Color(0xFF29AD6B).copy(alpha = 0.12f)),
-        )
-        BalanceRefreshState.IDLE -> Brush.horizontalGradient(
-            listOf(
-                Color(0x6BEDE0FF),
-                Color(0x57EDE0FF),
-                Color(0x4DE6F7E0),
-                Color(0x66E6F7E0),
-            ),
-        )
+    }
+    val initialLoadingColors = remember { loadingPalette.shuffled().take(5) }
+    val animationFraction = remember { Animatable(1f) }
+    var fromLoadingColors by remember { mutableStateOf(initialLoadingColors) }
+    var toLoadingColors by remember { mutableStateOf(initialLoadingColors) }
+    var fromLoadingAlpha by remember { mutableStateOf(0.26f) }
+    var toLoadingAlpha by remember { mutableStateOf(0.26f) }
+
+    LaunchedEffect(state) {
+        if (state != BalanceRefreshState.LOADING) {
+            animationFraction.snapTo(1f)
+            return@LaunchedEffect
+        }
+
+        var currentColors = loadingPalette.shuffled().take(5)
+        var currentAlpha = 0.26f
+        var brighten = true
+        fromLoadingColors = currentColors
+        toLoadingColors = currentColors
+        fromLoadingAlpha = currentAlpha
+        toLoadingAlpha = currentAlpha
+        animationFraction.snapTo(1f)
+
+        while (true) {
+            val nextColors = loadingPalette.shuffled().take(5)
+            val nextAlpha = if (brighten) 0.52f else 0.26f
+            fromLoadingColors = currentColors
+            toLoadingColors = nextColors
+            fromLoadingAlpha = currentAlpha
+            toLoadingAlpha = nextAlpha
+            animationFraction.snapTo(0f)
+            animationFraction.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 850,
+                    easing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f),
+                ),
+            )
+            currentColors = nextColors
+            currentAlpha = nextAlpha
+            brighten = !brighten
+        }
+    }
+
+    val fraction = animationFraction.value.coerceIn(0f, 1f)
+    val loadingAlpha = fromLoadingAlpha + ((toLoadingAlpha - fromLoadingAlpha) * fraction)
+    val loadingColors = List(5) { index ->
+        lerp(fromLoadingColors[index], toLoadingColors[index], fraction).copy(alpha = loadingAlpha)
     }
     val text = balance?.let { "[余额：${String.format(Locale.US, "%.2f", it)}元]" } ?: "[余额：--]"
 
     Box(
         modifier = Modifier
             .clip(CircleShape)
-            .background(pillBrush),
+            .drawWithCache {
+                val idleOverlay = Brush.horizontalGradient(
+                    colorStops = arrayOf(
+                        0.00f to Color(red = 0.93f, green = 0.88f, blue = 1.00f).copy(alpha = 0.42f),
+                        0.34f to Color(red = 0.93f, green = 0.88f, blue = 1.00f).copy(alpha = 0.34f),
+                        0.66f to Color(red = 0.90f, green = 0.97f, blue = 0.88f).copy(alpha = 0.30f),
+                        1.00f to Color(red = 0.90f, green = 0.97f, blue = 0.88f).copy(alpha = 0.40f),
+                    ),
+                )
+                val loadingBrush = Brush.linearGradient(
+                    colors = loadingColors,
+                    start = Offset.Zero,
+                    end = Offset(size.width, size.height),
+                )
+                val failedBrush = Brush.horizontalGradient(
+                    colors = listOf(
+                        Color.Red.copy(alpha = 0.10f),
+                        Color(red = 0f, green = 1f, blue = 0f).copy(alpha = 0.12f),
+                    ),
+                )
+                onDrawBehind {
+                    when (state) {
+                        BalanceRefreshState.LOADING -> drawRect(loadingBrush)
+                        BalanceRefreshState.IDLE -> {
+                            drawRect(Color.Red.copy(alpha = 0.09f))
+                            drawRect(idleOverlay)
+                        }
+                        BalanceRefreshState.FAILED -> {
+                            drawRect(failedBrush)
+                            drawRect(idleOverlay)
+                        }
+                    }
+                }
+            },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
