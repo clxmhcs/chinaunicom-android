@@ -828,7 +828,7 @@ private fun FlowRemainingDetail(
     // but delegate UI-02 presentation to the iOS-parity screen.
     @Suppress("UNUSED_VARIABLE")
     val legacyAuthority = Triple(accounts, onSelectAccount, onRefreshAccount)
-    IosRemainingQueryScreen(account = account, onBack = onBack)
+    FlowAccountDetailScreen(account = account, onBack = onBack, onRefresh = onRefreshAccount)
 }
 
 @Composable
