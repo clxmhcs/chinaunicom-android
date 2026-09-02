@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -453,34 +454,37 @@ private fun FlowPackageDetailRow(
         }
 
         if (!packageValue.endDateText.isNullOrBlank()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    "有效期：${packageValue.endDateText}",
-                    fontSize = 10.sp,
-                    lineHeight = 12.sp,
-                    color = FlowDetailSecondary,
-                    maxLines = 1,
-                )
-                Spacer(Modifier.weight(1f))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.5f)
-                        .height(5.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)),
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val usageBarWidth = maxWidth * 0.5f
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (fraction != null && fraction > 0.0) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(fraction.toFloat().coerceIn(0f, 1f))
-                                .height(5.dp)
-                                .clip(CircleShape)
-                                .background(FlowDetailGreen),
-                        )
+                    Text(
+                        "有效期：${packageValue.endDateText}",
+                        modifier = Modifier.weight(1f),
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                        color = FlowDetailSecondary,
+                        maxLines = 1,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(usageBarWidth)
+                            .height(5.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)),
+                    ) {
+                        if (fraction != null && fraction > 0.0) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(fraction.toFloat().coerceIn(0f, 1f))
+                                    .height(5.dp)
+                                    .clip(CircleShape)
+                                    .background(FlowDetailGreen),
+                            )
+                        }
                     }
                 }
             }
