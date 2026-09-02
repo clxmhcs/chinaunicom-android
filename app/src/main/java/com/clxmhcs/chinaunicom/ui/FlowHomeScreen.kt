@@ -572,7 +572,7 @@ private fun FlowAccountCard(
                 .fillMaxWidth()
                 .padding(
                     start = ChinaUnicomDimensions.AccountCardHorizontal,
-                    top = ChinaUnicomDimensions.AccountCardTop,
+                    top = 15.2.dp,
                     end = ChinaUnicomDimensions.AccountCardHorizontal,
                     bottom = ChinaUnicomDimensions.AccountCardBottom,
                 ),
@@ -672,7 +672,7 @@ private fun FlowAccountCard(
                 summaries.isNotEmpty() -> {
                     Column(
                         modifier = Modifier.padding(top = 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(17.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.1667.dp),
                     ) {
                         summaries.forEach { summary ->
                             FlowSummaryUsageRow(summary = summary, formatter = formatter)
