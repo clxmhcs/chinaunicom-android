@@ -5,7 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.clxmhcs.chinaunicom.core.model.DisplayPlacement
 import com.clxmhcs.chinaunicom.core.model.FlowSummaryGroup
+import com.clxmhcs.chinaunicom.core.model.PackageCategory
 import com.clxmhcs.chinaunicom.core.model.PackageDisplayPreference
+import com.clxmhcs.chinaunicom.core.model.QuotaType
 import com.clxmhcs.chinaunicom.core.model.ResourceDisplayKind
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.core.storage.AndroidAccountMetadataStores
@@ -92,6 +94,36 @@ class FlowDisplaySettingsViewModel(
     fun setResourceKind(accountID: UUID, packageKey: String, kind: ResourceDisplayKind?) {
         mutatePreference(accountID, packageKey) { preference ->
             preference.copy(resourceKindOverride = kind)
+        }
+    }
+
+    fun updatePackagePreference(
+        accountID: UUID,
+        packageKey: String,
+        alias: String,
+        resourceKind: ResourceDisplayKind,
+        quotaType: QuotaType,
+        category: PackageCategory,
+        isVisibleInDetails: Boolean,
+    ) {
+        mutatePreference(accountID, packageKey) { preference ->
+            preference.copy(
+                alias = alias.trim().ifBlank { null },
+                resourceKindOverride = resourceKind.takeUnless { it == ResourceDisplayKind.AUTOMATIC },
+                quotaTypeOverride = quotaType,
+                categoryOverride = category,
+                placement = if (resourceKind == ResourceDisplayKind.VOICE || isVisibleInDetails) {
+                    DisplayPlacement.DETAIL_ONLY
+                } else {
+                    DisplayPlacement.HIDDEN
+                },
+            )
+        }
+    }
+
+    fun restorePackagePreference(accountID: UUID, packageKey: String) {
+        mutateAccount(accountID) { account ->
+            account.copy(displayPreferences = account.displayPreferences.filterNot { it.packageKey == packageKey })
         }
     }
 
