@@ -1,0 +1,42 @@
+name: UI12 Flow Detail Refinement Patch
+
+on:
+  push:
+    branches:
+      - ui-12-flow-detail-ios-refinement
+    paths:
+      - scripts/ui12_flow_detail_refinement.py
+      - .github/workflows/ui12-flow-detail-refinement.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ui-12-flow-detail-ios-refinement
+
+      - name: Apply iOS-derived detail refinement
+        run: python3 scripts/ui12_flow_detail_refinement.py
+
+      - name: Verify core iOS parity values
+        run: |
+          grep -F 'size(44.dp)' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          grep -F 'fontSize = 15.1.sp' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          grep -F 'fontSize = 11.3.sp' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          grep -F 'fontSize = 12.5.sp' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          grep -F '.padding(vertical = 4.dp)' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          grep -F '.fillMaxWidth(0.5f)' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          ! grep -F 'item(key = "refresh-time")' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+
+      - name: Commit app source change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          git commit -m 'UI-12: refine flow account detail to iOS source'
+          git push origin HEAD:ui-12-flow-detail-ios-refinement
