@@ -1,0 +1,37 @@
+name: UI17 Summary Group Editor Parity Patch
+
+on:
+  push:
+    branches:
+      - ui-17-summary-group-editor-parity
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ui-17-summary-group-editor-parity
+          fetch-depth: 0
+      - name: Apply patch
+        run: python3 scripts/ui17_summary_group_editor_parity.py
+      - name: Verify
+        run: |
+          grep -q 'UI-17: iOS SummaryGroupEditView parity' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          grep -q 'formatter = formatter' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          grep -q '选择流量包（可多选）' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+      - name: Commit app source change
+        run: |
+          if git diff --quiet; then
+            echo 'No source changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          git commit -m 'UI-17: match iOS summary group editor'
+          git push origin HEAD:ui-17-summary-group-editor-parity
