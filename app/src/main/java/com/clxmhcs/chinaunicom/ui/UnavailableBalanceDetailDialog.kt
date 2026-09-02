@@ -1,5 +1,6 @@
 package com.clxmhcs.chinaunicom.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -31,10 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,7 +59,10 @@ private val UnavailableDivider = Color(0x1A000000)
 
 /**
  * UI-06 subpage. Mirrors iOS PhoneBillComponents.UnavailableBalanceDetailView.
- * All values come from the existing balance authority stored on UnicomAccount.
+ *
+ * iOS uses a 430pt-wide reference layout. Android logical widths are commonly narrower,
+ * so this screen applies a small Android visual compensation to the fixed iOS point values.
+ * Data, visibility rules and balance authority remain unchanged.
  */
 @Composable
 internal fun UnavailableBalanceDetailDialog(
@@ -99,9 +104,9 @@ internal fun UnavailableBalanceDetailDialog(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 10.dp)
-                        .padding(bottom = 30.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                        .padding(horizontal = 8.5.dp)
+                        .padding(bottom = 26.dp),
+                    verticalArrangement = Arrangement.spacedBy(15.5.dp),
                 ) {
                     if (showLimit) {
                         UnavailableLimitCard(detail)
@@ -131,17 +136,17 @@ private fun UnavailableBalanceHeader(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .height(58.dp)
-            .padding(horizontal = 2.5.dp),
+            .height(33.dp)
+            .padding(horizontal = 2.dp),
     ) {
         Text(
             "‹",
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .size(44.dp)
+                .size(38.dp)
                 .clickable(onClick = onDismiss),
-            fontSize = 42.sp,
-            lineHeight = 44.sp,
+            fontSize = 36.sp,
+            lineHeight = 38.sp,
             fontWeight = FontWeight.Light,
             color = Color.White,
             textAlign = TextAlign.Center,
@@ -150,22 +155,23 @@ private fun UnavailableBalanceHeader(
         Column(
             modifier = Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(1.5.dp),
         ) {
             Text(
                 "剩余话费",
-                fontSize = 14.4.sp,
-                lineHeight = 18.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.4.sp,
+                lineHeight = 15.5.sp,
+                fontWeight = FontWeight.Medium,
                 color = Color.White,
             )
             if (displayMobile.isNotBlank()) {
                 Text(
                     displayMobile,
-                    fontSize = 11.5.sp,
-                    lineHeight = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp,
+                    lineHeight = 12.5.sp,
+                    fontWeight = FontWeight.Medium,
                     color = Color.White.copy(alpha = 0.86f),
+                    maxLines = 1,
                 )
             }
         }
@@ -174,10 +180,10 @@ private fun UnavailableBalanceHeader(
             "×",
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .size(44.dp)
+                .size(38.dp)
                 .clickable(onClick = onDismiss),
-            fontSize = 38.sp,
-            lineHeight = 44.sp,
+            fontSize = 33.sp,
+            lineHeight = 38.sp,
             fontWeight = FontWeight.Light,
             color = Color.White,
             textAlign = TextAlign.Center,
@@ -194,7 +200,7 @@ private fun UnavailableLimitCard(detail: UnavailableBalanceDetail) {
         if (detail.limitItems.isEmpty()) {
             EmptyUnavailableRows()
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(15.5.dp)) {
                 detail.limitItems.forEach { item ->
                     UnavailableLimitItemContent(item)
                 }
@@ -205,7 +211,7 @@ private fun UnavailableLimitCard(detail: UnavailableBalanceDetail) {
 
 @Composable
 private fun UnavailableLimitItemContent(item: UnavailableLimitItem) {
-    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(9.5.dp)) {
         UnavailableBulletRow(
             title = "定向金额名称",
             value = item.depositName ?: "暂无",
@@ -241,7 +247,7 @@ private fun FrozenBalanceCard(
                     )
                     if (index < detail.frozenItems.lastIndex) {
                         Divider(
-                            modifier = Modifier.padding(vertical = 14.dp),
+                            modifier = Modifier.padding(vertical = 12.dp),
                             color = UnavailableDivider,
                         )
                     }
@@ -258,7 +264,7 @@ private fun FrozenBalanceItemContent(
     onInfoClick: () -> Unit,
     onInfoDismiss: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         UnavailableBulletRow(
             title = "活动名称",
             value = item.actionName ?: "暂无",
@@ -293,14 +299,15 @@ private fun UnavailableInfoCard(
             colorFilter = ColorFilter.tint(UnavailableRed),
             alpha = 0.06f,
             modifier = Modifier
-                .size(84.dp)
+                .size(72.dp)
                 .align(Alignment.TopStart)
-                .padding(start = 0.dp, top = 0.dp),
+                .offset(x = (-10).dp, y = (-10).dp),
         )
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(88.dp)
+                .height(75.dp)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
@@ -312,42 +319,43 @@ private fun UnavailableInfoCard(
         )
 
         Column(
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            modifier = Modifier.padding(horizontal = 19.dp, vertical = 17.dp),
+            verticalArrangement = Arrangement.spacedBy(15.5.dp),
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
+                    .padding(top = 7.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 Text(
                     title,
-                    fontSize = 16.3.sp,
-                    lineHeight = 21.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.Medium,
                     color = Color.Black,
                 )
                 Spacer(Modifier.weight(1f))
                 Row(
                     verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(13.5.dp),
                 ) {
                     Text(
                         "¥",
-                        fontSize = 11.5.sp,
-                        lineHeight = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 10.sp,
+                        lineHeight = 15.5.sp,
+                        fontWeight = FontWeight.Medium,
                         color = UnavailableRed,
                     )
                     Text(
                         amount,
-                        fontSize = 14.4.sp,
-                        lineHeight = 19.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.4.sp,
+                        lineHeight = 16.5.sp,
+                        fontWeight = FontWeight.Medium,
                         color = UnavailableRed,
+                        maxLines = 1,
                     )
-                    Spacer(Modifier.width(18.dp))
+                    Spacer(Modifier.width(15.5.dp))
                 }
             }
             content()
@@ -367,46 +375,40 @@ private fun UnavailableBulletRow(
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.5.dp),
     ) {
-        Box(
+        Canvas(
             modifier = Modifier
-                .padding(top = 8.dp)
-                .size(5.dp)
-                .background(Color.Transparent, CircleShape)
-                .then(
-                    Modifier.background(Color.Transparent, CircleShape),
-                ),
+                .padding(top = 6.5.dp)
+                .size(4.5.dp),
         ) {
-            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                drawCircle(
-                    color = UnavailableRed,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.4.dp.toPx()),
-                )
-            }
+            drawCircle(
+                color = UnavailableRed,
+                style = Stroke(width = 1.2.dp.toPx()),
+            )
         }
 
         Text(
             title,
-            modifier = Modifier.width(128.dp),
-            fontSize = 14.4.sp,
-            lineHeight = 19.sp,
-            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.width(110.dp),
+            fontSize = 12.4.sp,
+            lineHeight = 16.5.sp,
+            fontWeight = FontWeight.Medium,
             color = Color.Black,
         )
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.width(8.5.dp))
 
         Row(
-            modifier = Modifier.weight(1.25f),
+            modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.5.dp),
         ) {
             Text(
                 value,
                 modifier = Modifier.weight(1f),
-                fontSize = 14.4.sp,
-                lineHeight = 19.sp,
+                fontSize = 12.4.sp,
+                lineHeight = 16.5.sp,
                 color = Color.Black,
                 textAlign = TextAlign.End,
             )
@@ -418,7 +420,7 @@ private fun UnavailableBulletRow(
                     onDismiss = onInfoDismiss ?: {},
                 )
             } else {
-                Spacer(Modifier.width(14.dp))
+                Spacer(Modifier.width(12.dp))
             }
         }
     }
@@ -435,7 +437,7 @@ private fun FrozenBalanceInfoButton(
         Box(
             modifier = Modifier
                 .padding(top = 1.dp)
-                .size(16.dp)
+                .size(14.dp)
                 .clip(CircleShape)
                 .background(Color(0xFFC7C7CC))
                 .clickable(onClick = onClick),
@@ -443,8 +445,8 @@ private fun FrozenBalanceInfoButton(
         ) {
             Text(
                 "!",
-                fontSize = 10.sp,
-                lineHeight = 11.sp,
+                fontSize = 8.5.sp,
+                lineHeight = 9.5.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 textAlign = TextAlign.Center,
@@ -454,7 +456,7 @@ private fun FrozenBalanceInfoButton(
         if (expanded) {
             Popup(
                 alignment = Alignment.TopEnd,
-                offset = IntOffset(0, 18),
+                offset = IntOffset(0, 15),
                 onDismissRequest = onDismiss,
                 properties = PopupProperties(focusable = true),
             ) {
@@ -468,14 +470,14 @@ private fun FrozenBalanceInfoButton(
 private fun FrozenBalanceInfoPopover(item: FrozenBalanceItem) {
     Surface(
         modifier = Modifier
-            .width(236.dp)
-            .shadow(10.dp, RoundedCornerShape(6.dp)),
-        shape = RoundedCornerShape(6.dp),
+            .width(202.dp)
+            .shadow(8.5.dp, RoundedCornerShape(5.dp)),
+        shape = RoundedCornerShape(5.dp),
         color = Color.White,
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 8.5.dp, vertical = 7.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             UnavailableInfoPopoverRow("活动名称", item.actionName ?: "暂无")
             UnavailableInfoPopoverRow("办理渠道", item.actionDepart ?: "暂无")
@@ -489,20 +491,20 @@ private fun UnavailableInfoPopoverRow(title: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Text(
             title,
-            modifier = Modifier.width(54.dp),
-            fontSize = 10.8.sp,
-            lineHeight = 14.sp,
+            modifier = Modifier.width(46.dp),
+            fontSize = 9.3.sp,
+            lineHeight = 12.sp,
             color = UnavailableSecondary,
         )
         Text(
             value,
             modifier = Modifier.weight(1f),
-            fontSize = 10.8.sp,
-            lineHeight = 14.sp,
+            fontSize = 9.3.sp,
+            lineHeight = 12.sp,
             color = Color.Black,
             textAlign = TextAlign.End,
         )
@@ -514,30 +516,31 @@ private fun UnavailablePlainRow(title: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.5.dp),
     ) {
-        Spacer(Modifier.width(5.dp))
+        Spacer(Modifier.width(4.5.dp))
         Text(
             title,
-            modifier = Modifier.width(128.dp),
-            fontSize = 14.4.sp,
-            lineHeight = 19.sp,
+            modifier = Modifier.width(110.dp),
+            fontSize = 12.4.sp,
+            lineHeight = 16.5.sp,
             color = UnavailableSecondary,
         )
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.width(8.5.dp))
         Row(
-            modifier = Modifier.weight(1.25f),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(3.5.dp),
         ) {
             Text(
                 value,
                 modifier = Modifier.weight(1f),
-                fontSize = 14.4.sp,
-                lineHeight = 19.sp,
+                fontSize = 12.4.sp,
+                lineHeight = 16.5.sp,
                 color = Color.Black,
                 textAlign = TextAlign.End,
+                maxLines = 1,
             )
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(12.dp))
         }
     }
 }
@@ -548,8 +551,8 @@ private fun EmptyUnavailableRows() {
         "暂无明细",
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        fontSize = 14.4.sp,
+            .padding(vertical = 10.dp),
+        fontSize = 12.4.sp,
         color = UnavailableSecondary,
         textAlign = TextAlign.Center,
     )
@@ -562,27 +565,27 @@ private fun NoUnavailableBalanceCard() {
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(Color.White)
-            .padding(horizontal = 18.dp, vertical = 34.dp),
+            .padding(horizontal = 15.5.dp, vertical = 29.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.5.dp),
     ) {
         Text(
             "✓",
-            fontSize = 28.sp,
-            lineHeight = 30.sp,
+            fontSize = 24.sp,
+            lineHeight = 26.sp,
             color = UnavailableRed.copy(alpha = 0.72f),
         )
         Text(
             "暂无不可用金额",
-            fontSize = 17.sp,
-            lineHeight = 22.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.5.sp,
+            lineHeight = 19.sp,
+            fontWeight = FontWeight.Medium,
             color = Color.Black,
         )
         Text(
             "当前没有未使用定向金额或账户未返金额",
-            fontSize = 14.sp,
-            lineHeight = 18.sp,
+            fontSize = 12.sp,
+            lineHeight = 15.5.sp,
             color = UnavailableSecondary,
             textAlign = TextAlign.Center,
         )
