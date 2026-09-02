@@ -1,8 +1,16 @@
 package com.clxmhcs.chinaunicom.ui
 
 import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -13,8 +21,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -53,6 +64,76 @@ private const val SETTINGS_CREDENTIALS_ROUTE = "settings/credentials"
 private const val SETTINGS_REFRESH_ROUTE = "settings/app-refresh"
 
 @Composable
+private fun RootBottomTabBar(
+    currentRoute: String?,
+    onSelect: (RootTab) -> Unit,
+) {
+    val selectedBlue = Color(0xFF2E66F2)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp),
+            shape = RoundedCornerShape(30.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            tonalElevation = 0.dp,
+            shadowElevation = 10.dp,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 3.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RootTab.entries.forEach { tab ->
+                    val selected = when (tab) {
+                        RootTab.Comprehensive -> currentRoute?.startsWith(RootTab.Comprehensive.route) == true || currentRoute?.startsWith("comprehensive/") == true
+                        RootTab.OtherBusiness -> currentRoute == tab.route || currentRoute?.startsWith("other/") == true
+                        RootTab.Settings -> currentRoute == tab.route || currentRoute?.startsWith("settings/") == true
+                        else -> currentRoute == tab.route
+                    }
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        onClick = { onSelect(tab) },
+                        shape = RoundedCornerShape(26.dp),
+                        color = if (selected) selectedBlue.copy(alpha = 0.085f) else Color.Transparent,
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text(
+                                text = tab.glyph,
+                                fontSize = 20.sp,
+                                lineHeight = 22.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (selected) selectedBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f),
+                            )
+                            Text(
+                                text = tab.label,
+                                fontSize = 10.5.sp,
+                                lineHeight = 13.sp,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                color = if (selected) selectedBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun ChinaUnicomApp() {
     val navController = rememberNavController()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
@@ -88,38 +169,16 @@ fun ChinaUnicomApp() {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             bottomBar = {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                    tonalElevation = 0.dp,
-                ) {
-                    RootTab.entries.forEach { tab ->
-                        val selected = when (tab) {
-                            RootTab.Comprehensive -> currentRoute?.startsWith(RootTab.Comprehensive.route) == true || currentRoute?.startsWith("comprehensive/") == true
-                            RootTab.OtherBusiness -> currentRoute == tab.route || currentRoute?.startsWith("other/") == true
-                            RootTab.Settings -> currentRoute == tab.route || currentRoute?.startsWith("settings/") == true
-                            else -> currentRoute == tab.route
+                RootBottomTabBar(
+                    currentRoute = currentRoute,
+                    onSelect = { tab ->
+                        navController.navigate(tab.route) {
+                            popUpTo(RootTab.Flow.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(tab.route) {
-                                    popUpTo(RootTab.Flow.route) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Text(text = tab.glyph, fontSize = 19.sp) },
-                            label = { Text(text = tab.label) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                indicatorColor = Color.Transparent,
-                            ),
-                        )
-                    }
-                }
+                    },
+                )
             },
         ) { innerPadding ->
             NavHost(

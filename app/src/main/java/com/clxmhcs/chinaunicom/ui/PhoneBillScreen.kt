@@ -3,18 +3,24 @@ package com.clxmhcs.chinaunicom.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,12 +50,16 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import com.clxmhcs.chinaunicom.core.model.BillItemSection
 import com.clxmhcs.chinaunicom.core.model.BillMonth
 import com.clxmhcs.chinaunicom.core.model.PhoneBillSnapshot
@@ -94,6 +105,8 @@ internal fun IosPhoneBillScreen(
     var scope by rememberSaveable { mutableStateOf(BillScope.USER.name) }
     var showsUnavailableBalanceDetail by rememberSaveable { mutableStateOf(false) }
     val displayMobile = if (settings.hideMobileMiddleDigits) compactMaskMobile(account.mobile) else account.mobile
+
+    PhoneBillSystemBars()
 
     LaunchedEffect(account.id) { businessViewModel.loadPhoneBill(account) }
 
@@ -186,8 +199,8 @@ private fun PhoneBillHeader(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(74.dp)
-                .padding(horizontal = 8.dp),
+                .height(62.dp)
+                .padding(horizontal = 10.dp, vertical = 4.dp),
         ) {
             Text(
                 "‹",
@@ -195,30 +208,32 @@ private fun PhoneBillHeader(
                     .align(Alignment.CenterStart)
                     .size(44.dp)
                     .clickable(onClick = onBack),
-                fontSize = 46.sp,
+                fontSize = 40.sp,
                 lineHeight = 44.sp,
-                fontWeight = FontWeight.Light,
+                fontWeight = FontWeight.Normal,
                 color = Color.White,
                 textAlign = TextAlign.Center,
             )
 
             Column(
-                modifier = Modifier.align(Alignment.Center),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(y = (-6).dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(0.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
                     "我的账单",
                     fontSize = 17.sp,
-                    lineHeight = 22.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    lineHeight = 21.sp,
+                    fontWeight = FontWeight.Medium,
                     color = Color.White,
                 )
                 Text(
                     mobile,
                     fontSize = 15.sp,
-                    lineHeight = 19.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.Medium,
                     color = Color.White.copy(alpha = 0.86f),
                 )
             }
@@ -229,9 +244,9 @@ private fun PhoneBillHeader(
                     .align(Alignment.CenterEnd)
                     .size(44.dp)
                     .clickable(enabled = !loading, onClick = onRefresh),
-                fontSize = 34.sp,
+                fontSize = 30.sp,
                 lineHeight = 44.sp,
-                fontWeight = FontWeight.Light,
+                fontWeight = FontWeight.Normal,
                 color = Color.White.copy(alpha = if (loading) 0.45f else 1f),
                 textAlign = TextAlign.Center,
             )
@@ -244,7 +259,6 @@ private fun PhoneBillHeader(
         )
     }
 }
-
 @Composable
 private fun PhoneBillMonthSelector(
     months: List<BillMonth>,
@@ -255,10 +269,11 @@ private fun PhoneBillMonthSelector(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(56.dp)
+            .offset(y = (-2).dp)
             .horizontalScroll(scrollState)
-            .padding(horizontal = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
+            .padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(26.dp),
         verticalAlignment = Alignment.Top,
     ) {
         months.forEach { month ->
@@ -268,19 +283,19 @@ private fun PhoneBillMonthSelector(
                     .width(54.dp)
                     .clickable { onSelectMonth(month) },
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
                     month.title,
                     fontSize = 20.sp,
-                    lineHeight = 25.sp,
+                    lineHeight = 24.sp,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                     color = Color.White.copy(alpha = if (selected) 1f else 0.68f),
                 )
                 Text(
                     month.subtitle,
                     fontSize = 12.sp,
-                    lineHeight = 15.sp,
+                    lineHeight = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.White.copy(alpha = if (selected) 0.90f else 0.56f),
                 )
@@ -295,7 +310,6 @@ private fun PhoneBillMonthSelector(
         }
     }
 }
-
 @Composable
 private fun PhoneBillContent(
     snapshot: PhoneBillSnapshot,
@@ -305,56 +319,62 @@ private fun PhoneBillContent(
     onScopeChange: (BillScope) -> Unit,
     onOpenUnavailableBalance: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        BillDeepRed,
-                        BillRed.copy(alpha = 0.76f),
-                        BillPageBackground,
-                    ),
-                    endY = 470f,
-                ),
-            )
-            .padding(top = 0.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        BillSummaryCard(
-            snapshot = snapshot,
-            policy = refreshPolicy,
-            modifier = Modifier.padding(horizontal = 7.dp),
-            onOpenUnavailableBalance = onOpenUnavailableBalance,
-        )
-
-        Surface(
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 7.dp),
-            shape = RoundedCornerShape(10.dp),
-            color = Color.White,
-            shadowElevation = 0.dp,
+                .height(160.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            BillDeepRed,
+                            BillRed.copy(alpha = 0.76f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Column {
-                BillScopePicker(selectedScope = selectedScope, onScopeChange = onScopeChange)
-                Divider(color = BillDivider)
-                if (selectedScope == BillScope.USER) {
-                    UserBillList(
-                        userBills = snapshot.userBills,
-                        hideMobileMiddleDigits = hideMobileMiddleDigits,
-                    )
-                } else {
-                    AccountBillDetail(
-                        sections = snapshot.accountSections,
-                        summary = snapshot.summary,
-                    )
+            BillSummaryCard(
+                snapshot = snapshot,
+                policy = refreshPolicy,
+                modifier = Modifier.padding(horizontal = 7.dp),
+                onOpenUnavailableBalance = onOpenUnavailableBalance,
+            )
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 7.dp),
+                shape = RoundedCornerShape(10.dp),
+                color = Color.White,
+                shadowElevation = 0.dp,
+            ) {
+                Column {
+                    BillScopePicker(selectedScope = selectedScope, onScopeChange = onScopeChange)
+                    Divider(color = BillDivider)
+                    if (selectedScope == BillScope.USER) {
+                        UserBillList(
+                            userBills = snapshot.userBills,
+                            hideMobileMiddleDigits = hideMobileMiddleDigits,
+                        )
+                    } else {
+                        AccountBillDetail(
+                            sections = snapshot.accountSections,
+                            summary = snapshot.summary,
+                        )
+                    }
                 }
             }
         }
     }
 }
-
 @Composable
 private fun BillSummaryCard(
     snapshot: PhoneBillSnapshot,
@@ -371,7 +391,7 @@ private fun BillSummaryCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(18.dp, RoundedCornerShape(14.dp), ambientColor = Color.Black.copy(alpha = 0.08f))
+            .shadow(16.dp, RoundedCornerShape(14.dp), ambientColor = Color.Black.copy(alpha = 0.08f))
             .clip(RoundedCornerShape(14.dp))
             .background(Color.White),
     ) {
@@ -393,39 +413,38 @@ private fun BillSummaryCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(22.dp),
+                .padding(horizontal = 8.dp)
+                .padding(top = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Column(
-                modifier = Modifier.padding(top = 0.dp),
+                modifier = Modifier.offset(y = (-6).dp),
                 verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
                 Text(
-                    "上次查询时间： $queryTime",
-                    fontSize = 13.sp,
-                    lineHeight = 16.sp,
+                    "上次查询时间：$queryTime",
+                    fontSize = 12.5.sp,
+                    lineHeight = 15.sp,
                     color = BillSecondary,
                 )
                 Text(
-                    "下次查询时间： ${nextQueryTime?.let(::billTimestamp) ?: "未知"}",
-                    fontSize = 13.sp,
-                    lineHeight = 16.sp,
+                    "下次查询时间：${nextQueryTime?.let(::billTimestamp) ?: "未知"}",
+                    fontSize = 12.5.sp,
+                    lineHeight = 15.sp,
                     color = BillSecondary,
                 )
             }
 
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 10.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
                     "本月已消费（元）",
-                    fontSize = 24.sp,
-                    lineHeight = 30.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 22.sp,
+                    lineHeight = 28.sp,
+                    fontWeight = FontWeight.Medium,
                     color = Color.Black,
                 )
                 Row(
@@ -434,15 +453,15 @@ private fun BillSummaryCard(
                 ) {
                     Text(
                         "¥",
-                        fontSize = 22.sp,
-                        lineHeight = 32.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 20.5.sp,
+                        lineHeight = 30.sp,
+                        fontWeight = FontWeight.Medium,
                         color = Color.Black,
                     )
                     Text(
                         snapshot.summary.realPayFee,
-                        fontSize = 33.sp,
-                        lineHeight = 38.sp,
+                        fontSize = 31.sp,
+                        lineHeight = 36.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black,
                     )
@@ -485,7 +504,6 @@ private fun BillSummaryCard(
         }
     }
 }
-
 @Composable
 private fun BillScopePicker(
     selectedScope: BillScope,
@@ -498,15 +516,15 @@ private fun BillScopePicker(
                 modifier = Modifier
                     .weight(1f)
                     .clickable { onScopeChange(scope) }
-                    .padding(top = 16.dp, bottom = 8.dp),
+                    .padding(top = 14.dp, bottom = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
                     scope.title,
-                    fontSize = 17.sp,
-                    lineHeight = 22.sp,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    fontSize = 16.5.sp,
+                    lineHeight = 21.sp,
+                    fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
                     color = if (selected) Color.Black else BillSecondary,
                 )
                 Box(
@@ -520,7 +538,6 @@ private fun BillScopePicker(
         }
     }
 }
-
 @Composable
 private fun UserBillList(
     userBills: List<UserBill>,
@@ -585,7 +602,7 @@ private fun UserBillRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 9.dp, vertical = 18.dp),
+            .padding(horizontal = 9.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -598,9 +615,9 @@ private fun UserBillRow(
         ) {
             Text(
                 displayMobile,
-                fontSize = 17.sp,
-                lineHeight = 22.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.5.sp,
+                lineHeight = 21.sp,
+                fontWeight = FontWeight.Medium,
                 color = Color.Black,
                 maxLines = 1,
             )
@@ -613,30 +630,29 @@ private fun UserBillRow(
         ) {
             Text(
                 "当月应付：",
-                fontSize = 14.sp,
-                lineHeight = 18.sp,
+                fontSize = 13.5.sp,
+                lineHeight = 17.sp,
                 color = BillSecondary,
                 maxLines = 1,
             )
             Text(
                 userBill.payable,
-                fontSize = 17.sp,
-                lineHeight = 22.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.5.sp,
+                lineHeight = 21.sp,
+                fontWeight = FontWeight.Medium,
                 color = BillRed,
                 maxLines = 1,
             )
             Text(
                 "⌄",
                 modifier = Modifier.rotate(arrowRotation),
-                fontSize = 20.sp,
-                lineHeight = 20.sp,
+                fontSize = 18.sp,
+                lineHeight = 18.sp,
                 color = Color(0xFFC7C7CC),
             )
         }
     }
 }
-
 @Composable
 private fun UserOutlineIcon() {
     Canvas(modifier = Modifier.size(24.dp)) {
@@ -683,19 +699,22 @@ private fun billAccountBadge(userBill: UserBill): BillAccountBadge? {
 
 @Composable
 private fun BillAccountBadgeView(badge: BillAccountBadge) {
+    val shape = RoundedCornerShape(1.8.dp)
     Text(
         badge.title,
         modifier = Modifier
-            .clip(RoundedCornerShape(2.dp))
+            .defaultMinSize(minWidth = 12.1.dp, minHeight = 12.1.dp)
+            .clip(shape)
             .background(badge.foreground.copy(alpha = 0.08f))
-            .padding(horizontal = 2.dp, vertical = 0.dp),
+            .border(1.dp, badge.foreground.copy(alpha = 0.34f), shape)
+            .padding(horizontal = 0.7.dp),
         fontSize = 9.4.sp,
         lineHeight = 12.sp,
         fontWeight = FontWeight.SemiBold,
         color = badge.foreground,
+        textAlign = TextAlign.Center,
     )
 }
-
 @Composable
 private fun AccountBillDetail(
     sections: List<BillItemSection>,
@@ -937,6 +956,40 @@ private fun PhoneBillLoadingOverlay() {
             strokeWidth = 5.dp,
         )
     }
+}
+
+@Suppress("DEPRECATION")
+@Composable
+private fun PhoneBillSystemBars() {
+    val context = LocalContext.current
+    val view = LocalView.current
+    DisposableEffect(context, view) {
+        val window = context.findHostActivity()?.window
+        if (window == null) {
+            onDispose { }
+        } else {
+            val previousStatusBarColor = window.statusBarColor
+            val controller = WindowCompat.getInsetsController(window, view)
+            val previousLightStatusBars = controller.isAppearanceLightStatusBars
+
+            window.statusBarColor = BillRed.toArgb()
+            controller.isAppearanceLightStatusBars = false
+
+            onDispose {
+                window.statusBarColor = previousStatusBarColor
+                controller.isAppearanceLightStatusBars = previousLightStatusBars
+            }
+        }
+    }
+}
+
+private fun Context.findHostActivity(): Activity? {
+    var current: Context? = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return current as? Activity
 }
 
 private fun compactMaskMobile(value: String): String {
