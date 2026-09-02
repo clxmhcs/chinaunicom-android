@@ -1,0 +1,44 @@
+name: UI07 guarded route patch
+
+on:
+  push:
+    branches:
+      - ui-07-flow-account-detail-display-settings
+    paths:
+      - .github/workflows/ui07-patch-flow-route.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-route:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui-07-flow-account-detail-display-settings
+          fetch-depth: 0
+      - name: Patch exact UI-01 legacy route
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowHomeScreen.kt')
+          text = path.read_text()
+          old = '    IosRemainingQueryScreen(account = account, onBack = onBack)\n'
+          new = '    FlowAccountDetailScreen(account = account, onBack = onBack, onRefresh = onRefreshAccount)\n'
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'guard failed: expected exactly one legacy route, found {count}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          rm .github/workflows/ui07-patch-flow-route.yml
+      - name: Commit guarded route patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowHomeScreen.kt .github/workflows/ui07-patch-flow-route.yml
+          git diff --cached --check
+          git commit -m 'UI-07: route flow cards to account detail'
+          git push origin HEAD:ui-07-flow-account-detail-display-settings
