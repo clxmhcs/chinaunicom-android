@@ -42,6 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -52,6 +54,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -523,10 +526,15 @@ private fun FlowAccountCard(
     }
     val cardSurface = MaterialTheme.colorScheme.surface
     val lastErrorMessage = account.lastErrorMessage
+    var cardSize by remember { mutableStateOf(IntSize.Zero) }
+    val watermarkSide = with(LocalDensity.current) {
+        (minOf(cardSize.width, cardSize.height) * 0.74f).toDp()
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .onSizeChanged { cardSize = it }
             .shadow(
                 elevation = 15.dp,
                 shape = shape,
@@ -555,7 +563,7 @@ private fun FlowAccountCard(
             contentDescription = null,
             modifier = Modifier
                 .align(Alignment.Center)
-                .fillMaxWidth(0.48f),
+                .size(watermarkSide),
             alpha = 0.045f,
         )
 
