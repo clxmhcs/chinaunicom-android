@@ -1,0 +1,39 @@
+name: UI15 Fixed Package Bar Width Patch
+
+on:
+  push:
+    branches:
+      - ui-15-fixed-package-bar-width
+    paths:
+      - scripts/ui15_fixed_package_bar_width.py
+      - .github/workflows/ui15-fixed-package-bar-width.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ui-15-fixed-package-bar-width
+
+      - name: Apply patch
+        run: python3 scripts/ui15_fixed_package_bar_width.py
+
+      - name: Verify
+        run: |
+          FILE=app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          grep -F 'BoxWithConstraints(modifier = Modifier.fillMaxWidth())' "$FILE"
+          grep -F 'val usageBarWidth = maxWidth * 0.5f' "$FILE"
+          grep -F '.width(usageBarWidth)' "$FILE"
+
+      - name: Commit app source change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowAccountDetailScreen.kt
+          git commit -m 'UI-15: keep package usage bars equal width'
+          git push origin HEAD:ui-15-fixed-package-bar-width
