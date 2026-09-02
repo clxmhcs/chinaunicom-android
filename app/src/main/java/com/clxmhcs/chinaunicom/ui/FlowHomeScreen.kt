@@ -521,9 +521,11 @@ private fun FlowAccountCard(
     val summaries = account.visibleSummaryGroups.map(account::summary)
     val selectedUsage = remember(account, displayUnit) { selectedUsageText(account, formatter) }
     val mobileText = if (hideMobileMiddleDigits) maskMobile(account.mobile) else account.mobile
-    val attribution = account.displayName.trim().takeIf {
-        it.isNotEmpty() && it != account.mobile && it != account.packageName
-    }
+    val attribution = account.displayName
+        .trim()
+        .removePrefix("联通号码")
+        .trim()
+        .takeIf { it.isNotEmpty() && it != account.mobile && it != account.packageName }
     val cardSurface = MaterialTheme.colorScheme.surface
     val lastErrorMessage = account.lastErrorMessage
     var cardSize by remember { mutableStateOf(IntSize.Zero) }
