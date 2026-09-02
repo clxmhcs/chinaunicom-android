@@ -1,0 +1,42 @@
+name: UI10 Adaptive Card Watermark Patch
+
+on:
+  push:
+    branches:
+      - ui-10-adaptive-card-watermark
+    paths:
+      - scripts/ui10_adaptive_watermark.py
+      - .github/workflows/ui10-adaptive-watermark.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ui-10-adaptive-card-watermark
+          fetch-depth: 0
+
+      - name: Apply source-derived adaptive watermark patch
+        run: python3 scripts/ui10_adaptive_watermark.py
+
+      - name: Verify patch
+        run: |
+          git diff --check
+          grep -F '(minOf(cardSize.width, cardSize.height) * 0.74f).toDp()' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowHomeScreen.kt
+          grep -F '(minOf(cardSize.width, cardSize.height) * 0.74f).toDp()' app/src/main/java/com/clxmhcs/chinaunicom/ui/VoiceDashboardScreen.kt
+          ! grep -F '.fillMaxWidth(0.48f)' app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowHomeScreen.kt
+          ! grep -F '.fillMaxWidth(0.45f)' app/src/main/java/com/clxmhcs/chinaunicom/ui/VoiceDashboardScreen.kt
+
+      - name: Commit app source changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowHomeScreen.kt app/src/main/java/com/clxmhcs/chinaunicom/ui/VoiceDashboardScreen.kt
+          git diff --cached --quiet && exit 0
+          git commit -m 'UI-10: scale card watermark from card geometry'
+          git push origin HEAD:ui-10-adaptive-card-watermark
