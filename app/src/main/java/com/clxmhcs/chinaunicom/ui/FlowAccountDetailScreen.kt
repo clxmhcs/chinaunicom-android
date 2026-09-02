@@ -406,7 +406,7 @@ private fun FlowPackageDetailRow(
                 )
                 Box(
                     modifier = Modifier
-                        .width(302.dp)
+                        .width(160.dp)
                         .height(5.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)),
@@ -1047,7 +1047,7 @@ private fun flowCategoryShortTitle(category: PackageCategory): String = when (ca
 
 private fun flowDetailMaskMobile(value: String): String {
     val digits = value.filter(Char::isDigit)
-    return if (digits.length >= 7) "${digits.take(3)}****${digits.takeLast(4)}" else value
+    return if (digits.length >= 7) "${digits.take(3)} **** ${digits.takeLast(4)}" else value
 }
 
 private fun flowDetailRefreshTime(value: Instant?): String {
