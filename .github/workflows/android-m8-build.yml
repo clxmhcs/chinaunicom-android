@@ -60,12 +60,14 @@ jobs:
         run: |
           STORE=data/comprehensive/src/main/kotlin/com/clxmhcs/chinaunicom/data/comprehensive/ComprehensiveBusinessStore.kt
           SCREEN=app/src/main/java/com/clxmhcs/chinaunicom/ui/ComprehensiveBusinessScreen.kt
+          PHONE_BILL_SCREEN=app/src/main/java/com/clxmhcs/chinaunicom/ui/PhoneBillScreen.kt
           VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/ComprehensiveBusinessViewModel.kt
           ROOT=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
           FLOW_VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowViewModel.kt
 
           test -f "$STORE"
           test -f "$SCREEN"
+          test -f "$PHONE_BILL_SCREEN"
           test -f "$VM"
           test -f "$ROOT"
           grep -q 'include(":data:integral")' settings.gradle.kts
@@ -83,7 +85,9 @@ jobs:
           grep -q 'loadCachedPoints(accountIDs)' "$SCREEN"
           grep -q 'financialRepresentativeAccountID(account.id)' "$SCREEN"
           grep -q 'loadOrderedBusiness(account)' "$SCREEN"
-          grep -q 'loadPhoneBill(account)' "$SCREEN"
+          grep -q 'PhoneBillEntryScreen' "$SCREEN"
+          grep -q 'IosPhoneBillScreen' "$SCREEN"
+          grep -q 'loadPhoneBill(account)' "$PHONE_BILL_SCREEN"
           grep -q 'remainingQuerySnapshot == null' "$SCREEN"
           grep -q 'loadIntegral(account)' "$SCREEN"
           grep -q 'IntegralDetailQuery.month' "$SCREEN"
