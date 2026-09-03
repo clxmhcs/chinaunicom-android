@@ -11,6 +11,14 @@ def replace_once(old: str, new: str) -> None:
         raise SystemExit(f'expected exactly one match, got {count}: {old[:120]!r}')
     text = text.replace(old, new, 1)
 
+
+def replace_n(old: str, new: str, expected: int) -> None:
+    global text
+    count = text.count(old)
+    if count != expected:
+        raise SystemExit(f'expected {expected} matches, got {count}: {old[:120]!r}')
+    text = text.replace(old, new)
+
 replace_once(
     'import androidx.compose.foundation.Image\n',
     'import androidx.compose.foundation.Canvas\nimport androidx.compose.foundation.Image\n',
@@ -31,8 +39,6 @@ replace_once(
                         lineHeight = 14.sp,
                         color = VoiceSecondary,''',
 )
-
-# Second footer uses the same old typography block.
 replace_once(
 '''                    fontSize = 11.5.sp,
                     lineHeight = 16.sp,
@@ -125,8 +131,16 @@ replace_once(
 ) {''',
 )
 replace_once(
-'''            .padding(vertical = 13.dp),''',
-'''            .padding(vertical = 10.dp),''',
+'''    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 13.dp),''',
+'''    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),''',
 )
 replace_once(
 '''                .size(38.dp)
@@ -169,7 +183,7 @@ needle = '''}\n\n@Composable\nprivate fun VoicePackageManagementCard('''
 glyph = '''}\n\n@Composable\nprivate fun VoiceCandidateGlyph(isVoice: Boolean) {\n    Canvas(modifier = Modifier.size(17.dp)) {\n        if (isVoice) {\n            val stroke = size.minDimension * 0.19f\n            drawLine(\n                color = VoiceBlue,\n                start = Offset(size.width * 0.25f, size.height * 0.18f),\n                end = Offset(size.width * 0.20f, size.height * 0.48f),\n                strokeWidth = stroke,\n            )\n            drawLine(\n                color = VoiceBlue,\n                start = Offset(size.width * 0.20f, size.height * 0.48f),\n                end = Offset(size.width * 0.53f, size.height * 0.80f),\n                strokeWidth = stroke,\n            )\n            drawLine(\n                color = VoiceBlue,\n                start = Offset(size.width * 0.53f, size.height * 0.80f),\n                end = Offset(size.width * 0.82f, size.height * 0.74f),\n                strokeWidth = stroke,\n            )\n        } else {\n            val barWidth = size.width * 0.18f\n            val gap = size.width * 0.10f\n            val bottom = size.height * 0.84f\n            val left = size.width * 0.14f\n            listOf(0.42f, 0.66f, 0.88f).forEachIndexed { index, heightFraction ->\n                val h = size.height * heightFraction\n                drawRoundRect(\n                    color = VoiceBlue,\n                    topLeft = Offset(left + index * (barWidth + gap), bottom - h),\n                    size = androidx.compose.ui.geometry.Size(barWidth, h),\n                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth * 0.35f, barWidth * 0.35f),\n                )\n            }\n        }\n    }\n}\n\n@Composable\nprivate fun VoicePackageManagementCard('''
 replace_once(needle, glyph)
 
-# iOS reuses the same VoicePackageRow typography in dashboard and settings.
+# SwiftUI reuses VoicePackageRow typography in the dashboard and detail List.
 replace_once(
 '''        modifier = modifier.padding(vertical = if (showChevron) 10.dp else 0.dp),
         verticalArrangement = Arrangement.spacedBy(if (showChevron) 8.dp else 6.86.dp),''',
@@ -198,17 +212,12 @@ replace_once(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f),
                 )''',
 )
-replace_once(
+replace_n(
 '''                fontSize = if (showChevron) 10.sp else 8.57.sp,
                 lineHeight = if (showChevron) 14.sp else 12.29.sp,''',
 '''                fontSize = 8.57.sp,
                 lineHeight = 12.29.sp,''',
-)
-replace_once(
-'''                fontSize = if (showChevron) 10.sp else 8.57.sp,
-                lineHeight = if (showChevron) 14.sp else 12.29.sp,''',
-'''                fontSize = 8.57.sp,
-                lineHeight = 12.29.sp,''',
+2,
 )
 replace_once(
 '''                        horizontal = if (showChevron) 4.dp else 3.dp,
@@ -227,7 +236,6 @@ replace_once(
 '''            VoiceProgressBar(fraction, compact = true)''',
 )
 
-# The settings list card follows iOS List section density.
 replace_once(
 '''        shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surface,
