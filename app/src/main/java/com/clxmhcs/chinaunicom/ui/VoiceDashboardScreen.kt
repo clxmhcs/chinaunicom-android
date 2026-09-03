@@ -1,5 +1,6 @@
 package com.clxmhcs.chinaunicom.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -429,8 +430,8 @@ private fun VoicePackageRow(
     val modifier = if (onClick != null) Modifier.fillMaxWidth().clickable(onClick = onClick) else Modifier.fillMaxWidth()
 
     Column(
-        modifier = modifier.padding(vertical = if (showChevron) 10.dp else 0.dp),
-        verticalArrangement = Arrangement.spacedBy(if (showChevron) 8.dp else 6.86.dp),
+        modifier = modifier.padding(vertical = if (showChevron) 6.dp else 0.dp),
+        verticalArrangement = Arrangement.spacedBy(6.86.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -440,23 +441,29 @@ private fun VoicePackageRow(
             Text(
                 packageValue.originalName,
                 modifier = Modifier.weight(1f),
-                fontSize = if (showChevron) 13.5.sp else 10.29.sp,
-                lineHeight = if (showChevron) 18.sp else 13.71.sp,
+                fontSize = 10.29.sp,
+                lineHeight = 13.71.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 trailingText,
-                fontSize = if (showChevron) 11.5.sp else 8.57.sp,
-                lineHeight = if (showChevron) 15.sp else 12.86.sp,
+                fontSize = 8.57.sp,
+                lineHeight = 12.86.sp,
                 color = VoiceSecondary,
                 textAlign = TextAlign.End,
                 maxLines = 2,
             )
             trailingAction?.invoke()
             if (showChevron && trailingAction == null) {
-                Text("›", fontSize = 24.sp, lineHeight = 24.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f))
+                Text(
+                    "›",
+                    fontSize = 14.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f),
+                )
             }
         }
 
@@ -467,29 +474,29 @@ private fun VoicePackageRow(
         ) {
             Text(
                 "已用 ${voiceMinuteText(packageValue.usedMinutes)}",
-                fontSize = if (showChevron) 10.sp else 8.57.sp,
-                lineHeight = if (showChevron) 14.sp else 12.29.sp,
+                fontSize = 8.57.sp,
+                lineHeight = 12.29.sp,
                 color = VoiceSecondary,
             )
             Text(
                 if (packageValue.isShared) "共享" else "非共享",
-                fontSize = if (showChevron) 10.sp else 8.57.sp,
-                lineHeight = if (showChevron) 14.sp else 12.29.sp,
+                fontSize = 8.57.sp,
+                lineHeight = 12.29.sp,
                 color = Color(0xFF2196F3),
                 modifier = Modifier
                     .clip(CircleShape)
                     .background(Color(0xFF2196F3).copy(alpha = 0.10f))
                     .padding(
-                        horizontal = if (showChevron) 4.dp else 3.dp,
-                        vertical = if (showChevron) 1.dp else 0.dp,
+                        horizontal = 3.dp,
+                        vertical = 0.dp,
                     ),
             )
             Spacer(Modifier.weight(1f))
             voiceCleanEndDate(packageValue.endDateText)?.let {
                 Text(
                     "有效期至 $it",
-                    fontSize = if (showChevron) 10.sp else 8.57.sp,
-                    lineHeight = if (showChevron) 14.sp else 12.29.sp,
+                    fontSize = 8.57.sp,
+                    lineHeight = 12.29.sp,
                     color = VoiceTertiary,
                     maxLines = 1,
                 )
@@ -497,7 +504,7 @@ private fun VoicePackageRow(
         }
 
         packageValue.usedFraction?.let { fraction ->
-            VoiceProgressBar(fraction, compact = !showChevron)
+            VoiceProgressBar(fraction, compact = true)
         }
     }
 }
@@ -551,8 +558,8 @@ private fun VoiceDisplaySettingsScreen(
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 118.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(start = 16.dp, top = 10.dp, end = 16.dp, bottom = 118.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item(key = "nav") {
                 VoiceDisplayNavigationHeader(
@@ -575,8 +582,8 @@ private fun VoiceDisplaySettingsScreen(
                 item(key = "ambiguous-footer") {
                     Text(
                         "这些业务名称同时出现在流量和语音中。进入候选项后可随时调整“资源类型”，选错后也能从这里改回。",
-                        fontSize = 11.5.sp,
-                        lineHeight = 16.sp,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.sp,
                         color = VoiceSecondary,
                     )
                 }
@@ -610,8 +617,8 @@ private fun VoiceDisplaySettingsScreen(
             item(key = "group-footer") {
                 Text(
                     "进入分类后可手动输入分类名称，并用复选框勾选多个语音包。分类按当前号码独立保存，供后续通知设置选择调用。",
-                    fontSize = 11.5.sp,
-                    lineHeight = 16.sp,
+                    fontSize = 10.5.sp,
+                    lineHeight = 14.sp,
                     color = VoiceSecondary,
                 )
             }
@@ -690,22 +697,22 @@ private fun VoiceDisplayNavigationHeader(
         Surface(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .size(52.dp)
+                .size(44.dp)
                 .clickable(onClick = onBack),
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
             shadowElevation = 7.dp,
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text("‹", fontSize = 43.sp, lineHeight = 43.sp, fontWeight = FontWeight.Light)
+                Text("‹", fontSize = 37.sp, lineHeight = 37.sp, fontWeight = FontWeight.Light)
             }
         }
 
         Text(
             mobile,
             modifier = Modifier.align(Alignment.Center),
-            fontSize = 19.sp,
-            lineHeight = 24.sp,
+            fontSize = 17.sp,
+            lineHeight = 21.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
         )
@@ -713,15 +720,15 @@ private fun VoiceDisplayNavigationHeader(
         Surface(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .height(52.dp)
-                .width(78.dp)
+                .height(44.dp)
+                .width(74.dp)
                 .clickable(onClick = onToggleEdit),
-            shape = RoundedCornerShape(26.dp),
+            shape = RoundedCornerShape(22.dp),
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
             shadowElevation = 7.dp,
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(if (editMode) "完成" else "编辑", fontSize = 17.sp, color = VoiceBlue)
+                Text(if (editMode) "完成" else "编辑", fontSize = 14.5.sp, color = VoiceBlue)
             }
         }
     }
@@ -731,10 +738,10 @@ private fun VoiceDisplayNavigationHeader(
 private fun VoiceSectionTitle(text: String) {
     Text(
         text,
-        modifier = Modifier.padding(start = 18.dp, top = 6.dp),
-        fontSize = 17.sp,
-        lineHeight = 22.sp,
-        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 18.dp, top = 2.dp),
+        fontSize = 15.sp,
+        lineHeight = 19.sp,
+        fontWeight = FontWeight.Medium,
         color = VoiceSecondary,
     )
 }
@@ -747,16 +754,17 @@ private fun VoiceAmbiguousResourceCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface,
     ) {
-        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
             account.ambiguousResourceGroups.forEachIndexed { groupIndex, group ->
                 Text(
                     group.displayName,
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
+                    modifier = Modifier.padding(vertical = 6.dp),
+                    fontSize = 10.5.sp,
+                    lineHeight = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold,
                     color = VoiceSecondary,
                     maxLines = 2,
                 )
@@ -766,7 +774,7 @@ private fun VoiceAmbiguousResourceCard(
                         name = packageValue.originalName,
                         kind = "流量候选",
                         value = voiceFlowCandidateText(packageValue, formatter),
-                        icon = "▮▮▮",
+                        isVoice = false,
                         onClick = { onSelect(packageValue.id, packageValue.originalName) },
                     )
                 }
@@ -775,7 +783,7 @@ private fun VoiceAmbiguousResourceCard(
                         name = packageValue.originalName,
                         kind = "语音候选",
                         value = voiceRemainingCompactText(packageValue),
-                        icon = "☎",
+                        isVoice = true,
                         onClick = { onSelect(packageValue.id, packageValue.originalName) },
                     )
                 }
@@ -790,32 +798,87 @@ private fun VoiceAmbiguousResourceRow(
     name: String,
     kind: String,
     value: String,
-    icon: String,
+    isVoice: Boolean,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 13.dp),
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(38.dp)
-                .clip(RoundedCornerShape(9.dp))
+                .size(28.dp)
+                .clip(RoundedCornerShape(8.dp))
                 .background(VoiceBlue.copy(alpha = 0.10f)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(icon, fontSize = 18.sp, color = VoiceBlue, fontWeight = FontWeight.Bold)
+            VoiceCandidateGlyph(isVoice = isVoice)
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(name, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
-            Text(kind, fontSize = 11.5.sp, color = VoiceSecondary)
+            Text(name, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+            Text(kind, fontSize = 10.5.sp, lineHeight = 13.sp, color = VoiceSecondary)
         }
-        Text(value, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = VoiceSecondary, maxLines = 2, textAlign = TextAlign.End)
-        Text("›", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f))
+        Text(
+            value,
+            fontSize = 11.sp,
+            lineHeight = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = VoiceSecondary,
+            maxLines = 1,
+            textAlign = TextAlign.End,
+        )
+        Text(
+            "›",
+            fontSize = 14.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.30f),
+        )
+    }
+}
+
+@Composable
+private fun VoiceCandidateGlyph(isVoice: Boolean) {
+    Canvas(modifier = Modifier.size(17.dp)) {
+        if (isVoice) {
+            val stroke = size.minDimension * 0.19f
+            drawLine(
+                color = VoiceBlue,
+                start = Offset(size.width * 0.25f, size.height * 0.18f),
+                end = Offset(size.width * 0.20f, size.height * 0.48f),
+                strokeWidth = stroke,
+            )
+            drawLine(
+                color = VoiceBlue,
+                start = Offset(size.width * 0.20f, size.height * 0.48f),
+                end = Offset(size.width * 0.53f, size.height * 0.80f),
+                strokeWidth = stroke,
+            )
+            drawLine(
+                color = VoiceBlue,
+                start = Offset(size.width * 0.53f, size.height * 0.80f),
+                end = Offset(size.width * 0.82f, size.height * 0.74f),
+                strokeWidth = stroke,
+            )
+        } else {
+            val barWidth = size.width * 0.18f
+            val gap = size.width * 0.10f
+            val bottom = size.height * 0.84f
+            val left = size.width * 0.14f
+            listOf(0.42f, 0.66f, 0.88f).forEachIndexed { index, heightFraction ->
+                val h = size.height * heightFraction
+                drawRoundRect(
+                    color = VoiceBlue,
+                    topLeft = Offset(left + index * (barWidth + gap), bottom - h),
+                    size = androidx.compose.ui.geometry.Size(barWidth, h),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth * 0.35f, barWidth * 0.35f),
+                )
+            }
+        }
     }
 }
 
@@ -828,10 +891,10 @@ private fun VoicePackageManagementCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface,
     ) {
-        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
             if (account.visibleVoicePackages.isEmpty()) {
                 Text(
                     if (account.resolvedVoicePackages.isEmpty()) "尚未识别到语音权益" else "所有语音权益均已隐藏",
