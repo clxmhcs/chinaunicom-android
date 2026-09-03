@@ -312,8 +312,8 @@ private fun VoiceAccountCard(
         )
 
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 17.14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -403,7 +403,7 @@ private fun VoiceAccountCard(
                     Text("所有语音权益均已隐藏", fontSize = 12.sp, color = VoiceSecondary)
                 }
                 else -> {
-                    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(15.43.dp)) {
                         account.visibleVoicePackages.forEach { packageValue ->
                             VoicePackageRow(packageValue = packageValue, showChevron = false)
                         }
@@ -430,7 +430,7 @@ private fun VoicePackageRow(
 
     Column(
         modifier = modifier.padding(vertical = if (showChevron) 10.dp else 0.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(if (showChevron) 8.dp else 6.86.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -440,16 +440,16 @@ private fun VoicePackageRow(
             Text(
                 packageValue.originalName,
                 modifier = Modifier.weight(1f),
-                fontSize = if (showChevron) 13.5.sp else 12.sp,
-                lineHeight = if (showChevron) 18.sp else 16.sp,
+                fontSize = if (showChevron) 13.5.sp else 10.29.sp,
+                lineHeight = if (showChevron) 18.sp else 13.71.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 trailingText,
-                fontSize = if (showChevron) 11.5.sp else 10.sp,
-                lineHeight = 15.sp,
+                fontSize = if (showChevron) 11.5.sp else 8.57.sp,
+                lineHeight = if (showChevron) 15.sp else 12.86.sp,
                 color = VoiceSecondary,
                 textAlign = TextAlign.End,
                 maxLines = 2,
@@ -467,43 +467,55 @@ private fun VoicePackageRow(
         ) {
             Text(
                 "已用 ${voiceMinuteText(packageValue.usedMinutes)}",
-                fontSize = 10.sp,
+                fontSize = if (showChevron) 10.sp else 8.57.sp,
+                lineHeight = if (showChevron) 14.sp else 12.29.sp,
                 color = VoiceSecondary,
             )
             Text(
                 if (packageValue.isShared) "共享" else "非共享",
-                fontSize = 10.sp,
+                fontSize = if (showChevron) 10.sp else 8.57.sp,
+                lineHeight = if (showChevron) 14.sp else 12.29.sp,
                 color = Color(0xFF2196F3),
                 modifier = Modifier
                     .clip(CircleShape)
                     .background(Color(0xFF2196F3).copy(alpha = 0.10f))
-                    .padding(horizontal = 4.dp, vertical = 1.dp),
+                    .padding(
+                        horizontal = if (showChevron) 4.dp else 3.dp,
+                        vertical = if (showChevron) 1.dp else 0.dp,
+                    ),
             )
             Spacer(Modifier.weight(1f))
             voiceCleanEndDate(packageValue.endDateText)?.let {
-                Text("有效期至 $it", fontSize = 10.sp, color = VoiceTertiary, maxLines = 1)
+                Text(
+                    "有效期至 $it",
+                    fontSize = if (showChevron) 10.sp else 8.57.sp,
+                    lineHeight = if (showChevron) 14.sp else 12.29.sp,
+                    color = VoiceTertiary,
+                    maxLines = 1,
+                )
             }
         }
 
         packageValue.usedFraction?.let { fraction ->
-            VoiceProgressBar(fraction)
+            VoiceProgressBar(fraction, compact = !showChevron)
         }
     }
 }
 
 @Composable
-private fun VoiceProgressBar(fraction: Double) {
+private fun VoiceProgressBar(fraction: Double, compact: Boolean = false) {
+    val barHeight = if (compact) 4.29.dp else 5.dp
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(5.dp)
+            .height(barHeight)
             .clip(CircleShape)
             .background(VoiceProgressBlue.copy(alpha = 0.08f)),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(fraction.toFloat().coerceIn(0f, 1f))
-                .height(5.dp)
+                .height(barHeight)
                 .clip(CircleShape)
                 .background(
                     Brush.horizontalGradient(
