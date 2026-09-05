@@ -167,8 +167,10 @@ class FlowViewModel(
 
     fun captchaUserAgent(): String {
         val deviceOS = captchaSystemInfo()["deviceOS"].orEmpty().ifBlank { "18.0" }
-        return "ChinaUnicom4.x/12.14 (com.chinaunicom.mobilebusiness; build:13; iOS $deviceOS) " +
-            "Alamofire/4.7.3 unicom{version:${UnicomSMSLoginSession.VERSION}}"
+        val systemToken = deviceOS.replace('.', '_')
+        return "Mozilla/5.0 (iPhone; CPU iPhone OS $systemToken like Mac OS X) " +
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) unicom{version:${UnicomSMSLoginSession.VERSION}};" +
+            "ltst;OSVersion/$deviceOS"
     }
 
     fun continueSMSCaptcha(resultToken: String) {
