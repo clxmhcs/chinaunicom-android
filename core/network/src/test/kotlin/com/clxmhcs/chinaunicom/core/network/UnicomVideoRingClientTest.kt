@@ -11,9 +11,10 @@ import org.junit.Test
 
 class UnicomVideoRingClientTest {
     private val clientUID = "0123456789abcdef0123456789abcdefabcd"
+    private val nativeUserAgent = UnicomClientProfile.nativeUserAgent("18.7")
 
     @Test
-    fun activeInlineChainUsesSigned10155HeadersAndMemberStateEndpoint() {
+    fun activeInlineChainUsesCurrentNativeIdentitySigned10155HeadersAndMemberStateEndpoint() {
         val transport = QueueVideoRingTransport(
             response("""{"rsp_code":"0000","ticket":"ticket-A"}"""),
             response("""{"code":"200","result":{"userid":"server-user","caller":"18600001234"},"accessToken":"abc"}"""),
@@ -38,8 +39,14 @@ class UnicomVideoRingClientTest {
         assertNull(result.updatedCredentials)
 
         assertEquals(4, transport.requests.size)
-        assertTrue(transport.requests[0].url.contains("getTicketByNative"))
-        assertEquals("ecs_token=ecsA; other=1", transport.requests[0].headers["Cookie"])
+        val nativeTicket = transport.requests[0]
+        assertTrue(nativeTicket.url.contains("getTicketByNative"))
+        assertEquals("ecs_token=ecsA; other=1", nativeTicket.headers["Cookie"])
+        assertEquals("zh-Hans-CN;q=1.0", nativeTicket.headers["Accept-Language"])
+        assertEquals(nativeUserAgent, nativeTicket.headers["User-Agent"])
+        assertTrue(nativeUserAgent.contains("ChinaUnicom4.x/12.15"))
+        assertTrue(nativeUserAgent.contains("iphone_c@12.1500"))
+
         assertTrue(transport.requests[1].url.endsWith(UnicomVideoRingClient.LOGIN))
         assertTrue(transport.requests[2].url.endsWith(UnicomVideoRingClient.MEMBER_INFO))
         assertTrue(transport.requests[3].url.endsWith(UnicomVideoRingClient.MEMBER_STATE))
@@ -52,7 +59,7 @@ class UnicomVideoRingClientTest {
             assertEquals("73FBD1A1B1FFA192BEF433CAF736ADA9", request.headers["sign"])
             assertEquals("1018", request.headers["oswoversion"])
             assertEquals("zh-Hans-CN;q=1.0", request.headers["Accept-Language"])
-            assertEquals(UnicomVideoRingClient.USER_AGENT, request.headers["User-Agent"])
+            assertEquals(nativeUserAgent, request.headers["User-Agent"])
         }
         assertNull(transport.requests[1].headers["accessToken"])
         assertEquals("Bearer abc", transport.requests[2].headers["accessToken"])
@@ -61,7 +68,7 @@ class UnicomVideoRingClientTest {
     }
 
     @Test
-    fun failedNativeTicketRefreshesOnlySelectedCredentialsThenRetries() {
+    fun failedNativeTicketRefreshesOnlySelectedCredentialsThenRetriesWithSameCurrentNativeIdentity() {
         val transport = QueueVideoRingTransport(
             response("""{"rsp_code":"9998","rsp_desc":"expired"}"""),
             response("""{"rsp_code":"0000","ticket":"ticket-B"}"""),
@@ -78,6 +85,7 @@ class UnicomVideoRingClientTest {
                 renewed
             },
             clientUID = clientUID,
+            systemVersionProvider = { "18.7" },
             clockMillis = { 1_700_000_000_000L },
             nonceProvider = { "0.0000000000000001" },
             testOnly = Unit,
@@ -91,6 +99,9 @@ class UnicomVideoRingClientTest {
         assertEquals(1, activationCount)
         assertEquals(renewed, result.updatedCredentials)
         assertTrue(transport.requests[1].url.contains("token=newEcs"))
+        assertEquals(nativeUserAgent, transport.requests[0].headers["User-Agent"])
+        assertEquals(nativeUserAgent, transport.requests[1].headers["User-Agent"])
+        assertEquals(nativeUserAgent, transport.requests[2].headers["User-Agent"])
         assertEquals(3, result.state.members.size)
         assertTrue(result.state.members.none { it.isMember })
     }
@@ -118,6 +129,7 @@ class UnicomVideoRingClientTest {
         transport = transport,
         activateSession = { error("activation not expected") },
         clientUID = clientUID,
+        systemVersionProvider = { "18.7" },
         clockMillis = { 1_700_000_000_000L },
         nonceProvider = { "0.0000000000000001" },
         testOnly = Unit,
