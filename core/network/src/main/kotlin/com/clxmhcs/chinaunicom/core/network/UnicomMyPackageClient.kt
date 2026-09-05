@@ -50,7 +50,7 @@ class UnicomMyPackageClient(
     private val http: UnicomHTTPClient = UnicomHTTPClient(OkHttpUnicomTransport(25_000L)),
     private val sessionClient: UnicomAPIClient = UnicomAPIClient(http = http),
     private val systemVersionProvider: () -> String = {
-        System.getProperty("os.version")?.trim().orEmpty().ifEmpty { "11" }
+        UnicomSessionRenewalEnvironment.current().userAgentSystemVersion
     },
 ) : MyPackageNetworkClient {
     override fun fetch(credentials: AccountCredentials): MyPackageFetchResult {
@@ -165,7 +165,7 @@ class UnicomMyPackageClient(
                 "Origin" to PAGE_ORIGIN,
                 "Referer" to "$PAGE_ORIGIN/wodetaocan2024/index.html#/",
                 "Accept-Language" to "zh-CN,zh-Hans;q=0.9",
-                "User-Agent" to "Mozilla/5.0 (iPhone; CPU iPhone OS ${systemVersion.replace('.', '_')} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) unicom{version:$CLIENT_VERSION};ltst;OSVersion/$systemVersion",
+                "User-Agent" to UnicomClientProfile.h5UserAgent(systemVersion),
             ),
         )
         if (UnicomResponseStatus.responseLooksExpired(response.data)) throw UnicomAPIException.SessionExpired
@@ -270,6 +270,5 @@ class UnicomMyPackageClient(
     companion object {
         private const val BASE_URL = "https://mxx.client.10010.com"
         private const val PAGE_ORIGIN = "https://imgxx.client.10010.com"
-        private const val CLIENT_VERSION = "iphone_c@12.1400"
     }
 }

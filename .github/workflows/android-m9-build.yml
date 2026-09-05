@@ -16,6 +16,7 @@ on:
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
       - "docs/migration/M9_A_MY_ORDER_PROFILE_12_15.md"
+      - "docs/migration/M9_B_MY_PACKAGE_PROFILE_12_15.md"
       - ".github/workflows/android-m9-build.yml"
   push:
     branches: [main]
@@ -32,6 +33,7 @@ on:
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
       - "docs/migration/M9_A_MY_ORDER_PROFILE_12_15.md"
+      - "docs/migration/M9_B_MY_PACKAGE_PROFILE_12_15.md"
       - ".github/workflows/android-m9-build.yml"
 
 permissions:
@@ -143,7 +145,9 @@ jobs:
           grep -q 'queryPackage/myResourceDetails' "$CLIENT"
           grep -q 'queryPackage/myMemberMobile' "$CLIENT"
           grep -q 'queryPackage/myPrettyNumber' "$CLIENT"
-          grep -q 'iphone_c@12.1400' "$CLIENT"
+          grep -q 'UnicomClientProfile.h5UserAgent(systemVersion)' "$CLIENT"
+          grep -q 'UnicomSessionRenewalEnvironment.current().userAgentSystemVersion' "$CLIENT"
+          ! grep -q 'iphone_c@12\.1400' "$CLIENT"
           grep -q '#user3ExtraInfo6' "$CLIENT"
           grep -q 'AES/CBC/NoPadding' "$CLIENT"
           grep -q 'sessionClient.activateSession(credentials)' "$CLIENT"
