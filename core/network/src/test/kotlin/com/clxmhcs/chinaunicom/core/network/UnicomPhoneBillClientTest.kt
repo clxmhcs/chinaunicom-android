@@ -35,29 +35,47 @@ class UnicomPhoneBillClientTest {
     }
 
     @Test
-    fun expiredMonthsSessionActivatesWithIos90100AndPersistsRenewedFieldsInResult() {
+    fun expiredMonthsSessionDelegatesToSharedRenewalAndPersistsRenewedFieldsInResult() {
         val transport = PhoneBillQueueTransport(
             response("{\"code\":\"9998\"}"),
-            response(
-                "{\"code\":\"0000\",\"appId\":\"newApp\",\"token_online\":\"newToken\"}",
-                setCookies = listOf("renewed=2; Path=/"),
-            ),
             response(monthsPayload()),
         )
-        val result = client(transport).fetchMonths(AccountCredentials("old=1", "oldApp", "oldToken"))
+        var activationInput: AccountCredentials? = null
+        val renewed = AccountCredentials("old=1; renewed=2", "newApp", "newToken")
+        val result = client(
+            transport = transport,
+            activateSession = { input ->
+                activationInput = input
+                renewed
+            },
+        ).fetchMonths(AccountCredentials("old=1", "oldApp", "oldToken"))
 
-        assertEquals(3, transport.requests.size)
-        val activation = transport.requests[1]
-        assertEquals(ComprehensiveBusinessEndpoints.PHONE_BILL_ONLINE, activation.url)
-        assertNull(activation.headers["Cookie"])
-        val activationBody = activation.body.decodeToString()
-        assertTrue(activationBody.contains("appId=oldApp"))
-        assertTrue(activationBody.contains("token_online=oldToken"))
-        assertTrue(activationBody.contains("version=iphone_c%409.0100"))
+        assertEquals(AccountCredentials("old=1", "oldApp", "oldToken"), activationInput)
+        assertEquals(2, transport.requests.size)
+        assertEquals("old=1", transport.requests[0].headers["Cookie"])
+        assertEquals("old=1; renewed=2", transport.requests[1].headers["Cookie"])
         assertEquals("old=1; renewed=2", result.updatedCredentials?.cookie)
         assertEquals("newApp", result.updatedCredentials?.appID)
         assertEquals("newToken", result.updatedCredentials?.tokenOnline)
-        assertEquals("old=1; renewed=2", transport.requests[2].headers["Cookie"])
+    }
+
+    @Test
+    fun expiredSessionWithoutSavedAppIdTokenFailsBeforeSharedRenewal() {
+        val transport = PhoneBillQueueTransport(response("{\"code\":\"9998\"}"))
+        var activationCount = 0
+        val error = runCatching {
+            client(
+                transport = transport,
+                activateSession = {
+                    activationCount += 1
+                    it
+                },
+            ).fetchMonths(AccountCredentials("sid=old", null, null))
+        }.exceptionOrNull()
+
+        assertTrue(error is UnicomAPIException.Server)
+        assertEquals(0, activationCount)
+        assertEquals(1, transport.requests.size)
     }
 
     @Test
@@ -81,9 +99,13 @@ class UnicomPhoneBillClientTest {
         assertEquals("账户消费", snapshot.accountSections.single().title)
     }
 
-    private fun client(transport: PhoneBillQueueTransport) = UnicomPhoneBillClient(
+    private fun client(
+        transport: PhoneBillQueueTransport,
+        activateSession: (AccountCredentials) -> AccountCredentials = { error("activation not expected") },
+    ) = UnicomPhoneBillClient(
         http = UnicomHTTPClient(transport, retryDelayMillis = 0),
         clock = clock,
+        activateSession = activateSession,
     )
 
     private fun response(body: String, setCookies: List<String> = emptyList()) = UnicomRawResponse(
