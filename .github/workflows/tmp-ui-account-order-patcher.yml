@@ -1,0 +1,285 @@
+name: Temporary UI Account Order Patcher
+
+on:
+  push:
+    branches:
+      - ui-25-account-order-refinement
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[ui-order-patched]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui-25-account-order-refinement
+          fetch-depth: 0
+      - name: Fetch verified iOS SIM-card source asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/res/drawable-nodpi
+          curl -fsSL \
+            https://raw.githubusercontent.com/clxmhcs/chinaunicom-ios/be76da50d79b22546cb08c9bd514caa0723e5750/ChinaUnicom/Assets.xcassets/ReceiptSIMCardIcon.imageset/ReceiptSIMCardIcon.png \
+            -o app/src/main/res/drawable-nodpi/receipt_sim_card_icon.png
+          echo '9fdcc250aabf69a59d2a283d4c403721fe3a33cecac8982f019efa12d37f2b2a  app/src/main/res/drawable-nodpi/receipt_sim_card_icon.png' | sha256sum -c -
+      - name: Patch custom account ordering UI
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt')
+          text = path.read_text()
+
+          import_replacements = {
+              'import androidx.compose.foundation.Image\n': 'import androidx.compose.foundation.Image\nimport androidx.compose.foundation.gestures.detectVerticalDragGestures\n',
+              'import androidx.compose.ui.graphics.Color\n': 'import androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.graphics.ColorFilter\n',
+              'import androidx.compose.ui.platform.LocalContext\n': 'import androidx.compose.ui.input.pointer.pointerInput\nimport androidx.compose.ui.layout.ContentScale\nimport androidx.compose.ui.platform.LocalContext\nimport androidx.compose.ui.platform.LocalDensity\n',
+              'import java.util.UUID\n': 'import java.util.UUID\nimport kotlin.math.roundToInt\n',
+          }
+          for old, new in import_replacements.items():
+              if old not in text:
+                  raise SystemExit(f'missing import anchor: {old!r}')
+              text = text.replace(old, new, 1)
+
+          old_call = '''            IosAccountOrderScreen(
+                accounts = accounts,
+                settings = settings,
+                onMove = settingsViewModel::moveAccount,
+                onBack = closePage,
+            )'''
+          new_call = '''            IosAccountOrderScreen(
+                accounts = accounts,
+                settings = settings,
+                locationForNumber = m11cViewModel::cachedLocation,
+                onMove = settingsViewModel::moveAccount,
+                onBack = closePage,
+            )'''
+          if text.count(old_call) != 1:
+              raise SystemExit(f'account-order call anchor count={text.count(old_call)}')
+          text = text.replace(old_call, new_call, 1)
+
+          old_function = '''@Composable
+          private fun IosAccountOrderScreen(
+              accounts: List<UnicomAccount>,
+              settings: AppSettings,
+              onMove: (UUID, Int) -> Unit,
+              onBack: () -> Unit,
+          ) {
+              IosSimpleSettingsPage("自定义排序", onBack) {
+                  if (accounts.isEmpty()) {
+                      Text("暂无手机账号", color = SettingsSecondary)
+                  } else {
+                      accounts.forEachIndexed { index, account ->
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              verticalAlignment = Alignment.CenterVertically,
+                          ) {
+                              Text(
+                                  account.displayName.ifBlank { displayMobileNumber(account.mobile, settings) },
+                                  modifier = Modifier.weight(1f),
+                                  fontSize = 14.sp,
+                              )
+                              TextButton(onClick = { onMove(account.id, -1) }, enabled = index > 0) { Text("上移") }
+                              TextButton(onClick = { onMove(account.id, 1) }, enabled = index < accounts.lastIndex) { Text("下移") }
+                          }
+                          if (index < accounts.lastIndex) IosDivider(start = 0.dp)
+                      }
+                  }
+              }
+          }
+          '''.replace('          ', '')
+
+          new_function = '''@Composable
+          private fun IosAccountOrderScreen(
+              accounts: List<UnicomAccount>,
+              settings: AppSettings,
+              locationForNumber: (String) -> String?,
+              onMove: (UUID, Int) -> Unit,
+              onBack: () -> Unit,
+          ) {
+              val rowHeight = 68.dp
+              val rowHeightPx = with(LocalDensity.current) { rowHeight.toPx() }
+
+              Column(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(SettingsGroupedBackground)
+                      .padding(horizontal = 16.dp),
+              ) {
+                  Spacer(Modifier.height(8.dp))
+                  IosSubpageHeader("自定义排序", onBack)
+                  Spacer(Modifier.height(18.dp))
+
+                  Text(
+                      text = "首页卡片顺序",
+                      fontSize = 15.sp,
+                      lineHeight = 19.sp,
+                      fontWeight = FontWeight.SemiBold,
+                      color = SettingsSecondary,
+                      modifier = Modifier.padding(start = 20.dp, bottom = 9.dp),
+                  )
+
+                  if (accounts.isEmpty()) {
+                      Surface(
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(20.dp),
+                          color = Color.White,
+                      ) {
+                          Text(
+                              "暂无手机账号",
+                              color = SettingsSecondary,
+                              fontSize = 14.sp,
+                              modifier = Modifier.padding(20.dp),
+                          )
+                      }
+                  } else {
+                      Surface(
+                          modifier = Modifier.fillMaxWidth(),
+                          shape = RoundedCornerShape(20.dp),
+                          color = Color.White,
+                      ) {
+                          Column {
+                              accounts.forEachIndexed { index, account ->
+                                  val location = locationForNumber(account.mobile)
+                                      ?.trim()
+                                      ?.takeIf { it.isNotEmpty() }
+                                      ?: account.displayName.trim()
+                                          .takeIf { it.isNotEmpty() && it != "联通号码" }
+                                      ?: "归属地未知"
+
+                                  Row(
+                                      modifier = Modifier
+                                          .fillMaxWidth()
+                                          .height(rowHeight)
+                                          .padding(start = 18.dp, end = 10.dp),
+                                      verticalAlignment = Alignment.CenterVertically,
+                                  ) {
+                                      Image(
+                                          painter = painterResource(R.drawable.receipt_sim_card_icon),
+                                          contentDescription = null,
+                                          modifier = Modifier.size(24.dp),
+                                          contentScale = ContentScale.Fit,
+                                      )
+                                      Spacer(Modifier.size(12.dp))
+                                      Column(
+                                          modifier = Modifier.weight(1f),
+                                          verticalArrangement = Arrangement.spacedBy(2.dp),
+                                      ) {
+                                          Row(verticalAlignment = Alignment.CenterVertically) {
+                                              Text(
+                                                  text = accountOrderMobileText(account.mobile, settings),
+                                                  fontSize = 17.sp,
+                                                  lineHeight = 21.sp,
+                                                  color = Color.Black,
+                                              )
+                                              Spacer(Modifier.size(5.dp))
+                                              Image(
+                                                  painter = painterResource(R.drawable.china_unicom_knot_watermark),
+                                                  contentDescription = null,
+                                                  modifier = Modifier.size(16.dp),
+                                                  colorFilter = ColorFilter.tint(SettingsDanger),
+                                                  contentScale = ContentScale.Fit,
+                                              )
+                                          }
+                                          Text(
+                                              text = location,
+                                              fontSize = 12.5.sp,
+                                              lineHeight = 16.sp,
+                                              color = SettingsSecondary,
+                                              modifier = Modifier.padding(start = 6.dp),
+                                          )
+                                      }
+                                      IosAccountDragHandle(
+                                          accountID = account.id,
+                                          rowHeightPx = rowHeightPx,
+                                          onMove = onMove,
+                                      )
+                                  }
+                                  if (index < accounts.lastIndex) IosDivider(start = 55.dp)
+                              }
+                          }
+                      }
+                  }
+
+                  Text(
+                      text = "按住右侧拖动按钮调整顺序。修改会立即保存，并同步用于首页显示和刷新全部的号码顺序。",
+                      fontSize = 12.sp,
+                      lineHeight = 17.sp,
+                      color = SettingsSecondary,
+                      modifier = Modifier.padding(start = 20.dp, end = 14.dp, top = 10.dp),
+                  )
+              }
+          }
+
+          private fun accountOrderMobileText(number: String, settings: AppSettings): String {
+              val value = number.trim()
+              if (!settings.hideMobileMiddleDigits || value.length < 7) return value
+              return "${value.take(3)} **** ${value.takeLast(4)}"
+          }
+
+          @Composable
+          private fun IosAccountDragHandle(
+              accountID: UUID,
+              rowHeightPx: Float,
+              onMove: (UUID, Int) -> Unit,
+          ) {
+              Canvas(
+                  modifier = Modifier
+                      .size(width = 34.dp, height = 44.dp)
+                      .pointerInput(accountID, rowHeightPx) {
+                          var dragDistance = 0f
+                          detectVerticalDragGestures(
+                              onDragStart = { dragDistance = 0f },
+                              onDragEnd = {
+                                  val delta = (dragDistance / rowHeightPx).roundToInt()
+                                  if (delta != 0) onMove(accountID, delta)
+                                  dragDistance = 0f
+                              },
+                              onDragCancel = { dragDistance = 0f },
+                              onVerticalDrag = { _, dragAmount -> dragDistance += dragAmount },
+                          )
+                      },
+              ) {
+                  val strokeWidth = 1.55.dp.toPx()
+                  repeat(3) { index ->
+                      val y = size.height * (0.37f + index * 0.13f)
+                      drawLine(
+                          color = SettingsChevron,
+                          start = androidx.compose.ui.geometry.Offset(size.width * 0.22f, y),
+                          end = androidx.compose.ui.geometry.Offset(size.width * 0.78f, y),
+                          strokeWidth = strokeWidth,
+                          cap = StrokeCap.Round,
+                      )
+                  }
+              }
+          }
+          '''.replace('          ', '')
+
+          if text.count(old_function) != 1:
+              raise SystemExit(f'account-order function anchor count={text.count(old_function)}')
+          text = text.replace(old_function, new_function, 1)
+          path.write_text(text)
+          PY
+      - name: Validate patch scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'R.drawable.receipt_sim_card_icon' app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
+          grep -q 'detectVerticalDragGestures' app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
+          grep -q '按住右侧拖动按钮调整顺序' app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
+          ! grep -A30 'private fun IosAccountOrderScreen' app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt | grep -q 'Text("上移")'
+          git diff --check
+      - name: Commit patched source and exact iOS asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt app/src/main/res/drawable-nodpi/receipt_sim_card_icon.png
+          git commit -m '[ui-order-patched] UI-25 refine custom account ordering'
+          git push origin HEAD:ui-25-account-order-refinement
