@@ -23,22 +23,11 @@ jobs:
           from pathlib import Path
           p = Path('app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt')
           s = p.read_text()
-          old = '''                composable(RootTab.Settings.route) {
-                    SettingsRootScreen(
-                        settingsViewModel = settingsViewModel,
-                        onOpenCredentials = { navController.navigate(SETTINGS_CREDENTIALS_ROUTE) },
-                        onOpenRefreshLogic = { navController.navigate(SETTINGS_REFRESH_ROUTE) },
-                    )
-                }'''
-          new = '''                composable(RootTab.Settings.route) {
-                    SettingsRootIosScreen(
-                        settingsViewModel = settingsViewModel,
-                        onOpenCredentials = { navController.navigate(SETTINGS_CREDENTIALS_ROUTE) },
-                        onOpenRefreshLogic = { navController.navigate(SETTINGS_REFRESH_ROUTE) },
-                    )
-                }'''
-          if old not in s:
-              raise SystemExit('settings root anchor not found')
+          old = 'SettingsRootScreen('
+          new = 'SettingsRootIosScreen('
+          count = s.count(old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one settings root call, found {count}')
           p.write_text(s.replace(old, new, 1))
           Path('.github/workflows/ui17-settings-switch.yml').unlink()
           PY
