@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -54,7 +55,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.clxmhcs.chinaunicom.BuildConfig
 import com.clxmhcs.chinaunicom.R
 import com.clxmhcs.chinaunicom.core.model.AppSettings
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
@@ -110,6 +110,12 @@ fun SettingsRootIosScreen(
     onOpenCredentials: () -> Unit,
     onOpenRefreshLogic: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val packageInfo = remember(context.packageName) {
+        context.packageManager.getPackageInfo(context.packageName, 0)
+    }
+    val installedAppVersion = "${packageInfo.versionName ?: "1.0"} (${packageInfo.longVersionCode})"
+
     val settings by settingsViewModel.appSettings.collectAsState()
     val appState by settingsViewModel.appState.collectAsState()
     val balanceState by settingsViewModel.balanceState.collectAsState()
@@ -413,7 +419,7 @@ fun SettingsRootIosScreen(
                     ) { showDonationMessage = true }
                     IosInformationRow(
                         label = "版本、版权",
-                        detail = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                        detail = installedAppVersion,
                         divider = true,
                         primaryColor = Color.Black,
                     )
