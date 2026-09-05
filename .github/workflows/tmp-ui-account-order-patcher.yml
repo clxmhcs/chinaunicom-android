@@ -17,15 +17,6 @@ jobs:
         with:
           ref: ui-25-account-order-refinement
           fetch-depth: 0
-      - name: Fetch verified iOS SIM-card source asset
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p app/src/main/res/drawable-nodpi
-          curl -fsSL \
-            https://raw.githubusercontent.com/clxmhcs/chinaunicom-ios/be76da50d79b22546cb08c9bd514caa0723e5750/ChinaUnicom/Assets.xcassets/ReceiptSIMCardIcon.imageset/ReceiptSIMCardIcon.png \
-            -o app/src/main/res/drawable-nodpi/receipt_sim_card_icon.png
-          echo '9fdcc250aabf69a59d2a283d4c403721fe3a33cecac8982f019efa12d37f2b2a  app/src/main/res/drawable-nodpi/receipt_sim_card_icon.png' | sha256sum -c -
       - name: Patch custom account ordering UI
         shell: bash
         run: |
@@ -272,14 +263,14 @@ jobs:
           grep -q 'R.drawable.receipt_sim_card_icon' app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
           grep -q 'detectVerticalDragGestures' app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
           grep -q '按住右侧拖动按钮调整顺序' app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
-          ! grep -A30 'private fun IosAccountOrderScreen' app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt | grep -q 'Text("上移")'
+          ! grep -A40 'private fun IosAccountOrderScreen' app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt | grep -q 'Text("上移")'
           git diff --check
-      - name: Commit patched source and exact iOS asset
+      - name: Commit patched source
         shell: bash
         run: |
           set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt app/src/main/res/drawable-nodpi/receipt_sim_card_icon.png
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
           git commit -m '[ui-order-patched] UI-25 refine custom account ordering'
           git push origin HEAD:ui-25-account-order-refinement
