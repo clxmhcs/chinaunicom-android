@@ -41,7 +41,9 @@ class UnicomMyOrderClientTest {
         assertTrue(body.contains("page_size=1"))
         assertTrue(body.contains("loginNumber=${md5("18612345678")}"))
         assertEquals("https://img.client.10010.com", request.headers["Origin"])
-        assertTrue(request.headers.getValue("User-Agent").contains("unicom{version:iphone_c@12.1400}"))
+        assertEquals(UnicomClientProfile.h5UserAgent("18.7"), request.headers["User-Agent"])
+        assertTrue(request.headers.getValue("User-Agent").contains("unicom{version:iphone_c@12.1500}"))
+        assertTrue(request.headers.getValue("User-Agent").contains("OSVersion/18.7"))
         assertEquals("new", UnicomCookieCodec.value("sid", result.updatedCredentials!!.cookie))
         assertEquals("1", UnicomCookieCodec.value("keep", result.updatedCredentials!!.cookie))
         assertEquals("token-old", result.updatedCredentials!!.tokenOnline)
@@ -88,6 +90,7 @@ class UnicomMyOrderClientTest {
         val client = UnicomMyOrderClient(
             http = http,
             sessionClient = testUnicomAPIClient(http),
+            systemVersionProvider = { "18.7" },
         )
         val credentials = AccountCredentials("sid=old", "app-id", "token-old")
 
@@ -95,11 +98,13 @@ class UnicomMyOrderClientTest {
 
         assertEquals(3, transport.requests.size)
         assertTrue(transport.requests[0].url.contains(UnicomMyOrderClient.ORDER_PATH))
+        assertEquals(UnicomClientProfile.h5UserAgent("18.7"), transport.requests[0].headers["User-Agent"])
         val activation = transport.requests[1]
         assertEquals(UnicomAPIClient.ONLINE_URL, activation.url)
         assertEquals("sid=old", activation.headers["Cookie"])
         assertTrue(activation.body.decodeToString().contains("version=iphone_c%4012.1500"))
         assertTrue(transport.requests[2].url.contains(UnicomMyOrderClient.ORDER_PATH))
+        assertEquals(UnicomClientProfile.h5UserAgent("18.7"), transport.requests[2].headers["User-Agent"])
         assertEquals("business", UnicomCookieCodec.value("sid", result.updatedCredentials!!.cookie))
         assertEquals("app-new", result.updatedCredentials!!.appID)
         assertEquals("token-new", result.updatedCredentials!!.tokenOnline)
@@ -108,7 +113,10 @@ class UnicomMyOrderClientTest {
     @Test
     fun unchangedDirectCookieDoesNotEmitCredentials() {
         val transport = QueueTransport(mutableListOf(UnicomRawResponse(200, orderResponse().toByteArray())))
-        val client = UnicomMyOrderClient(http = UnicomHTTPClient(transport, retryDelayMillis = 0))
+        val client = UnicomMyOrderClient(
+            http = UnicomHTTPClient(transport, retryDelayMillis = 0),
+            systemVersionProvider = { "18.7" },
+        )
 
         val result = client.fetch(
             "18612345678",

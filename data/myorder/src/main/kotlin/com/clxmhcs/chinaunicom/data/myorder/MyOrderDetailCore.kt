@@ -3,6 +3,7 @@ package com.clxmhcs.chinaunicom.data.myorder
 import com.clxmhcs.chinaunicom.core.model.MyOrder
 import com.clxmhcs.chinaunicom.core.model.MyOrderDetailMode
 import com.clxmhcs.chinaunicom.core.model.MyOrderDetailRequest
+import com.clxmhcs.chinaunicom.core.network.UnicomClientProfile
 import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -58,11 +59,12 @@ object MyOrderDetailRequestFactory {
 }
 
 /**
- * Platform-neutral source contract consumed by the later Android WebView adapter.
+ * Platform-neutral source contract consumed by the Android WebView adapter.
  * It freezes the iOS ready-URL gates, request endpoints, sourcePage, sub-product rule and renewal default serviceType.
  */
 object MyOrderDetailWebBridgeContract {
-    const val USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) unicom{version:iphone_c@12.1400};ltst;OSVersion/26.6"
+    fun userAgent(systemVersion: String): String = UnicomClientProfile.h5UserAgent(systemVersion)
+
     const val BLOCKED_EVALUATION_PATTERN = ".*queryEvaluateItem.*"
     const val ANDROID_BRIDGE_NAME = "myOrderDetailBridge"
 

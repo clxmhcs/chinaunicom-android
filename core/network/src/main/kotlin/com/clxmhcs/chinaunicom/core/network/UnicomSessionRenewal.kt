@@ -6,7 +6,7 @@ import java.net.NetworkInterface
 import java.util.Collections
 import java.util.zip.GZIPInputStream
 
-/** Shared current China Unicom native client identity from the iOS source of truth. */
+/** Shared current China Unicom native/H5 client identity from the iOS source of truth. */
 object UnicomClientProfile {
     const val APP_VERSION = "12.15"
     const val PROTOCOL_VERSION = "iphone_c@12.1500"
@@ -17,6 +17,12 @@ object UnicomClientProfile {
     fun nativeUserAgent(systemVersion: String): String =
         "ChinaUnicom4.x/$APP_VERSION ($BUNDLE_IDENTIFIER; build:$NATIVE_BUILD; iOS $systemVersion) " +
             "Alamofire/$ALAMOFIRE_VERSION unicom{version:$PROTOCOL_VERSION}"
+
+    fun h5UserAgent(systemVersion: String): String {
+        val token = systemVersion.replace('.', '_')
+        return "Mozilla/5.0 (iPhone; CPU iPhone OS $token like Mac OS X) AppleWebKit/605.1.15 " +
+            "(KHTML, like Gecko) unicom{version:$PROTOCOL_VERSION};ltst;OSVersion/$systemVersion"
+    }
 }
 
 data class UnicomSessionRenewalDeviceContext(
