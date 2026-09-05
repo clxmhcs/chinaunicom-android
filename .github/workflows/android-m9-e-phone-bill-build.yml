@@ -10,6 +10,7 @@ on:
       - "core/login/**"
       - "data/phonebill/**"
       - "data/comprehensive/**"
+      - "docs/migration/M9_E_PHONE_BILL.md"
       - ".github/workflows/android-m9-e-phone-bill-build.yml"
   push:
     branches: [main]
@@ -20,6 +21,7 @@ on:
       - "core/login/**"
       - "data/phonebill/**"
       - "data/comprehensive/**"
+      - "docs/migration/M9_E_PHONE_BILL.md"
       - ".github/workflows/android-m9-e-phone-bill-build.yml"
 
 permissions:
@@ -52,7 +54,7 @@ jobs:
           test -n "$PLATFORM_PACKAGE"
           sdkmanager --channel=3 "$PLATFORM_PACKAGE"
 
-      - name: Verify M9-E1 Phone Bill reuse boundary
+      - name: Verify M9-E Phone Bill reuse and shared-renewal boundary
         shell: bash
         run: |
           OTHER=app/src/main/java/com/clxmhcs/chinaunicom/ui/OtherBusinessScreen.kt
@@ -63,10 +65,11 @@ jobs:
           APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
           BUILD=app/build.gradle.kts
           CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPhoneBillClient.kt
+          CONTRACT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/ComprehensiveBusinessNetworkContracts.kt
           LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/PhoneBillAccountCredentialLifecycle.kt
           STORE=data/phonebill/src/main/kotlin/com/clxmhcs/chinaunicom/data/phonebill/PhoneBillStore.kt
           CACHE=data/phonebill/src/main/kotlin/com/clxmhcs/chinaunicom/data/phonebill/AndroidPhoneBillDiskCache.kt
-          for file in "$OTHER" "$SELECTOR" "$ENTRY" "$VM" "$FLOW_VM" "$APP" "$BUILD" "$CLIENT" "$LIFECYCLE" "$STORE" "$CACHE"; do test -f "$file"; done
+          for file in "$OTHER" "$SELECTOR" "$ENTRY" "$VM" "$FLOW_VM" "$APP" "$BUILD" "$CLIENT" "$CONTRACT" "$LIFECYCLE" "$STORE" "$CACHE"; do test -f "$file"; done
 
           grep -q 'minSdk = 30' "$BUILD"
           grep -Eq 'versionName = "0\.9\.0-[a-z0-9.-]+"' "$BUILD"
@@ -95,7 +98,14 @@ jobs:
           grep -q '13个月' "$STORE"
           grep -q 'AtomicFile' "$CACHE"
           grep -q 'stream.fd.sync()' "$CACHE"
-          echo "M9_E1_PHONE_BILL_REUSE_GATE=PASS"
 
-      - name: Run M9-E1 regression
+          # Current iOS PhoneBillClient delegates session recovery to UnicomAPIClient.
+          # Android must not regain its historical private iphone_c@9.0100 onLine.htm authority.
+          grep -q 'UnicomAPIClient(http = http)::activateSession' "$CLIENT"
+          ! grep -q 'iphone_c@9.0100' "$CLIENT"
+          ! grep -q 'PHONE_BILL_ONLINE' "$CLIENT"
+          ! grep -q 'PHONE_BILL_ONLINE' "$CONTRACT"
+          echo "M9_E_PHONE_BILL_SHARED_RENEWAL_GATE=PASS"
+
+      - name: Run M9-E regression
         run: ./gradlew :core:model:testDebugUnitTest :core:network:testDebugUnitTest :core:login:testDebugUnitTest :data:phonebill:testDebugUnitTest :data:comprehensive:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease
