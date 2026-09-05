@@ -79,8 +79,8 @@ class UnicomPasswordLoginSession(
         "deviceModel" to identity.deviceModel,
         "deviceBrand" to DEVICE_BRAND,
         "deviceOS" to identity.deviceOS,
-        "appVersion" to VERSION,
-        "clientVersion" to VERSION,
+        "appVersion" to UnicomClientProfile.PROTOCOL_VERSION,
+        "clientVersion" to UnicomClientProfile.PROTOCOL_VERSION,
     )
 
     fun currentCookieHeader(): String = normalizedCookie()
@@ -115,7 +115,7 @@ class UnicomPasswordLoginSession(
             "uniqueIdentifier" to identity.uniqueIdentifier,
             "deviceOS" to identity.deviceOS,
             "latitude" to "",
-            "version" to VERSION,
+            "version" to UnicomClientProfile.PROTOCOL_VERSION,
             "pip" to localIPv4Provider().orEmpty(),
             "isFirstInstall" to "0",
             "remark4" to "",
@@ -183,7 +183,7 @@ class UnicomPasswordLoginSession(
             "sign" to "",
             "provinceCode" to provinceCode(),
             "timestamp" to milliseconds,
-            "appVersion" to VERSION,
+            "appVersion" to UnicomClientProfile.PROTOCOL_VERSION,
             "version" to SWITCH_VERSION,
             "deviceCode" to identity.deviceCode,
         )
@@ -237,7 +237,7 @@ class UnicomPasswordLoginSession(
 
     private fun seedBaseCookies() {
         setCookie("PvSessionId", pvSessionID)
-        setCookie("c_version", VERSION)
+        setCookie("c_version", UnicomClientProfile.PROTOCOL_VERSION)
         setCookie("channel", CHANNEL)
         setCookie("devicedId", identity.deviceCode)
         setCookie("city", cityCookie())
@@ -331,16 +331,13 @@ class UnicomPasswordLoginSession(
         throw UnicomPasswordLoginException.EncryptionFailed(detail, error)
     }
 
-    private fun officialUserAgent(): String =
-        "ChinaUnicom4.x/12.14 (com.chinaunicom.mobilebusiness; build:13; iOS ${identity.deviceOS}) " +
-            "Alamofire/4.7.3 unicom{version:$VERSION}"
+    private fun officialUserAgent(): String = UnicomClientProfile.nativeUserAgent(identity.deviceOS)
 
     private fun localDateTime(): LocalDateTime = LocalDateTime.ofInstant(clock.instant(), clock.zone)
 
     companion object {
         const val LOGIN_URL = "https://loginxx.10010.com/mobileService/login.htm"
         const val SWITCH_URL = "https://loginxx.10010.com/login-web/v1/switch/getSwitch"
-        const val VERSION = "iphone_c@12.1400"
         const val KEY_VERSION = "2"
         const val CHANNEL = "GGPD"
         const val SWITCH_VERSION = "237"
