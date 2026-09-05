@@ -390,7 +390,7 @@ fun ChinaUnicomApp() {
                     )
                 }
                 composable(RootTab.Settings.route) {
-                    SettingsRootScreen(
+                    SettingsRootVisualScreen(
                         settingsViewModel = settingsViewModel,
                         onOpenCredentials = { navController.navigate(SETTINGS_CREDENTIALS_ROUTE) },
                         onOpenRefreshLogic = { navController.navigate(SETTINGS_REFRESH_ROUTE) },
