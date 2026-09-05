@@ -87,11 +87,11 @@ class UnicomIntegralClientTest {
     }
 
     @Test
-    fun expiredIntegralSessionReusesStandardM4ActivationThenRetries() {
+    fun expiredIntegralSessionReusesModernSharedActivationThenRetries() {
         val transport = IntegralQueueTransport(
             response("{\"code\":\"9998\"}"),
             response(
-                "{\"code\":\"0000\",\"token_online\":\"newToken\"}",
+                "{\"code\":\"0000\",\"appId\":\"app-new\",\"token_online\":\"newToken\"}",
                 listOf("renewed=2; Path=/"),
             ),
             response(balancePayload()),
@@ -106,12 +106,14 @@ class UnicomIntegralClientTest {
         assertEquals(4, transport.requests.size)
         val activation = transport.requests[1]
         assertEquals(UnicomAPIClient.ONLINE_URL, activation.url)
+        assertEquals("c_mobile=$mobile; sid=1", activation.headers["Cookie"])
         val activationBody = activation.body.decodeToString()
         assertTrue(activationBody.contains("appId=app"))
         assertTrue(activationBody.contains("token_online=oldToken"))
-        assertTrue(activationBody.contains("version=iphone_c%409.0100"))
-        assertNull(activation.headers["Cookie"])
+        assertTrue(activationBody.contains("version=iphone_c%4012.1500"))
+        assertTrue(activationBody.contains("deviceCode=550E8400-E29B-41D4-A716-446655440000"))
         assertEquals("c_mobile=$mobile; sid=1; renewed=2", transport.requests[2].headers["Cookie"])
+        assertEquals("app-new", result.updatedCredentials?.appID)
         assertEquals("newToken", result.updatedCredentials?.tokenOnline)
         assertEquals("c_mobile=$mobile; sid=1; renewed=2", result.updatedCredentials?.cookie)
     }
@@ -148,7 +150,7 @@ class UnicomIntegralClientTest {
         val http = UnicomHTTPClient(transport, retryDelayMillis = 0)
         return UnicomIntegralClient(
             http = http,
-            sessionClient = UnicomAPIClient(http = http),
+            sessionClient = testUnicomAPIClient(http),
             systemVersionProvider = { "18.7" },
         )
     }
