@@ -1,8 +1,10 @@
 package com.clxmhcs.chinaunicom.core.network
 
 import com.clxmhcs.chinaunicom.core.model.AccountCredentials
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -20,18 +22,37 @@ class UnicomAPIClientTest {
         }
     """.trimIndent().encodeToByteArray()
 
+    private val renewalContext = UnicomSessionRenewalDeviceContext(
+        deviceCode = "550E8400-E29B-41D4-A716-446655440000",
+        deviceID = "b".repeat(64),
+        uniqueIdentifier = "iosa" + "a".repeat(32),
+        deviceModel = "Pixel-Test",
+        deviceOS = "13",
+        userAgentSystemVersion = "13",
+        localIPv4Address = "192.0.2.8",
+    )
+    private val renewalProvider = UnicomSessionRenewalDeviceContextProvider { renewalContext }
+    private val renewalClock = Clock.fixed(
+        Instant.parse("2026-09-05T06:30:00Z"),
+        ZoneId.of("Asia/Shanghai"),
+    )
+
     @Test
-    fun expiredQuotaActivatesWithoutOldCookieThenRetriesWithMutatedCookie() {
+    fun expiredQuotaUsesModernIosRenewalThenRetriesWithMutatedCredentials() {
         val transport = QueueTransport(
             UnicomRawResponse(200, "999998".encodeToByteArray()),
             UnicomRawResponse(
                 200,
-                "{\"code\":\"0000\",\"token_online\":\"new-token\"}".encodeToByteArray(),
+                "{\"code\":\"0000\",\"appId\":\"app-2\",\"token_online\":\"new-token\"}".encodeToByteArray(),
                 mapOf("Set-Cookie" to listOf("ecs_token=new; Path=/", "old=; Max-Age=0")),
             ),
             UnicomRawResponse(200, quotaJson),
         )
-        val client = UnicomAPIClient(UnicomHTTPClient(transport, retryDelayMillis = 0))
+        val client = UnicomAPIClient(
+            http = UnicomHTTPClient(transport, retryDelayMillis = 0),
+            renewalDeviceContextProvider = renewalProvider,
+            clock = renewalClock,
+        )
         val result = client.fetchWidgetQuota(AccountCredentials("old=1; keep=2", "app-1", "old-token"))
 
         assertEquals(3, transport.requests.size)
@@ -39,17 +60,35 @@ class UnicomAPIClientTest {
         assertEquals("old=1; keep=2", transport.requests[0].headers["Cookie"])
 
         val activation = transport.requests[1]
-        assertEquals(UnicomAPIClient.ONLINE_URL, activation.url)
-        assertFalse(activation.headers.keys.any { it.equals("Cookie", true) })
+        assertEquals("https://loginhl.10010.com/mobileService/onLine.htm", activation.url)
+        assertEquals("old=1; keep=2", activation.headers["Cookie"])
         assertEquals("application/x-www-form-urlencoded", activation.headers["Content-Type"])
-        assertEquals(
-            "appId=app-1&token_online=old-token&version=iphone_c%409.0100",
-            activation.body.toString(Charsets.UTF_8),
-        )
+        assertTrue(activation.headers.getValue("User-Agent").contains("ChinaUnicom4.x/12.15"))
+        assertTrue(activation.headers.getValue("User-Agent").contains("build:4"))
+        assertTrue(activation.headers.getValue("User-Agent").contains("unicom{version:iphone_c@12.1500}"))
+        val activationBody = activation.body.toString(Charsets.UTF_8)
+        listOf(
+            "appId=app-1",
+            "deviceBrand=iPhone",
+            "deviceCode=550E8400-E29B-41D4-A716-446655440000",
+            "deviceId=${"b".repeat(64)}",
+            "deviceModel=Pixel-Test",
+            "deviceOS=13",
+            "flushkey=1",
+            "isFirstInstall=0",
+            "pip=192.0.2.8",
+            "reqtime=2026-09-05%2014%3A30%3A00",
+            "step=welcom",
+            "token_online=old-token",
+            "uniqueIdentifier=iosa${"a".repeat(32)}",
+            "version=iphone_c%4012.1500",
+            "voipToken=citc-default-token-do-not-push",
+        ).forEach { expected -> assertTrue("missing $expected in $activationBody", activationBody.contains(expected)) }
 
         assertEquals("keep=2; ecs_token=new", transport.requests[2].headers["Cookie"])
         assertNotNull(result.updatedCredentials)
         assertEquals("keep=2; ecs_token=new", result.updatedCredentials?.cookie)
+        assertEquals("app-2", result.updatedCredentials?.appID)
         assertEquals("new-token", result.updatedCredentials?.tokenOnline)
         assertEquals("畅享套餐", result.packageName)
         assertEquals(1, result.packages.size)
@@ -69,7 +108,11 @@ class UnicomAPIClientTest {
             }
         """.trimIndent().encodeToByteArray()
         val transport = QueueTransport(UnicomRawResponse(200, balancePayload))
-        val client = UnicomAPIClient(UnicomHTTPClient(transport, retryDelayMillis = 0))
+        val client = UnicomAPIClient(
+            http = UnicomHTTPClient(transport, retryDelayMillis = 0),
+            renewalDeviceContextProvider = renewalProvider,
+            clock = renewalClock,
+        )
         val result = client.fetchBalance(AccountCredentials("session=abc", null, null))
 
         assertEquals(1234.56, result.balanceYuan ?: 0.0, 0.0001)
