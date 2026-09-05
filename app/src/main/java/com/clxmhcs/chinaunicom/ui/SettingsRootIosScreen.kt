@@ -730,8 +730,8 @@ private fun SettingsGlyphIcon(
             SettingsGlyph.BELL -> {
                 drawArc(color, 190f, 160f, false, topLeft = androidx.compose.ui.geometry.Offset(w * .22f, h * .18f), size = androidx.compose.ui.geometry.Size(w * .56f, h * .58f), style = stroke)
                 drawLine(color, androidx.compose.ui.geometry.Offset(w * .20f, h * .67f), androidx.compose.ui.geometry.Offset(w * .80f, h * .67f), stroke.width, StrokeCap.Round)
-                drawCircle(color, radius = w * .05f, center = androidx.compose.ui.geometry.Offset(w * .50f, h * .78f), color = color)
-                drawCircle(color, radius = w * .06f, center = androidx.compose.ui.geometry.Offset(w * .70f, h * .20f), color = color)
+                drawCircle(color = color, radius = w * .05f, center = androidx.compose.ui.geometry.Offset(w * .50f, h * .78f))
+                drawCircle(color = color, radius = w * .06f, center = androidx.compose.ui.geometry.Offset(w * .70f, h * .20f))
             }
             SettingsGlyph.BOOK -> {
                 drawRoundRect(color, topLeft = androidx.compose.ui.geometry.Offset(w * .20f, h * .14f), size = androidx.compose.ui.geometry.Size(w * .58f, h * .72f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.5.dp.toPx()), style = stroke)
