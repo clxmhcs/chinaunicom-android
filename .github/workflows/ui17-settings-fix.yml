@@ -1,0 +1,44 @@
+name: UI17 Settings Compile Fix
+
+on:
+  push:
+    branches:
+      - ui-17-settings-ios-refinement
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui-17-settings-ios-refinement
+      - name: Fix settings glyph draw calls
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt')
+          s = p.read_text()
+          s = s.replace(
+              'drawCircle(color, radius = w * .05f, center = androidx.compose.ui.geometry.Offset(w * .50f, h * .78f), color = color)',
+              'drawCircle(color = color, radius = w * .05f, center = androidx.compose.ui.geometry.Offset(w * .50f, h * .78f))',
+          )
+          s = s.replace(
+              'drawCircle(color, radius = w * .06f, center = androidx.compose.ui.geometry.Offset(w * .70f, h * .20f), color = color)',
+              'drawCircle(color = color, radius = w * .06f, center = androidx.compose.ui.geometry.Offset(w * .70f, h * .20f))',
+          )
+          p.write_text(s)
+          Path('.github/workflows/ui17-settings-fix.yml').unlink()
+          PY
+      - name: Commit fix and cleanup workflow
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt .github/workflows/ui17-settings-fix.yml
+          git commit -m 'UI-17: fix custom settings icon draw calls'
+          git push origin HEAD:ui-17-settings-ios-refinement
