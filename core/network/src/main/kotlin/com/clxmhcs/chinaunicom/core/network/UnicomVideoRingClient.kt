@@ -98,6 +98,7 @@ class UnicomVideoRingClient private constructor(
     private val transportFactory: () -> VideoRingTransport,
     private val activateSession: (AccountCredentials) -> AccountCredentials,
     private val clientUID: String,
+    private val systemVersionProvider: () -> String,
     private val clockMillis: () -> Long,
     private val nonceProvider: () -> String,
 ) : VideoRingNetworkClient {
@@ -105,6 +106,7 @@ class UnicomVideoRingClient private constructor(
         transportFactory = { OkHttpVideoRingTransport() },
         activateSession = UnicomAPIClient()::activateSession,
         clientUID = normalizeClientUID(clientUID),
+        systemVersionProvider = { UnicomSessionRenewalEnvironment.current().userAgentSystemVersion },
         clockMillis = System::currentTimeMillis,
         nonceProvider = ::newNonce,
     )
@@ -115,6 +117,7 @@ class UnicomVideoRingClient private constructor(
         transport: VideoRingTransport,
         activateSession: (AccountCredentials) -> AccountCredentials,
         clientUID: String,
+        systemVersionProvider: () -> String,
         clockMillis: () -> Long,
         nonceProvider: () -> String,
         testOnly: Unit,
@@ -122,6 +125,7 @@ class UnicomVideoRingClient private constructor(
         transportFactory = { transport },
         activateSession = activateSession,
         clientUID = normalizeClientUID(clientUID),
+        systemVersionProvider = systemVersionProvider,
         clockMillis = clockMillis,
         nonceProvider = nonceProvider,
     )
@@ -134,7 +138,6 @@ class UnicomVideoRingClient private constructor(
         const val CLIENT_APP_ID = "3000013947"
         const val SIGN_SALT = "VNEU8G4V"
         const val OS_WO_VERSION = "1018"
-        const val USER_AGENT = "ChinaUnicom4.x/12.14 (com.chinaunicom.mobilebusiness; build:13) Alamofire/4.7.3 unicom{version:iphone_c@12.1400}"
         const val LOGIN = "/woapp/login/ecsAppletLogin"
         const val MEMBER_INFO = "/woapp/h5/woMember/getClientMemberInfosByUserId"
         const val MEMBER_STATE = "/woapp/uc/getmemberinfo"
@@ -233,6 +236,8 @@ class UnicomVideoRingClient private constructor(
                     "Accept" to "*/*",
                     "Content-Type" to "application/x-www-form-urlencoded",
                     "Cookie" to cookie,
+                    "Accept-Language" to "zh-Hans-CN;q=1.0",
+                    "User-Agent" to nativeUserAgent(),
                 ),
             ),
         )
@@ -354,9 +359,14 @@ class UnicomVideoRingClient private constructor(
             put("sign", signature)
             put("oswoversion", OS_WO_VERSION)
             put("Accept-Language", "zh-Hans-CN;q=1.0")
-            put("User-Agent", USER_AGENT)
+            put("User-Agent", nativeUserAgent())
             accessToken?.let { put("accessToken", normalizedBearerToken(it)) }
         }
+    }
+
+    private fun nativeUserAgent(): String {
+        val systemVersion = systemVersionProvider().trim().ifEmpty { "11" }
+        return UnicomClientProfile.nativeUserAgent(systemVersion)
     }
 
     private fun execute(
