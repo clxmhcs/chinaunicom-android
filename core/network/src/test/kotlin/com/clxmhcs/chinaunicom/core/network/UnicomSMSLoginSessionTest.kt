@@ -53,9 +53,12 @@ class UnicomSMSLoginSessionTest {
         val switchRequest = transport.requests[0]
         assertEquals(UnicomSMSLoginSession.SWITCH_URL, switchRequest.url)
         assertEquals("application/json", switchRequest.headers["Content-Type"])
-        assertTrue(switchRequest.headers.getValue("User-Agent").contains("unicom{version:iphone_c@12.1400}"))
+        val userAgent = switchRequest.headers.getValue("User-Agent")
+        assertTrue(userAgent.contains("ChinaUnicom4.x/12.15"))
+        assertTrue(userAgent.contains("build:4"))
+        assertTrue(userAgent.contains("unicom{version:iphone_c@12.1500}"))
         val switchCookies = cookieMap(switchRequest.headers.getValue("Cookie"))
-        assertEquals("iphone_c@12.1400", switchCookies["c_version"])
+        assertEquals("iphone_c@12.1500", switchCookies["c_version"])
         assertEquals("GGPD", switchCookies["channel"])
         assertEquals(identity.deviceCode, switchCookies["devicedId"])
         assertEquals("017|170", switchCookies["city"])
@@ -63,7 +66,7 @@ class UnicomSMSLoginSessionTest {
 
         val switchJSON = Json.parseToJsonElement(switchRequest.body.toString(Charsets.UTF_8)).jsonObject
         assertEquals("237", switchJSON.getValue("version").jsonPrimitive.content)
-        assertEquals("iphone_c@12.1400", switchJSON.getValue("appVersion").jsonPrimitive.content)
+        assertEquals("iphone_c@12.1500", switchJSON.getValue("appVersion").jsonPrimitive.content)
         assertEquals("017", switchJSON.getValue("provinceCode").jsonPrimitive.content)
         assertEquals("1787360400000", switchJSON.getValue("timestamp").jsonPrimitive.content)
         assertTrue(switchJSON.getValue("seq").jsonPrimitive.content.startsWith("__NSDictionaryM_1787360400000_"))
@@ -75,6 +78,7 @@ class UnicomSMSLoginSessionTest {
         assertEquals("6", sendFields["loginCodeLen"])
         assertEquals("017", sendFields["provinceCode"])
         assertEquals("170", sendFields["cityCode"])
+        assertEquals("iphone_c@12.1500", sendFields["version"])
         assertEquals(identity.appID, sendFields["appId"])
         assertEquals(128, Base64.getDecoder().decode(sendFields.getValue("mobile")).size)
         assertEquals("one", cookieMap(sendRequest.headers.getValue("Cookie"))["bootstrap"])
@@ -117,6 +121,7 @@ class UnicomSMSLoginSessionTest {
         val fields = formFields(transport.requests.single().body)
         assertEquals("captcha-result-token", fields["resultToken"])
         assertEquals("preferred-app", fields["appId"])
+        assertEquals("iphone_c@12.1500", fields["version"])
         assertFalse(transport.requests.single().headers.containsKey("Cookie"))
 
         assertTrue(outcome is UnicomSMSSendOutcome.CaptchaRequired)
@@ -158,6 +163,7 @@ class UnicomSMSLoginSessionTest {
         assertEquals("0", fields["loginStyle"])
         assertEquals("1", fields["voiceoff_flag"])
         assertEquals("2", fields["keyVersion"])
+        assertEquals("iphone_c@12.1500", fields["version"])
         assertEquals("preferred-app", fields["appId"])
         assertEquals(128, Base64.getDecoder().decode(fields.getValue("mobile")).size)
         assertEquals(128, Base64.getDecoder().decode(fields.getValue("password")).size)
