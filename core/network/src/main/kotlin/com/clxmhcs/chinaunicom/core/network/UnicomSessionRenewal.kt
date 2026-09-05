@@ -44,7 +44,7 @@ object UnicomSessionRenewalEnvironment : UnicomSessionRenewalDeviceContextProvid
     }
 
     override fun current(): UnicomSessionRenewalDeviceContext =
-        provider?.current() ?: throw UnicomAPIException.MissingDeviceIdentity
+        provider?.current() ?: throw UnicomAPIException.MissingCredentials
 }
 
 data class UnicomSessionRenewalRequest(
