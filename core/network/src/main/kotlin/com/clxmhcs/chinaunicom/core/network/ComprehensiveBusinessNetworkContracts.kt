@@ -21,7 +21,6 @@ object ComprehensiveBusinessEndpoints {
     const val ORDERED_BUSINESS_QUERY = "/servicebusiness/newOrdered/queryOrderRelationship"
 
     const val PHONE_BILL_ROOT = "https://m.client.10010.com"
-    const val PHONE_BILL_ONLINE = "$PHONE_BILL_ROOT/mobileService/onLine.htm"
     const val PHONE_BILL_MONTHS = "/serviceimportantbusiness/phoneBillNew/queryMonths"
     const val PHONE_BILL_DETAIL = "/serviceimportantbusiness/phoneBillNew/queryDetail"
 
