@@ -92,6 +92,7 @@ private enum class SettingsGlyph {
     WIDGET_SINGLE,
     WIDGET_DUAL,
     REFRESH,
+    APP_REFRESH,
     CLOCK,
     GROUP,
     FINANCIAL,
@@ -308,7 +309,7 @@ fun SettingsRootIosScreen(
 
             item {
                 IosSettingsSection(title = "数据刷新") {
-                    IosActionRow("App刷新逻辑编辑", icon = SettingsGlyph.REFRESH, divider = true, onClick = onOpenRefreshLogic)
+                    IosActionRow("App刷新逻辑编辑", icon = SettingsGlyph.APP_REFRESH, divider = true, onClick = onOpenRefreshLogic)
                     IosActionRow("每日用量基准", icon = SettingsGlyph.CLOCK, divider = true, enabled = accounts.isNotEmpty()) {
                         page = SettingsIosPage.DAILY_BASELINE
                     }
@@ -608,7 +609,7 @@ private fun IosActionRow(
                 }
                 if (showsPicker) {
                     Spacer(Modifier.size(5.dp))
-                    Text("⌃⌄", fontSize = 12.sp, color = SettingsAccent, fontWeight = FontWeight.SemiBold)
+                    IosPickerChevronPair()
                 } else if (showsChevron) {
                     Spacer(Modifier.size(6.dp))
                     Text("›", fontSize = 24.sp, lineHeight = 24.sp, color = SettingsChevron)
@@ -616,6 +617,47 @@ private fun IosActionRow(
             }
         }
         if (divider) IosDivider(start = if (icon == null) 17.dp else 57.dp)
+    }
+}
+
+@Composable
+private fun IosPickerChevronPair() {
+    Canvas(modifier = Modifier.size(width = 10.dp, height = 14.dp)) {
+        val strokeWidth = 1.45.dp.toPx()
+        val centerX = size.width / 2f
+        val halfWidth = size.width * 0.28f
+        val topCenterY = size.height * 0.30f
+        val bottomCenterY = size.height * 0.70f
+        val halfHeight = size.height * 0.12f
+
+        drawLine(
+            color = SettingsAccent,
+            start = androidx.compose.ui.geometry.Offset(centerX - halfWidth, topCenterY + halfHeight),
+            end = androidx.compose.ui.geometry.Offset(centerX, topCenterY - halfHeight),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = SettingsAccent,
+            start = androidx.compose.ui.geometry.Offset(centerX, topCenterY - halfHeight),
+            end = androidx.compose.ui.geometry.Offset(centerX + halfWidth, topCenterY + halfHeight),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = SettingsAccent,
+            start = androidx.compose.ui.geometry.Offset(centerX - halfWidth, bottomCenterY - halfHeight),
+            end = androidx.compose.ui.geometry.Offset(centerX, bottomCenterY + halfHeight),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = SettingsAccent,
+            start = androidx.compose.ui.geometry.Offset(centerX, bottomCenterY + halfHeight),
+            end = androidx.compose.ui.geometry.Offset(centerX + halfWidth, bottomCenterY - halfHeight),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
     }
 }
 
@@ -671,6 +713,14 @@ private fun SettingsGlyphIcon(
         val w = size.width
         val h = size.height
         val stroke = Stroke(width = 2.0.dp.toPx(), cap = StrokeCap.Round)
+        fun arrowHead(tipX: Float, tipY: Float, leftX: Float, leftY: Float, rightX: Float, rightY: Float) {
+            val path = Path().apply {
+                moveTo(leftX, leftY)
+                lineTo(tipX, tipY)
+                lineTo(rightX, rightY)
+            }
+            drawPath(path, color, style = Stroke(width = stroke.width, cap = StrokeCap.Round))
+        }
         when (glyph) {
             SettingsGlyph.SORT -> {
                 drawLine(color, start = androidx.compose.ui.geometry.Offset(w * .32f, h * .16f), end = androidx.compose.ui.geometry.Offset(w * .32f, h * .84f), strokeWidth = stroke.width, cap = StrokeCap.Round)
@@ -695,14 +745,98 @@ private fun SettingsGlyphIcon(
                 drawRoundRect(color, topLeft = androidx.compose.ui.geometry.Offset(w * .08f, h * .22f), size = androidx.compose.ui.geometry.Size(w * .84f, h * .56f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()), style = stroke)
                 drawLine(color, androidx.compose.ui.geometry.Offset(w * .50f, h * .22f), androidx.compose.ui.geometry.Offset(w * .50f, h * .78f), stroke.width)
             }
-            SettingsGlyph.REFRESH, SettingsGlyph.SEGMENTS -> {
-                drawArc(color, -35f, 250f, false, topLeft = androidx.compose.ui.geometry.Offset(w * .15f, h * .15f), size = androidx.compose.ui.geometry.Size(w * .70f, h * .70f), style = stroke)
-                val path = Path().apply {
-                    moveTo(w * .72f, h * .13f)
-                    lineTo(w * .90f, h * .18f)
-                    lineTo(w * .79f, h * .33f)
-                }
-                drawPath(path, color, style = Stroke(width = stroke.width, cap = StrokeCap.Round))
+            SettingsGlyph.REFRESH -> {
+                drawCircle(color, radius = w * .37f, center = center, style = stroke)
+                drawArc(
+                    color = color,
+                    startAngle = -36f,
+                    sweepAngle = 282f,
+                    useCenter = false,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * .27f, h * .27f),
+                    size = androidx.compose.ui.geometry.Size(w * .46f, h * .46f),
+                    style = stroke,
+                )
+                arrowHead(
+                    tipX = w * .70f,
+                    tipY = h * .32f,
+                    leftX = w * .57f,
+                    leftY = h * .30f,
+                    rightX = w * .68f,
+                    rightY = h * .45f,
+                )
+            }
+            SettingsGlyph.APP_REFRESH -> {
+                drawCircle(color, radius = w * .37f, center = center, style = stroke)
+                drawArc(
+                    color = color,
+                    startAngle = 202f,
+                    sweepAngle = 112f,
+                    useCenter = false,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * .27f, h * .27f),
+                    size = androidx.compose.ui.geometry.Size(w * .46f, h * .46f),
+                    style = stroke,
+                )
+                arrowHead(
+                    tipX = w * .66f,
+                    tipY = h * .31f,
+                    leftX = w * .53f,
+                    leftY = h * .30f,
+                    rightX = w * .64f,
+                    rightY = h * .44f,
+                )
+                drawArc(
+                    color = color,
+                    startAngle = 22f,
+                    sweepAngle = 112f,
+                    useCenter = false,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * .27f, h * .27f),
+                    size = androidx.compose.ui.geometry.Size(w * .46f, h * .46f),
+                    style = stroke,
+                )
+                arrowHead(
+                    tipX = w * .34f,
+                    tipY = h * .69f,
+                    leftX = w * .47f,
+                    leftY = h * .70f,
+                    rightX = w * .36f,
+                    rightY = h * .56f,
+                )
+            }
+            SettingsGlyph.SEGMENTS -> {
+                drawArc(
+                    color = color,
+                    startAngle = 202f,
+                    sweepAngle = 112f,
+                    useCenter = false,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * .17f, h * .17f),
+                    size = androidx.compose.ui.geometry.Size(w * .66f, h * .66f),
+                    style = stroke,
+                )
+                arrowHead(
+                    tipX = w * .76f,
+                    tipY = h * .24f,
+                    leftX = w * .59f,
+                    leftY = h * .22f,
+                    rightX = w * .72f,
+                    rightY = h * .40f,
+                )
+                drawArc(
+                    color = color,
+                    startAngle = 22f,
+                    sweepAngle = 112f,
+                    useCenter = false,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * .17f, h * .17f),
+                    size = androidx.compose.ui.geometry.Size(w * .66f, h * .66f),
+                    style = stroke,
+                )
+                arrowHead(
+                    tipX = w * .24f,
+                    tipY = h * .76f,
+                    leftX = w * .41f,
+                    leftY = h * .78f,
+                    rightX = w * .28f,
+                    rightY = h * .60f,
+                )
             }
             SettingsGlyph.CLOCK -> {
                 drawCircle(color, radius = w * .36f, center = center, style = stroke)
