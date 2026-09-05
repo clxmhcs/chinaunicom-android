@@ -41,7 +41,7 @@ class UnicomTariffZoneClient(
     private val http: UnicomHTTPClient = UnicomHTTPClient(OkHttpUnicomTransport(25_000L)),
     private val sessionClient: UnicomAPIClient = UnicomAPIClient(http = http),
     private val systemVersionProvider: () -> String = {
-        System.getProperty("os.version")?.trim().orEmpty().ifEmpty { "11" }
+        UnicomSessionRenewalEnvironment.current().userAgentSystemVersion
     },
     uuidProvider: () -> UUID = UUID::randomUUID,
 ) : TariffZoneNetworkClient {
@@ -250,7 +250,7 @@ class UnicomTariffZoneClient(
                 "Origin" to PAGE_ORIGIN,
                 "Referer" to "$PAGE_ORIGIN/zifeizhuanqu/index.html",
                 "Accept-Language" to "zh-CN,zh-Hans;q=0.9",
-                "User-Agent" to "Mozilla/5.0 (iPhone; CPU iPhone OS ${systemVersion.replace('.', '_')} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) unicom{version:iphone_c@12.1400};ltst;OSVersion/$systemVersion",
+                "User-Agent" to UnicomClientProfile.h5UserAgent(systemVersion),
             ),
         )
         if (UnicomResponseStatus.responseLooksExpired(response.data)) {

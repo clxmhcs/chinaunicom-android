@@ -11,6 +11,7 @@ on:
       - "data/tariffzone/**"
       - "settings.gradle.kts"
       - ".github/workflows/android-m9-g-tariff-zone-build.yml"
+      - "docs/migration/M9_G_TARIFF_ZONE_PROFILE_12_15.md"
   push:
     branches: [main]
     paths:
@@ -21,6 +22,7 @@ on:
       - "data/tariffzone/**"
       - "settings.gradle.kts"
       - ".github/workflows/android-m9-g-tariff-zone-build.yml"
+      - "docs/migration/M9_G_TARIFF_ZONE_PROFILE_12_15.md"
 
 permissions:
   contents: read
@@ -84,7 +86,10 @@ jobs:
           grep -q '/servicequerybusiness/queryTariffNew/operateData' "$CLIENT"
           grep -q '"tariffAttributes" to scope.rawValue' "$CLIENT"
           grep -q '"behaviorId" to behaviorID' "$CLIENT"
-          grep -q 'iphone_c@12.1400' "$CLIENT"
+          grep -q 'UnicomClientProfile.h5UserAgent(systemVersion)' "$CLIENT"
+          grep -q 'UnicomSessionRenewalEnvironment.current().userAgentSystemVersion' "$CLIENT"
+          ! grep -q 'iphone_c@12\.1400' "$CLIENT"
+          ! grep -q 'System.getProperty("os.version")' "$CLIENT"
           grep -q 'https://imgxx.client.10010.com' "$CLIENT"
           grep -q 'zifeizhuanqu/index.html' "$CLIENT"
           grep -q 'root.text("code") == "0001"' "$CLIENT"
