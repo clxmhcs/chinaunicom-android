@@ -7,6 +7,7 @@ import com.clxmhcs.chinaunicom.core.model.MyOrderAction
 import com.clxmhcs.chinaunicom.core.model.MyOrderDetailContent
 import com.clxmhcs.chinaunicom.core.model.MyOrderDetailMode
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
+import com.clxmhcs.chinaunicom.core.network.UnicomClientProfile
 import com.clxmhcs.chinaunicom.core.security.CredentialStore
 import java.net.URI
 import java.util.UUID
@@ -36,7 +37,10 @@ class MyOrderDetailCoreTest {
         assertTrue(runCatching { MyOrderDetailRequestFactory.create(UUID.randomUUID(), payment) }.exceptionOrNull() is MyOrderDetailPreparationException.Unsupported)
     }
 
-    @Test fun bridgeContractFreezesReadyUrlsAndEndpoints() {
+    @Test fun bridgeContractFreezesReadyUrlsEndpointsAndSharedH5Identity() {
+        assertEquals(UnicomClientProfile.h5UserAgent("18.7"), MyOrderDetailWebBridgeContract.userAgent("18.7"))
+        assertTrue(MyOrderDetailWebBridgeContract.userAgent("18.7").contains("unicom{version:iphone_c@12.1500}"))
+        assertTrue(MyOrderDetailWebBridgeContract.userAgent("18.7").contains("OSVersion/18.7"))
         assertTrue(MyOrderDetailWebBridgeContract.isReadyURL(URI("https://omo.10010.com/dbh-evaluate-fe/page"), MyOrderDetailMode.BUSINESS))
         assertTrue(MyOrderDetailWebBridgeContract.isReadyURL(URI("https://upayxx.10010.com/npfwap/broadOrdersDetail/result"), MyOrderDetailMode.RENEWAL))
         assertFalse(MyOrderDetailWebBridgeContract.isReadyURL(URI("https://upayxx.10010.com/npfwap/broadOrdersDetailInit"), MyOrderDetailMode.RENEWAL))

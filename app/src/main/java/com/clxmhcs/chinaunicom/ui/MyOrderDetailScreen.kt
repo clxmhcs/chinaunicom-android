@@ -1,6 +1,7 @@
 package com.clxmhcs.chinaunicom.ui
 
 import android.annotation.SuppressLint
+import android.os.Build
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -176,7 +177,8 @@ private class HostedOrderBridgeHolder(
                 allowFileAccess = false
                 allowContentAccess = false
                 mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                userAgentString = MyOrderDetailWebBridgeContract.USER_AGENT
+                val systemVersion = Build.VERSION.RELEASE.orEmpty().ifEmpty { Build.VERSION.SDK_INT.toString() }
+                userAgentString = MyOrderDetailWebBridgeContract.userAgent(systemVersion)
             }
             view.addJavascriptInterface(Bridge { text -> complete(Result.success(text)) }, MyOrderDetailWebBridgeContract.ANDROID_BRIDGE_NAME)
             view.webViewClient = object : WebViewClient() {

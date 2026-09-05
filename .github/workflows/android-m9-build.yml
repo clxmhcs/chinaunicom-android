@@ -15,6 +15,7 @@ on:
       - "data/broadbandaccount/**"
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
+      - "docs/migration/M9_A_MY_ORDER_PROFILE_12_15.md"
       - ".github/workflows/android-m9-build.yml"
   push:
     branches: [main]
@@ -30,6 +31,7 @@ on:
       - "data/broadbandaccount/**"
       - "settings.gradle.kts"
       - "docs/migration/M9_BASELINE.md"
+      - "docs/migration/M9_A_MY_ORDER_PROFILE_12_15.md"
       - ".github/workflows/android-m9-build.yml"
 
 permissions:
@@ -68,6 +70,7 @@ jobs:
         run: |
           MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/MyOrderModels.kt
           DETAIL_MODEL=core/model/src/main/kotlin/com/clxmhcs/chinaunicom/core/model/MyOrderDetailModels.kt
+          PROFILE=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSessionRenewal.kt
           CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomMyOrderClient.kt
           LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/MyOrderAccountCredentialLifecycle.kt
           DETAIL_LIFECYCLE=core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/MyOrderDetailCredentialLifecycle.kt
@@ -83,13 +86,16 @@ jobs:
           DETAIL_UI=app/src/main/java/com/clxmhcs/chinaunicom/ui/MyOrderDetailScreen.kt
           APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
 
-          for file in "$MODEL" "$DETAIL_MODEL" "$CLIENT" "$LIFECYCLE" "$DETAIL_LIFECYCLE" "$STORE" "$DETAIL_STORE" "$DETAIL_PARSER" "$DETAIL_CORE" "$SETTINGS" "$SETTINGS_ADAPTER" "$APP_VM" "$OTHER_UI" "$LIST_UI" "$DETAIL_UI" "$APP"; do test -f "$file"; done
+          for file in "$MODEL" "$DETAIL_MODEL" "$PROFILE" "$CLIENT" "$LIFECYCLE" "$DETAIL_LIFECYCLE" "$STORE" "$DETAIL_STORE" "$DETAIL_PARSER" "$DETAIL_CORE" "$SETTINGS" "$SETTINGS_ADAPTER" "$APP_VM" "$OTHER_UI" "$LIST_UI" "$DETAIL_UI" "$APP"; do test -f "$file"; done
           grep -q 'include(":data:myorder")' settings.gradle.kts
           grep -q 'minSdk = 30' data/myorder/build.gradle.kts
           grep -q 'implementation(project(":data:myorder"))' app/build.gradle.kts
+          grep -q 'fun h5UserAgent(systemVersion: String)' "$PROFILE"
           grep -q '/mobileservicequery/order/newQueryOrder' "$CLIENT"
           grep -q '"loginNumber" to md5' "$CLIENT"
-          grep -q 'iphone_c@12.1400' "$CLIENT"
+          grep -q 'UnicomClientProfile.h5UserAgent(systemVersion)' "$CLIENT"
+          grep -q 'UnicomSessionRenewalEnvironment.current().userAgentSystemVersion' "$CLIENT"
+          ! grep -q 'iphone_c@12\.1400' "$CLIENT"
           grep -q 'sessionClient.activateSession(credentials)' "$CLIENT"
           grep -q 'result.copy(updatedCredentials = null)' "$LIFECYCLE"
           grep -q 'StateFlow<MyOrderStoreState>' "$STORE"
@@ -100,6 +106,8 @@ jobs:
           grep -q 'BUSINESS("business")' "$DETAIL_MODEL"
           grep -q 'RENEWAL("renewal")' "$DETAIL_MODEL"
           grep -q 'UNSUPPORTED("unsupported")' "$DETAIL_MODEL"
+          grep -q 'UnicomClientProfile.h5UserAgent(systemVersion)' "$DETAIL_CORE"
+          ! grep -q 'iphone_c@12\.1400' "$DETAIL_CORE"
           grep -q '/udbh/rest/portal/qryEvaluateOrderInfoByOrderId' "$DETAIL_CORE"
           grep -q 'broaRenewalInfo' "$DETAIL_CORE"
           grep -q 'onOpenMyOrder = ' "$APP"
@@ -108,6 +116,8 @@ jobs:
           grep -q 'MyOrderDetailScreen(' "$APP"
           grep -q 'loadMoreIfNeeded' "$LIST_UI"
           grep -q 'CookieManager.getInstance' "$DETAIL_UI"
+          grep -q 'Build.VERSION.RELEASE' "$DETAIL_UI"
+          grep -q 'MyOrderDetailWebBridgeContract.userAgent(systemVersion)' "$DETAIL_UI"
           grep -q 'value.endsWith(".10010.com")' "$DETAIL_UI"
           grep -q 'Max-Age=0; Domain=.10010.com' "$DETAIL_UI"
           if find data/myorder/src/main -type f -iname '*cache*' | grep -q .; then
