@@ -62,9 +62,10 @@ jobs:
           CAPTURE_PROXY="capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureLocalProxyServer.kt"
           TLS_ARCH="capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureTlsArchitecture.kt"
           MITM_COORD="capture/src/main/java/com/clxmhcs/chinaunicom/capture/CaptureMitmProxyCoordinator.kt"
+          CAPTCHA_WEBVIEW="app/src/main/java/com/clxmhcs/chinaunicom/ui/UnicomCaptchaVerificationDialog.kt"
           FINAL_DOC="docs/migration/ANDROID_FINAL_ACCEPTANCE.md"
 
-          for file in "$APP_GRADLE" "$SETTINGS" "$MANIFEST" "$CREDENTIAL_STORE" "$CAPTURE_SERVICE" "$CAPTURE_PROXY" "$TLS_ARCH" "$MITM_COORD" "$FINAL_DOC"; do
+          for file in "$APP_GRADLE" "$SETTINGS" "$MANIFEST" "$CREDENTIAL_STORE" "$CAPTURE_SERVICE" "$CAPTURE_PROXY" "$TLS_ARCH" "$MITM_COORD" "$CAPTCHA_WEBVIEW" "$FINAL_DOC"; do
             test -f "$file"
           done
 
@@ -103,6 +104,7 @@ jobs:
           EXPECTED_JS_BRIDGES=(
             'app/src/main/java/com/clxmhcs/chinaunicom/ui/ElectronicReceiptScreen.kt'
             'app/src/main/java/com/clxmhcs/chinaunicom/ui/MyOrderDetailScreen.kt'
+            'app/src/main/java/com/clxmhcs/chinaunicom/ui/UnicomCaptchaVerificationDialog.kt'
           )
           if [ "${JS_BRIDGES[*]}" != "${EXPECTED_JS_BRIDGES[*]}" ]; then
             printf 'ERROR: unexpected JavaScript bridge surface: %s\n' "${JS_BRIDGES[*]}"
@@ -116,6 +118,11 @@ jobs:
           grep -q 'isAllowedReceiptUrl' app/src/main/java/com/clxmhcs/chinaunicom/ui/ElectronicReceiptScreen.kt
           grep -q 'allowFileAccess = false' app/src/main/java/com/clxmhcs/chinaunicom/ui/ElectronicReceiptScreen.kt
           grep -q 'removeJavascriptInterface' app/src/main/java/com/clxmhcs/chinaunicom/ui/ElectronicReceiptScreen.kt
+          grep -q 'MIXED_CONTENT_NEVER_ALLOW' "$CAPTCHA_WEBVIEW"
+          grep -q 'allowFileAccess = false' "$CAPTCHA_WEBVIEW"
+          grep -q 'allowContentAccess = false' "$CAPTCHA_WEBVIEW"
+          grep -q 'removeJavascriptInterface(JS_BRIDGE_NAME)' "$CAPTCHA_WEBVIEW"
+          grep -q 'private const val JS_BRIDGE_NAME = "UnicomCaptchaNative"' "$CAPTCHA_WEBVIEW"
 
           if grep -RInE 'FakeUnicomRepository|mock-flow-|18600009025|896\.87|测试号码' app/src/main app/src/release; then
             echo "ERROR: fake repository fixture leaked into main/release sources."
