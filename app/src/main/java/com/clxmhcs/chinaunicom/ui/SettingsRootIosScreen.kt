@@ -2,6 +2,7 @@ package com.clxmhcs.chinaunicom.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,10 +43,14 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -63,6 +68,7 @@ import com.clxmhcs.chinaunicom.data.balance.BalanceAccountGroup
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+import kotlin.math.roundToInt
 
 private val SettingsAccent = Color(0xFF3478F6)
 private val SettingsGroupedBackground = Color(0xFFF2F2F7)
@@ -145,6 +151,7 @@ fun SettingsRootIosScreen(
             IosAccountOrderScreen(
                 accounts = accounts,
                 settings = settings,
+                locationForNumber = m11cViewModel::cachedLocation,
                 onMove = settingsViewModel::moveAccount,
                 onBack = closePage,
             )
@@ -974,28 +981,163 @@ private fun SettingsGlyphIcon(
 private fun IosAccountOrderScreen(
     accounts: List<UnicomAccount>,
     settings: AppSettings,
+    locationForNumber: (String) -> String?,
     onMove: (UUID, Int) -> Unit,
     onBack: () -> Unit,
 ) {
-    IosSimpleSettingsPage("自定义排序", onBack) {
+    val rowHeight = 68.dp
+    val rowHeightPx = with(LocalDensity.current) { rowHeight.toPx() }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SettingsGroupedBackground)
+            .padding(horizontal = 16.dp),
+    ) {
+        Spacer(Modifier.height(8.dp))
+        IosSubpageHeader("自定义排序", onBack)
+        Spacer(Modifier.height(18.dp))
+
+        Text(
+            text = "首页卡片顺序",
+            fontSize = 15.sp,
+            lineHeight = 19.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = SettingsSecondary,
+            modifier = Modifier.padding(start = 20.dp, bottom = 9.dp),
+        )
+
         if (accounts.isEmpty()) {
-            Text("暂无手机账号", color = SettingsSecondary)
-        } else {
-            accounts.forEachIndexed { index, account ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        account.displayName.ifBlank { displayMobileNumber(account.mobile, settings) },
-                        modifier = Modifier.weight(1f),
-                        fontSize = 14.sp,
-                    )
-                    TextButton(onClick = { onMove(account.id, -1) }, enabled = index > 0) { Text("上移") }
-                    TextButton(onClick = { onMove(account.id, 1) }, enabled = index < accounts.lastIndex) { Text("下移") }
-                }
-                if (index < accounts.lastIndex) IosDivider(start = 0.dp)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White,
+            ) {
+                Text(
+                    "暂无手机账号",
+                    color = SettingsSecondary,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(20.dp),
+                )
             }
+        } else {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White,
+            ) {
+                Column {
+                    accounts.forEachIndexed { index, account ->
+                        val location = locationForNumber(account.mobile)
+                            ?.trim()
+                            ?.takeIf { it.isNotEmpty() }
+                            ?: account.displayName.trim()
+                                .takeIf { it.isNotEmpty() && it != "联通号码" }
+                            ?: "归属地未知"
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(rowHeight)
+                                .padding(start = 18.dp, end = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.receipt_sim_card_icon),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                                contentScale = ContentScale.Fit,
+                            )
+                            Spacer(Modifier.size(12.dp))
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = accountOrderMobileText(account.mobile, settings),
+                                        fontSize = 17.sp,
+                                        lineHeight = 21.sp,
+                                        color = Color.Black,
+                                    )
+                                    Spacer(Modifier.size(5.dp))
+                                    Image(
+                                        painter = painterResource(R.drawable.china_unicom_knot_watermark),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        colorFilter = ColorFilter.tint(SettingsDanger),
+                                        contentScale = ContentScale.Fit,
+                                    )
+                                }
+                                Text(
+                                    text = location,
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 16.sp,
+                                    color = SettingsSecondary,
+                                    modifier = Modifier.padding(start = 6.dp),
+                                )
+                            }
+                            IosAccountDragHandle(
+                                accountID = account.id,
+                                rowHeightPx = rowHeightPx,
+                                onMove = onMove,
+                            )
+                        }
+                        if (index < accounts.lastIndex) IosDivider(start = 55.dp)
+                    }
+                }
+            }
+        }
+
+        Text(
+            text = "按住右侧拖动按钮调整顺序。修改会立即保存，并同步用于首页显示和刷新全部的号码顺序。",
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            color = SettingsSecondary,
+            modifier = Modifier.padding(start = 20.dp, end = 14.dp, top = 10.dp),
+        )
+    }
+}
+
+private fun accountOrderMobileText(number: String, settings: AppSettings): String {
+    val value = number.trim()
+    if (!settings.hideMobileMiddleDigits || value.length < 7) return value
+    return "${value.take(3)} **** ${value.takeLast(4)}"
+}
+
+@Composable
+private fun IosAccountDragHandle(
+    accountID: UUID,
+    rowHeightPx: Float,
+    onMove: (UUID, Int) -> Unit,
+) {
+    Canvas(
+        modifier = Modifier
+            .size(width = 34.dp, height = 44.dp)
+            .pointerInput(accountID, rowHeightPx) {
+                var dragDistance = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { dragDistance = 0f },
+                    onDragEnd = {
+                        val delta = (dragDistance / rowHeightPx).roundToInt()
+                        if (delta != 0) onMove(accountID, delta)
+                        dragDistance = 0f
+                    },
+                    onDragCancel = { dragDistance = 0f },
+                    onVerticalDrag = { _, dragAmount -> dragDistance += dragAmount },
+                )
+            },
+    ) {
+        val strokeWidth = 1.55.dp.toPx()
+        repeat(3) { index ->
+            val y = size.height * (0.37f + index * 0.13f)
+            drawLine(
+                color = SettingsChevron,
+                start = androidx.compose.ui.geometry.Offset(size.width * 0.22f, y),
+                end = androidx.compose.ui.geometry.Offset(size.width * 0.78f, y),
+                strokeWidth = strokeWidth,
+                cap = StrokeCap.Round,
+            )
         }
     }
 }
