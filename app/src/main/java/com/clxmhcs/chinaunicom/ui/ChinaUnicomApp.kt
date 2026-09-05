@@ -169,16 +169,18 @@ fun ChinaUnicomApp() {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             bottomBar = {
-                RootBottomTabBar(
-                    currentRoute = currentRoute,
-                    onSelect = { tab ->
-                        navController.navigate(tab.route) {
-                            popUpTo(RootTab.Flow.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                )
+                if (currentRoute != SETTINGS_CREDENTIALS_ROUTE) {
+                    RootBottomTabBar(
+                        currentRoute = currentRoute,
+                        onSelect = { tab ->
+                            navController.navigate(tab.route) {
+                                popUpTo(RootTab.Flow.route) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                    )
+                }
             },
         ) { innerPadding ->
             NavHost(
@@ -400,6 +402,7 @@ fun ChinaUnicomApp() {
                     SettingsAccountScreen(
                         flowViewModel = flowViewModel,
                         broadbandViewModel = broadbandAccountViewModel,
+                        onClose = { navController.popBackStack() },
                     )
                 }
                 composable(SETTINGS_REFRESH_ROUTE) {
