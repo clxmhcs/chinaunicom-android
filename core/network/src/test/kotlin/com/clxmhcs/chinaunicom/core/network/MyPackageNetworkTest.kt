@@ -55,6 +55,8 @@ class MyPackageNetworkTest {
         assertNotNull(result.updatedCredentials)
         assertEquals("renewed", UnicomCookieCodec.value("SESSION", result.updatedCredentials!!.cookie))
         assertEquals(5, seen.size)
-        assertEquals(true, seen.first().headers["User-Agent"]?.contains("iphone_c@12.1400"))
+        assertEquals(UnicomClientProfile.h5UserAgent("18.7"), seen.first().headers["User-Agent"])
+        assertEquals(true, seen.first().headers["User-Agent"]?.contains("iphone_c@12.1500"))
+        assertEquals(true, seen.first().headers["User-Agent"]?.contains("OSVersion/18.7"))
     }
 }
