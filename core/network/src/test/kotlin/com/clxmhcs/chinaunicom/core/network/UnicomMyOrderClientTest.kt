@@ -68,13 +68,13 @@ class UnicomMyOrderClientTest {
     }
 
     @Test
-    fun sessionExpiryUsesExistingM4ActivationThenRetriesOrderRequest() {
+    fun sessionExpiryUsesModernSharedActivationThenRetriesOrderRequest() {
         val transport = QueueTransport(
             mutableListOf(
                 UnicomRawResponse(200, "{\"respCode\":\"9998\",\"respDesc\":\"登录失效\"}".toByteArray()),
                 UnicomRawResponse(
                     200,
-                    "{\"code\":\"0000\",\"token_online\":\"token-new\"}".toByteArray(),
+                    "{\"code\":\"0000\",\"appId\":\"app-new\",\"token_online\":\"token-new\"}".toByteArray(),
                     mapOf("Set-Cookie" to listOf("sid=activated; Path=/")),
                 ),
                 UnicomRawResponse(
@@ -85,16 +85,23 @@ class UnicomMyOrderClientTest {
             ),
         )
         val http = UnicomHTTPClient(transport, retryDelayMillis = 0)
-        val client = UnicomMyOrderClient(http = http)
+        val client = UnicomMyOrderClient(
+            http = http,
+            sessionClient = testUnicomAPIClient(http),
+        )
         val credentials = AccountCredentials("sid=old", "app-id", "token-old")
 
         val result = client.fetch("18612345678", page = 1, pageSize = 15, credentials = credentials)
 
         assertEquals(3, transport.requests.size)
         assertTrue(transport.requests[0].url.contains(UnicomMyOrderClient.ORDER_PATH))
-        assertEquals(UnicomAPIClient.ONLINE_URL, transport.requests[1].url)
+        val activation = transport.requests[1]
+        assertEquals(UnicomAPIClient.ONLINE_URL, activation.url)
+        assertEquals("sid=old", activation.headers["Cookie"])
+        assertTrue(activation.body.decodeToString().contains("version=iphone_c%4012.1500"))
         assertTrue(transport.requests[2].url.contains(UnicomMyOrderClient.ORDER_PATH))
         assertEquals("business", UnicomCookieCodec.value("sid", result.updatedCredentials!!.cookie))
+        assertEquals("app-new", result.updatedCredentials!!.appID)
         assertEquals("token-new", result.updatedCredentials!!.tokenOnline)
     }
 
