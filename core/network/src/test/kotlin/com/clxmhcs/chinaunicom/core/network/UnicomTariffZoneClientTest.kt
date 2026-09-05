@@ -82,7 +82,10 @@ class UnicomTariffZoneClientTest {
     @Test
     fun referencesTreatCode0001AsLegitimateEmptyResult() {
         val transport = QueueTransport(Response("""{"code":"0001","msg":"暂无数据"}"""))
-        val client = UnicomTariffZoneClient(http = UnicomHTTPClient(transport, retryDelayMillis = 0))
+        val client = UnicomTariffZoneClient(
+            http = UnicomHTTPClient(transport, retryDelayMillis = 0),
+            systemVersionProvider = { "26.6" },
+        )
         val region = TariffZoneRegion("011", "110", "北京", "北京")
 
         val result = client.fetchProductReferences(
