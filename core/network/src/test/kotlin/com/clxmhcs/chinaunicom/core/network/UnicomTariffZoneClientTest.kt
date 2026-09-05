@@ -38,11 +38,45 @@ class UnicomTariffZoneClientTest {
         assertEquals("${UnicomTariffZoneClient.ROOT}${UnicomTariffZoneClient.INDEX_PATH}", request.url)
         assertEquals("https://imgxx.client.10010.com", request.headers["Origin"])
         assertEquals("https://imgxx.client.10010.com/zifeizhuanqu/index.html", request.headers["Referer"])
-        assertTrue(request.headers["User-Agent"].orEmpty().contains("unicom{version:iphone_c@12.1400}"))
+        assertEquals(UnicomClientProfile.h5UserAgent("26.6"), request.headers["User-Agent"])
+        assertTrue(request.headers["User-Agent"].orEmpty().contains("unicom{version:iphone_c@12.1500}"))
+        assertTrue(request.headers["User-Agent"].orEmpty().contains("OSVersion/26.6"))
         val body = request.body.decodeToString()
         assertTrue(body.contains("provinceId="))
         assertTrue(body.contains("cityId="))
         assertTrue(body.contains("behaviorId=IOS00000000000000000000000000000001"))
+    }
+
+    @Test
+    fun expiredSessionUsesSharedActivationThenRetriesWithSameH5Identity() {
+        val transport = QueueTransport(
+            Response("""{"code":"9998"}"""),
+            Response(
+                body = """{"code":"0000","appId":"app-new","token_online":"newToken"}""",
+                headers = mapOf("Set-Cookie" to listOf("renewed=1; Path=/")),
+            ),
+            Response(
+                body = """{"code":"0000","data":{"provinceList":[],"userProCode":"","userCityCode":"","userProName":"","userCityName":"","levelList":[]}}""",
+            ),
+        )
+        val http = UnicomHTTPClient(transport, retryDelayMillis = 0)
+        val client = UnicomTariffZoneClient(
+            http = http,
+            sessionClient = testUnicomAPIClient(http),
+            systemVersionProvider = { "18.7" },
+        )
+
+        val result = client.fetchIndex(AccountCredentials("c_mobile=13800138000; sid=1", "app", "oldToken"))
+
+        assertEquals(3, transport.requests.size)
+        assertEquals(UnicomAPIClient.ONLINE_URL, transport.requests[1].url)
+        assertTrue(transport.requests[1].body.decodeToString().contains("version=iphone_c%4012.1500"))
+        val expectedUserAgent = UnicomClientProfile.h5UserAgent("18.7")
+        assertEquals(expectedUserAgent, transport.requests[0].headers["User-Agent"])
+        assertEquals(expectedUserAgent, transport.requests[2].headers["User-Agent"])
+        assertTrue(transport.requests[2].headers["Cookie"].orEmpty().contains("renewed=1"))
+        assertEquals("app-new", result.updatedCredentials?.appID)
+        assertEquals("newToken", result.updatedCredentials?.tokenOnline)
     }
 
     @Test
@@ -77,7 +111,10 @@ class UnicomTariffZoneClientTest {
                 """{"code":"0000","data":{"timeStr":"2026/08/27 20:40","dataList":[{"detailsList":[{"reportNo":"P001","name":"套餐A","feesStandard":"59","feeUnit":"元/月","commonData":"20","dataUnit":"GB","startDate":"20260102","endDate":"20261231"}]}]}}""",
             ),
         )
-        val client = UnicomTariffZoneClient(http = UnicomHTTPClient(transport, retryDelayMillis = 0))
+        val client = UnicomTariffZoneClient(
+            http = UnicomHTTPClient(transport, retryDelayMillis = 0),
+            systemVersionProvider = { "18.7" },
+        )
         val references = listOf(
             TariffZoneProductReference("A1", "套餐A"),
             TariffZoneProductReference("B2", "套餐B"),
@@ -93,6 +130,7 @@ class UnicomTariffZoneClientTest {
         assertEquals("2026/08/27 20:40", result.timeText)
         val request = transport.requests.single()
         assertTrue(request.url.endsWith("${UnicomTariffZoneClient.DETAIL_PATH}/A1_B2"))
+        assertEquals(UnicomClientProfile.h5UserAgent("18.7"), request.headers["User-Agent"])
         val body = request.body.decodeToString()
         assertTrue(body.contains("page=2"))
         assertTrue(body.contains("size=2"))
