@@ -47,6 +47,10 @@ class UnicomPasswordLoginSessionTest {
             )
         }
         val passwordSession = session(transport, PasswordFakeIdentityStore(identity))
+        val expectedUserAgent = UnicomClientProfile.nativeUserAgent(identity.deviceOS)
+        val captchaInfo = passwordSession.captchaSystemInfo()
+        assertEquals(UnicomClientProfile.PROTOCOL_VERSION, captchaInfo["appVersion"])
+        assertEquals(UnicomClientProfile.PROTOCOL_VERSION, captchaInfo["clientVersion"])
 
         val outcome = passwordSession.login(
             mobile = "+86 138-0013-8000",
@@ -58,9 +62,9 @@ class UnicomPasswordLoginSessionTest {
         val switchRequest = transport.requests[0]
         assertEquals(UnicomPasswordLoginSession.SWITCH_URL, switchRequest.url)
         assertEquals("application/json", switchRequest.headers["Content-Type"])
-        assertTrue(switchRequest.headers.getValue("User-Agent").contains("unicom{version:iphone_c@12.1400}"))
+        assertEquals(expectedUserAgent, switchRequest.headers["User-Agent"])
         val switchCookies = passwordCookieMap(switchRequest.headers.getValue("Cookie"))
-        assertEquals("iphone_c@12.1400", switchCookies["c_version"])
+        assertEquals(UnicomClientProfile.PROTOCOL_VERSION, switchCookies["c_version"])
         assertEquals("GGPD", switchCookies["channel"])
         assertEquals(identity.deviceCode, switchCookies["devicedId"])
         assertEquals("017|170", switchCookies["city"])
@@ -68,7 +72,7 @@ class UnicomPasswordLoginSessionTest {
 
         val switchJSON = Json.parseToJsonElement(switchRequest.body.toString(Charsets.UTF_8)).jsonObject
         assertEquals("237", switchJSON.getValue("version").jsonPrimitive.content)
-        assertEquals("iphone_c@12.1400", switchJSON.getValue("appVersion").jsonPrimitive.content)
+        assertEquals(UnicomClientProfile.PROTOCOL_VERSION, switchJSON.getValue("appVersion").jsonPrimitive.content)
         assertEquals("017", switchJSON.getValue("provinceCode").jsonPrimitive.content)
         assertEquals("1787360400000", switchJSON.getValue("timestamp").jsonPrimitive.content)
         assertTrue(switchJSON.getValue("seq").jsonPrimitive.content.startsWith("__NSDictionaryM_1787360400000_"))
@@ -76,10 +80,12 @@ class UnicomPasswordLoginSessionTest {
 
         val loginRequest = transport.requests[1]
         assertEquals(UnicomPasswordLoginSession.LOGIN_URL, loginRequest.url)
+        assertEquals(expectedUserAgent, loginRequest.headers["User-Agent"])
         val fields = passwordFormFields(loginRequest.body)
         assertEquals("wifi", fields["netWay"])
         assertEquals("false", fields["isRemberPwd"])
         assertEquals("2", fields["keyVersion"])
+        assertEquals(UnicomClientProfile.PROTOCOL_VERSION, fields["version"])
         assertEquals(validPreferredAppID, fields["appId"])
         assertEquals("192.0.2.10", fields["pip"])
         assertEquals(128, Base64.getDecoder().decode(fields.getValue("mobile")).size)
