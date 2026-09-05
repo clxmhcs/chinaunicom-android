@@ -6,6 +6,7 @@
 
 - `M9-E1_RESULT = PASS / CLOSED` — M8 PhoneBill reuse + Other Business functional wiring
 - `M9-E2_RESULT = PASS / CLOSED` — real-device functional validation accepted 2026-08-27
+- `M9-E3_SHARED_RENEWAL = IMPLEMENTED / CI_PENDING` — post-closure protocol-drift correction to current iOS shared 12.15 session renewal
 
 Minimum supported Android remains **Android 11 / API 30**.
 
@@ -62,4 +63,24 @@ Accepted 2026-08-27 from the user's direct real-device confirmation:
 
 No raw credential, token, appID, identity suffix or unmasked production identifier is recorded in Git.
 
-`NEXT = Android-M9-F — 返费 / 赠费`
+## M9-E3 — current iOS shared-renewal correction
+
+The original Android M8/M9 Phone Bill implementation retained a historical private session-recovery request using its own `PHONE_BILL_ONLINE` endpoint and `iphone_c@9.0100` three-field body. That was valid for the earlier frozen source but is no longer the current iOS behavior.
+
+Current `chinaunicom-ios` `PhoneBillClient.swift` delegates recovery to the shared `UnicomAPIClient.activateSession(...)`. The shared client now owns the current 12.15 runtime-profile renewal request and returns authoritative Cookie, `appId`, and `token_online` values.
+
+Android M9-E3 therefore:
+
+- removes Phone Bill's private HTTP renewal implementation;
+- removes the obsolete `PHONE_BILL_ONLINE` endpoint constant;
+- injects/delegates to shared `UnicomAPIClient.activateSession`;
+- keeps the pre-activation guard requiring saved `appId` and `token_online`;
+- uses the renewed Cookie for the retry and propagates renewed Cookie + `appId` + `token_online` through the existing `updatedCredentials` result boundary;
+- leaves Phone Bill months/detail endpoints, parser version, amount parsing, 13-month behavior, cache/store/lifecycle and UI wiring unchanged;
+- adds a permanent M9-E CI source gate prohibiting the historical private `iphone_c@9.0100` / `PHONE_BILL_ONLINE` authority from returning.
+
+This correction is intentionally stacked on Android M4-R6 shared renewal and must not merge before that shared authority is accepted into `main`.
+
+No screenshot is required for this protocol-only correction. Existing M9-E2 real-device evidence remains valid for the Phone Bill query/display path; a later natural session-expiry event may be used as additional renewal evidence but is not required to prove the source-level delegation boundary.
+
+`NEXT = close M9-E3 after CI, then audit the remaining password-login 12.14 runtime-profile drift`
