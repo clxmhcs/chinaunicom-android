@@ -10,6 +10,7 @@ on:
       - "core/login/**"
       - "data/integral/**"
       - "data/comprehensive/**"
+      - "docs/migration/M9_D_INTEGRAL_PROFILE_12_15.md"
       - ".github/workflows/android-m9-d-integral-build.yml"
   push:
     branches: [main]
@@ -20,6 +21,7 @@ on:
       - "core/login/**"
       - "data/integral/**"
       - "data/comprehensive/**"
+      - "docs/migration/M9_D_INTEGRAL_PROFILE_12_15.md"
       - ".github/workflows/android-m9-d-integral-build.yml"
 
 permissions:
@@ -61,10 +63,11 @@ jobs:
           VM=app/src/main/java/com/clxmhcs/chinaunicom/ui/ComprehensiveBusinessViewModel.kt
           APP=app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt
           BUILD=app/build.gradle.kts
+          PROFILE=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSessionRenewal.kt
           CLIENT=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomIntegralClient.kt
           STORE=data/integral/src/main/kotlin/com/clxmhcs/chinaunicom/data/integral/IntegralStore.kt
           CACHE=data/integral/src/main/kotlin/com/clxmhcs/chinaunicom/data/integral/AndroidIntegralDiskCache.kt
-          for file in "$OTHER" "$SELECTOR" "$ENTRY" "$VM" "$APP" "$BUILD" "$CLIENT" "$STORE" "$CACHE"; do test -f "$file"; done
+          for file in "$OTHER" "$SELECTOR" "$ENTRY" "$VM" "$APP" "$BUILD" "$PROFILE" "$CLIENT" "$STORE" "$CACHE"; do test -f "$file"; done
 
           grep -q 'minSdk = 30' "$BUILD"
           grep -Eq 'versionName = "0\.9\.0-[a-z0-9.-]+"' "$BUILD"
@@ -88,6 +91,10 @@ jobs:
           grep -q 'snapshot.months.forEach' "$ENTRY"
           grep -q 'AndroidIntegralStores.create' "$VM"
           grep -q 'IntegralAccountCredentialLifecycle' "$VM"
+          grep -q 'fun h5UserAgent(systemVersion: String)' "$PROFILE"
+          grep -q 'UnicomClientProfile.h5UserAgent(systemVersion)' "$CLIENT"
+          grep -q 'UnicomSessionRenewalEnvironment.current().userAgentSystemVersion' "$CLIENT"
+          ! grep -q 'iphone_c@12\.1400' "$CLIENT"
           grep -q 'validateAccount(mobile, originalCookie)' "$CLIENT"
           grep -q 'validateAccount(mobile, renewedCookie)' "$CLIENT"
           grep -q 'IntegralSnapshot.CURRENT_PARSER_VERSION' "$CLIENT"
