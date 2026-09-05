@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.clxmhcs.chinaunicom.R
 import com.clxmhcs.chinaunicom.core.model.AppSettings
+import com.clxmhcs.chinaunicom.core.model.DisplayUnit
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.data.balance.BalanceAccountGroup
 import java.time.ZoneId
@@ -127,6 +128,7 @@ fun SettingsRootIosScreen(
     var page by remember { mutableStateOf<SettingsIosPage?>(null) }
     var showCredentialHelp by remember { mutableStateOf(false) }
     var showDonationMessage by remember { mutableStateOf(false) }
+    var showDisplayUnitDialog by remember { mutableStateOf(false) }
 
     val m11cViewModel: SettingsM11CViewModel = viewModel(key = "settings-ios-m11c-$maintenanceGeneration")
     val broadbandViewModel: BroadbandAccountViewModel = viewModel()
@@ -275,7 +277,7 @@ fun SettingsRootIosScreen(
                         detailColor = SettingsAccent,
                         showsPicker = true,
                         divider = true,
-                        onClick = settingsViewModel::cycleDisplayUnit,
+                        onClick = { showDisplayUnitDialog = true },
                     )
                     IosActionRow(
                         label = "自定义排序",
@@ -473,6 +475,19 @@ fun SettingsRootIosScreen(
         )
     }
 
+    if (showDisplayUnitDialog) {
+        IosDisplayUnitDialog(
+            selected = settings.displayUnit,
+            onSelect = { unit ->
+                val unitCount = DisplayUnit.entries.size
+                val steps = (unit.ordinal - settings.displayUnit.ordinal + unitCount) % unitCount
+                repeat(steps) { settingsViewModel.cycleDisplayUnit() }
+                showDisplayUnitDialog = false
+            },
+            onDismiss = { showDisplayUnitDialog = false },
+        )
+    }
+
     if (showCredentialHelp) {
         AlertDialog(
             onDismissRequest = { showCredentialHelp = false },
@@ -490,6 +505,68 @@ fun SettingsRootIosScreen(
             confirmButton = { TextButton(onClick = { showDonationMessage = false }) { Text("知道了") } },
         )
     }
+}
+
+@Composable
+private fun IosDisplayUnitDialog(
+    selected: DisplayUnit,
+    onSelect: (DisplayUnit) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "流量单位",
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                DisplayUnit.entries.forEach { unit ->
+                    Surface(
+                        onClick = { onSelect(unit) },
+                        color = Color.Transparent,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                modifier = Modifier.size(24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (unit == selected) {
+                                    Text(
+                                        text = "✓",
+                                        color = SettingsAccent,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.size(8.dp))
+                            Text(
+                                text = unit.title,
+                                fontSize = 16.sp,
+                                color = Color.Black,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        },
+    )
 }
 
 @Composable
