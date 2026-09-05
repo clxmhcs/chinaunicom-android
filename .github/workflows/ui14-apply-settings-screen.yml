@@ -27,15 +27,11 @@ jobs:
           from pathlib import Path
           path = Path('app/src/main/java/com/clxmhcs/chinaunicom/ui/ChinaUnicomApp.kt')
           text = path.read_text()
-          old = '''                composable(RootTab.Settings.route) {
-                    SettingsRootScreen(
-                        settingsViewModel = settingsViewModel,'''
-          new = '''                composable(RootTab.Settings.route) {
-                    SettingsRootVisualScreen(
-                        settingsViewModel = settingsViewModel,'''
+          old = 'SettingsRootScreen('
+          new = 'SettingsRootVisualScreen('
           count = text.count(old)
           if count != 1:
-              raise SystemExit(f'expected exactly one settings root anchor, found {count}')
+              raise SystemExit(f'expected exactly one SettingsRootScreen call, found {count}')
           path.write_text(text.replace(old, new, 1))
           PY
           rm .github/workflows/ui14-apply-settings-screen.yml
