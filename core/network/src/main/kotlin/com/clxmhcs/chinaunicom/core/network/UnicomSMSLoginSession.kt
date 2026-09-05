@@ -412,7 +412,7 @@ class UnicomSMSLoginSession(
     }
 
     private fun officialUserAgent(): String =
-        "ChinaUnicom4.x/12.14 (com.chinaunicom.mobilebusiness; build:13; iOS ${identity.deviceOS}) " +
+        "ChinaUnicom4.x/12.15 (com.chinaunicom.mobilebusiness; build:4; iOS ${identity.deviceOS}) " +
             "Alamofire/4.7.3 unicom{version:$VERSION}"
 
     private fun localDateTime(): LocalDateTime = LocalDateTime.ofInstant(clock.instant(), clock.zone)
@@ -421,7 +421,7 @@ class UnicomSMSLoginSession(
         const val SEND_CODE_URL = "https://loginxx.10010.com/mobileService/sendRadomNum.htm"
         const val LOGIN_URL = "https://loginxx.10010.com/mobileService/radomLogin.htm"
         const val SWITCH_URL = "https://loginxx.10010.com/login-web/v1/switch/getSwitch"
-        const val VERSION = "iphone_c@12.1400"
+        const val VERSION = "iphone_c@12.1500"
         const val KEY_VERSION = "2"
         const val CHANNEL = "GGPD"
         const val SWITCH_VERSION = "237"
