@@ -1,9 +1,11 @@
 package com.clxmhcs.chinaunicom.core.network
 
 import com.clxmhcs.chinaunicom.core.model.AccountCredentials
+import java.io.ByteArrayOutputStream
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
+import java.util.zip.GZIPOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -43,8 +45,11 @@ class UnicomAPIClientTest {
             UnicomRawResponse(200, "999998".encodeToByteArray()),
             UnicomRawResponse(
                 200,
-                "{\"code\":\"0000\",\"appId\":\"app-2\",\"token_online\":\"new-token\"}".encodeToByteArray(),
-                mapOf("Set-Cookie" to listOf("ecs_token=new; Path=/", "old=; Max-Age=0")),
+                gzip("{\"code\":\"0000\",\"appId\":\"app-2\",\"token_online\":\"new-token\"}".encodeToByteArray()),
+                mapOf(
+                    "Content-Encoding" to listOf("gzip"),
+                    "Set-Cookie" to listOf("ecs_token=new; Path=/", "old=; Max-Age=0"),
+                ),
             ),
             UnicomRawResponse(200, quotaJson),
         )
@@ -63,6 +68,9 @@ class UnicomAPIClientTest {
         assertEquals("https://loginhl.10010.com/mobileService/onLine.htm", activation.url)
         assertEquals("old=1; keep=2", activation.headers["Cookie"])
         assertEquals("application/x-www-form-urlencoded", activation.headers["Content-Type"])
+        assertEquals("*/*", activation.headers["Accept"])
+        assertEquals("zh-Hans-CN;q=1.0", activation.headers["Accept-Language"])
+        assertEquals("gzip;q=1.0, compress;q=0.5", activation.headers["Accept-Encoding"])
         assertTrue(activation.headers.getValue("User-Agent").contains("ChinaUnicom4.x/12.15"))
         assertTrue(activation.headers.getValue("User-Agent").contains("build:4"))
         assertTrue(activation.headers.getValue("User-Agent").contains("unicom{version:iphone_c@12.1500}"))
@@ -126,5 +134,11 @@ class UnicomAPIClientTest {
         assertEquals("session=abc", request.headers["Cookie"])
         assertTrue(request.body.toString(Charsets.UTF_8).contains("channel=client"))
         assertTrue(request.body.toString(Charsets.UTF_8).contains("language=chinese"))
+    }
+
+    private fun gzip(data: ByteArray): ByteArray {
+        val output = ByteArrayOutputStream()
+        GZIPOutputStream(output).use { it.write(data) }
+        return output.toByteArray()
     }
 }
