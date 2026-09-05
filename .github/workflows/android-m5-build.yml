@@ -91,14 +91,20 @@ jobs:
           grep -q 'https://loginxx.10010.com/login-web/v1/switch/getSwitch' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
           grep -q 'ECS99998' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
 
-          grep -q 'https://loginxx.10010.com/mobileService/login.htm' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
-          grep -q 'https://loginxx.10010.com/login-web/v1/switch/getSwitch' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
-          grep -q 'ECS99999' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
-          grep -q 'isRemberPwd' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
-          grep -q 'netWay.*wifi' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
-          grep -q 'message.contains("ECS11721")' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
-          grep -q 'message.contains("短信验证码")' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
-          grep -q 'PlaintextTooLong' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
+          PASSWORD_SESSION=core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomPasswordLoginSession.kt
+          grep -q 'https://loginxx.10010.com/mobileService/login.htm' "$PASSWORD_SESSION"
+          grep -q 'https://loginxx.10010.com/login-web/v1/switch/getSwitch' "$PASSWORD_SESSION"
+          grep -q 'ECS99999' "$PASSWORD_SESSION"
+          grep -q 'isRemberPwd' "$PASSWORD_SESSION"
+          grep -q 'netWay.*wifi' "$PASSWORD_SESSION"
+          grep -q 'message.contains("ECS11721")' "$PASSWORD_SESSION"
+          grep -q 'message.contains("短信验证码")' "$PASSWORD_SESSION"
+          grep -q 'PlaintextTooLong' "$PASSWORD_SESSION"
+          grep -q 'UnicomClientProfile.PROTOCOL_VERSION' "$PASSWORD_SESSION"
+          grep -q 'UnicomClientProfile.nativeUserAgent(identity.deviceOS)' "$PASSWORD_SESSION"
+          ! grep -q 'iphone_c@12\.1400' "$PASSWORD_SESSION"
+          ! grep -q 'ChinaUnicom4.x/12\.14' "$PASSWORD_SESSION"
+          ! grep -q 'build:13' "$PASSWORD_SESSION"
 
           grep -q 'validator.fetchQuota(credentials)' core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/LoginAccountLifecycle.kt
           grep -q 'result.updatedCredentials ?: credentials' core/login/src/main/kotlin/com/clxmhcs/chinaunicom/core/login/LoginAccountLifecycle.kt
