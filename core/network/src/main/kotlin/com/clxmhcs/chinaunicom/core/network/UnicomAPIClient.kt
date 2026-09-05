@@ -171,8 +171,9 @@ class UnicomAPIClient(
             body = request.body,
             headers = request.headers,
         )
-        val objectValue = parseNetworkJson(response.data)
-        val code = UnicomResponseStatus.topLevelCode(response.data).orEmpty()
+        val responseData = decodeUnicomRenewalBody(response.data)
+        val objectValue = parseNetworkJson(responseData)
+        val code = UnicomResponseStatus.topLevelCode(responseData).orEmpty()
         if (!UnicomResponseStatus.isSuccess(code)) {
             val message = recursiveString(objectValue, setOf("dsc", "rsp_desc", "desc", "message"))
                 ?: "联通在线状态维护失败（code: ${code.ifEmpty { "未知" }}）"
