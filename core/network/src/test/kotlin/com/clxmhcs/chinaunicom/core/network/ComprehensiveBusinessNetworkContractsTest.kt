@@ -13,9 +13,8 @@ class ComprehensiveBusinessNetworkContractsTest {
     }
 
     @Test
-    fun phoneBillEndpointsMatchFrozenIosSource() {
+    fun phoneBillQueryEndpointsMatchCurrentIosSource() {
         assertEquals("https://m.client.10010.com", ComprehensiveBusinessEndpoints.PHONE_BILL_ROOT)
-        assertEquals("https://m.client.10010.com/mobileService/onLine.htm", ComprehensiveBusinessEndpoints.PHONE_BILL_ONLINE)
         assertEquals("/serviceimportantbusiness/phoneBillNew/queryMonths", ComprehensiveBusinessEndpoints.PHONE_BILL_MONTHS)
         assertEquals("/serviceimportantbusiness/phoneBillNew/queryDetail", ComprehensiveBusinessEndpoints.PHONE_BILL_DETAIL)
     }

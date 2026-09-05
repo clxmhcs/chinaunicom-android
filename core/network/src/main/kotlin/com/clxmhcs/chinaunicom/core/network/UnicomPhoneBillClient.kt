@@ -21,13 +21,9 @@ import kotlinx.serialization.json.JsonObject
 class UnicomPhoneBillClient(
     private val http: UnicomHTTPClient = UnicomHTTPClient(OkHttpUnicomTransport(20_000L)),
     private val clock: Clock = Clock.systemUTC(),
+    private val activateSession: (AccountCredentials) -> AccountCredentials =
+        UnicomAPIClient(http = http)::activateSession,
 ) : PhoneBillNetworkClient {
-    private data class ActivatedSession(
-        val cookie: String,
-        val appID: String,
-        val tokenOnline: String,
-    )
-
     override fun fetchMonths(credentials: AccountCredentials): PhoneBillMonthsFetchResult {
         val originalCookie = UnicomCookieCodec.normalize(credentials.cookie)
         if (originalCookie.isEmpty()) throw UnicomAPIException.MissingCookie
@@ -48,7 +44,7 @@ class UnicomPhoneBillClient(
             val changed = activated.cookie != originalCookie || activated.appID != appID || activated.tokenOnline != tokenOnline
             PhoneBillMonthsFetchResult(
                 months = fetchMonthsOnce(activated.cookie),
-                updatedCredentials = if (changed) AccountCredentials(activated.cookie, activated.appID, activated.tokenOnline) else null,
+                updatedCredentials = if (changed) activated else null,
             )
         }
     }
@@ -74,7 +70,7 @@ class UnicomPhoneBillClient(
             val changed = activated.cookie != originalCookie || activated.appID != appID || activated.tokenOnline != tokenOnline
             PhoneBillFetchResult(
                 snapshot = snapshot,
-                updatedCredentials = if (changed) AccountCredentials(activated.cookie, activated.appID, activated.tokenOnline) else null,
+                updatedCredentials = if (changed) activated else null,
             )
         }
     }
@@ -107,34 +103,18 @@ class UnicomPhoneBillClient(
         return parseDetail(data, month)
     }
 
-    private fun activate(originalCookie: String, appID: String, tokenOnline: String): ActivatedSession {
-        val response = http.post(
-            url = ComprehensiveBusinessEndpoints.PHONE_BILL_ONLINE,
-            body = unicomFormEncoded(
-                mapOf(
-                    "appId" to appID,
-                    "token_online" to tokenOnline,
-                    "version" to ONLINE_VERSION,
-                ),
+    private fun activate(originalCookie: String, appID: String, tokenOnline: String): AccountCredentials {
+        val renewed = activateSession(
+            AccountCredentials(
+                cookie = originalCookie,
+                appID = appID,
+                tokenOnline = tokenOnline,
             ),
-            headers = mapOf("Content-Type" to "application/x-www-form-urlencoded"),
         )
-        val root = parseNetworkJson(response.data) as? JsonObject ?: throw UnicomAPIException.InvalidResponse
-        val code = listOf("code", "rsp_code", "status")
-            .asSequence().mapNotNull { root[it].stringValue()?.trim() }.firstOrNull { it.isNotEmpty() }.orEmpty()
-        if (!UnicomResponseStatus.isSuccess(code)) {
-            if (UnicomResponseStatus.isExpired(code)) throw UnicomAPIException.SessionExpired
-            throw UnicomAPIException.Server(
-                recursiveString(root, setOf("dsc", "rsp_desc", "desc", "message"))
-                    ?: "联通在线状态维护失败（code: ${code.ifEmpty { "未知" }}）",
-            )
-        }
-        val renewedCookie = if (response.cookieMutations.isEmpty()) originalCookie
-        else UnicomCookieCodec.applying(response.cookieMutations, originalCookie)
-        return ActivatedSession(
-            cookie = renewedCookie,
-            appID = recursiveString(root, setOf("appId", "appid")).trimmedOrNull() ?: appID,
-            tokenOnline = recursiveString(root, setOf("token_online", "tokenOnline")).trimmedOrNull() ?: tokenOnline,
+        return AccountCredentials(
+            cookie = UnicomCookieCodec.normalize(renewed.cookie),
+            appID = renewed.appID.trimmedOrNull() ?: appID,
+            tokenOnline = renewed.tokenOnline.trimmedOrNull() ?: tokenOnline,
         )
     }
 
@@ -327,9 +307,5 @@ class UnicomPhoneBillClient(
         var hash = 0L
         value.codePoints().forEach { scalar -> hash = hash * 31L + scalar.toLong() }
         return if (hash == Long.MIN_VALUE) 0L else kotlin.math.abs(hash)
-    }
-
-    private companion object {
-        const val ONLINE_VERSION = "iphone_c@9.0100"
     }
 }
