@@ -161,6 +161,79 @@ class FlowViewModel(
         }
     }
 
+    fun captchaCookieHeader(): String = smsLoginSession?.currentCookieHeader().orEmpty()
+
+    fun captchaSystemInfo(): Map<String, String> = smsLoginSession?.captchaSystemInfo().orEmpty()
+
+    fun captchaUserAgent(): String {
+        val deviceOS = captchaSystemInfo()["deviceOS"].orEmpty().ifBlank { "18.0" }
+        return "ChinaUnicom4.x/12.14 (com.chinaunicom.mobilebusiness; build:13; iOS $deviceOS) " +
+            "Alamofire/4.7.3 unicom{version:${UnicomSMSLoginSession.VERSION}}"
+    }
+
+    fun continueSMSCaptcha(resultToken: String) {
+        val token = resultToken.trim()
+        val session = smsLoginSession
+        val mobile = smsLoginMobile
+        if (token.isEmpty()) return
+        if (session == null || mobile.isNullOrBlank()) {
+            publishOnboardingFailure("验证失败", "安全验证会话已失效，请重新获取验证码")
+            return
+        }
+        if (_accountOnboardingState.value.isSendingCode || _accountOnboardingState.value.isLoggingIn) return
+
+        _accountOnboardingState.update {
+            it.copy(
+                isSendingCode = true,
+                statusTitle = null,
+                statusMessage = null,
+                captchaChallenge = null,
+                loginSucceeded = false,
+            )
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                session.sendCode(
+                    mobile = mobile,
+                    resultToken = token,
+                    preferredAppID = reusableAppID(mobile),
+                )
+            }.onSuccess { outcome ->
+                when (outcome) {
+                    is UnicomSMSSendOutcome.CodeSent -> {
+                        _accountOnboardingState.update {
+                            it.copy(
+                                isSendingCode = false,
+                                statusTitle = "验证码已发送",
+                                statusMessage = outcome.message,
+                                captchaChallenge = null,
+                            )
+                        }
+                    }
+                    is UnicomSMSSendOutcome.CaptchaRequired -> {
+                        _accountOnboardingState.update {
+                            it.copy(
+                                isSendingCode = false,
+                                statusTitle = "需要安全验证",
+                                statusMessage = outcome.challenge.message,
+                                captchaChallenge = outcome.challenge,
+                            )
+                        }
+                    }
+                }
+            }.onFailure { error ->
+                publishOnboardingFailure("发送失败", safeMessage(error))
+            }
+        }
+    }
+
+    fun dismissSMSCaptcha() {
+        _accountOnboardingState.update {
+            it.copy(statusTitle = null, statusMessage = null, captchaChallenge = null)
+        }
+    }
+
     fun loginWithSMS(mobile: String, verificationCode: String) {
         val normalizedMobile = normalizeMobile(mobile)
         val normalizedCode = verificationCode.filter(Char::isDigit)

@@ -127,7 +127,7 @@ internal fun SettingsAccountScreen(
 
         item {
             FunctionalCard(title = "短信验证码登录") {
-                Text("验证码只用于本次请求，不会保存。密码登录协议底层已迁移，但 iOS 当前仍禁用该 UI，因此 Android 也不开放。")
+                Text("验证码只用于本次请求，不会保存。若联通触发风险安全验证，会自动打开官方验证页面；密码登录 UI 仍按 iOS 当前状态保持关闭。")
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
                     value = mobile,
@@ -157,15 +157,6 @@ internal fun SettingsAccountScreen(
                 ) {
                     if (onboarding.isLoggingIn) CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp))
                     Text(if (onboarding.isLoggingIn) "正在登录并验证余量" else "登录并添加号码")
-                }
-            }
-        }
-
-        onboarding.captchaChallenge?.let { challenge ->
-            item {
-                FunctionalCard(title = challenge.title) {
-                    Text(challenge.message)
-                    Text("该号码触发了联通风险安全验证。底层 challenge/resultToken 续接协议已经存在；当前先使用上方 iOS 凭据导入路径。")
                 }
             }
         }
@@ -301,6 +292,17 @@ internal fun SettingsAccountScreen(
                 Text("刷新策略、Widget、自动化和最终设置页视觉布局继续按迁移计划后续接入。")
             }
         }
+    }
+
+    onboarding.captchaChallenge?.let { challenge ->
+        UnicomCaptchaVerificationDialog(
+            challenge = challenge,
+            cookieHeader = flowViewModel.captchaCookieHeader(),
+            userAgent = flowViewModel.captchaUserAgent(),
+            systemInfo = flowViewModel.captchaSystemInfo(),
+            onResultToken = flowViewModel::continueSMSCaptcha,
+            onDismiss = flowViewModel::dismissSMSCaptcha,
+        )
     }
 }
 
