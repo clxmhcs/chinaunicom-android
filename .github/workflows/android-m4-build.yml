@@ -12,6 +12,7 @@ on:
       - "core/network/**"
       - "docs/migration/M4_BASELINE.md"
       - "docs/migration/M4_F_REAL_PARITY.md"
+      - "docs/migration/M4_R6_SESSION_RENEWAL_12_15.md"
       - "README.md"
       - "gradle/**"
       - "*.gradle.kts"
@@ -67,6 +68,37 @@ jobs:
           fi
           test -f app/src/debug/java/com/clxmhcs/chinaunicom/data/FakeUnicomRepository.kt
           echo "FAKE_REPOSITORY_ISOLATION=PASS"
+
+      - name: Verify modern session renewal contract
+        shell: bash
+        run: |
+          RENEWAL="core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSessionRenewal.kt"
+          API="core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomAPIClient.kt"
+          APP="app/src/main/java/com/clxmhcs/chinaunicom/ChinaUnicomApplication.kt"
+          MANIFEST="app/src/main/AndroidManifest.xml"
+          DOC="docs/migration/M4_R6_SESSION_RENEWAL_12_15.md"
+          for file in "$RENEWAL" "$API" "$APP" "$MANIFEST" "$DOC"; do
+            test -f "$file"
+          done
+          grep -q 'PROTOCOL_VERSION = "iphone_c@12.1500"' "$RENEWAL"
+          grep -q 'NATIVE_BUILD = "4"' "$RENEWAL"
+          grep -q 'ONLINE_URL = "https://loginhl.10010.com/mobileService/onLine.htm"' "$RENEWAL"
+          grep -q '"Cookie"' "$RENEWAL"
+          grep -q '"deviceCode"' "$RENEWAL"
+          grep -q '"deviceId"' "$RENEWAL"
+          grep -q '"uniqueIdentifier"' "$RENEWAL"
+          grep -q '"flushkey"' "$RENEWAL"
+          grep -q '"step"' "$RENEWAL"
+          grep -q 'UnicomSessionRenewalRequestFactory.modern' "$API"
+          grep -q 'activated.appID' "$API"
+          grep -q 'AndroidLoginDeviceIdentityStore' "$APP"
+          grep -q 'UnicomSessionRenewalEnvironment.install' "$APP"
+          grep -q 'android:name=".ChinaUnicomApplication"' "$MANIFEST"
+          if grep -q 'const val ONLINE_VERSION = "iphone_c@9.0100"' "$API"; then
+            echo "ERROR: shared UnicomAPIClient still freezes legacy 9.0100 renewal."
+            exit 1
+          fi
+          echo "MODERN_SESSION_RENEWAL_CONTRACT=PASS"
 
       - name: Run M4 closure regression
         id: verify
