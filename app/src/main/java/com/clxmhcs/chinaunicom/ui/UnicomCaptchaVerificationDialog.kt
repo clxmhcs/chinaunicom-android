@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.weight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -180,7 +179,12 @@ private fun CaptchaWebView(
                 cookieHeader.split(';')
                     .map(String::trim)
                     .filter { it.contains('=') }
-                    .forEach { cookieManager.setCookie(challenge.url, it) }
+                    .forEach { cookie ->
+                        cookieManager.setCookie(
+                            UNICOM_COOKIE_SEED_URL,
+                            "$cookie; Domain=.10010.com; Path=/; Secure",
+                        )
+                    }
                 cookieManager.flush()
 
                 addJavascriptInterface(bridge, JS_BRIDGE_NAME)
@@ -309,6 +313,7 @@ private fun encodedBridgeEnvelope(objectValue: JSONObject): String {
 }
 
 private const val JS_BRIDGE_NAME = "UnicomCaptchaNative"
+private const val UNICOM_COOKIE_SEED_URL = "https://m.client.10010.com/"
 
 private const val INTERCEPTOR_SCRIPT = """
 (function() {
