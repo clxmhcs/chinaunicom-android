@@ -77,7 +77,9 @@ object UnicomSessionRenewalRequestFactory {
             put("User-Agent", UnicomClientProfile.nativeUserAgent(device.userAgentSystemVersion))
             put("Accept", "*/*")
             put("Accept-Language", "zh-Hans-CN;q=1.0")
-            put("Accept-Encoding", "gzip;q=1.0, compress;q=0.5")
+            // Do not override Accept-Encoding here. OkHttp will negotiate gzip itself and then
+            // transparently decompress the body. Setting the iOS literal header would disable
+            // OkHttp's transparent gzip path and could hand compressed JSON to the parser.
             if (cookie.isNotEmpty()) put("Cookie", cookie)
         }
         return UnicomSessionRenewalRequest(
