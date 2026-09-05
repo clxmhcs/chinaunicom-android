@@ -1,8 +1,10 @@
 package com.clxmhcs.chinaunicom.core.network
 
+import java.io.ByteArrayInputStream
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.util.Collections
+import java.util.zip.GZIPInputStream
 
 /** Shared current China Unicom native client identity from the iOS source of truth. */
 object UnicomClientProfile {
@@ -77,9 +79,7 @@ object UnicomSessionRenewalRequestFactory {
             put("User-Agent", UnicomClientProfile.nativeUserAgent(device.userAgentSystemVersion))
             put("Accept", "*/*")
             put("Accept-Language", "zh-Hans-CN;q=1.0")
-            // Do not override Accept-Encoding here. OkHttp will negotiate gzip itself and then
-            // transparently decompress the body. Setting the iOS literal header would disable
-            // OkHttp's transparent gzip path and could hand compressed JSON to the parser.
+            put("Accept-Encoding", "gzip;q=1.0, compress;q=0.5")
             if (cookie.isNotEmpty()) put("Cookie", cookie)
         }
         return UnicomSessionRenewalRequest(
@@ -107,6 +107,19 @@ object UnicomSessionRenewalRequestFactory {
             headers = headers,
         )
     }
+}
+
+/**
+ * OkHttp's transparent gzip mode is disabled when the caller supplies Accept-Encoding explicitly.
+ * The iOS request does supply that header, so renewal defensively recognizes a gzip body by magic
+ * bytes before JSON parsing. Plain/already-decoded bodies pass through unchanged.
+ */
+internal fun decodeUnicomRenewalBody(data: ByteArray): ByteArray {
+    val isGzip = data.size >= 2 &&
+        (data[0].toInt() and 0xff) == 0x1f &&
+        (data[1].toInt() and 0xff) == 0x8b
+    if (!isGzip) return data
+    return GZIPInputStream(ByteArrayInputStream(data)).use { it.readBytes() }
 }
 
 fun currentUnicomLocalIPv4Address(): String? = runCatching {
