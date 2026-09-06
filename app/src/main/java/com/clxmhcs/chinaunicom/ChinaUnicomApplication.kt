@@ -1,7 +1,6 @@
 package com.clxmhcs.chinaunicom
 
 import android.app.Application
-import android.os.Build
 import com.clxmhcs.chinaunicom.core.network.UnicomSessionRenewalDeviceContext
 import com.clxmhcs.chinaunicom.core.network.UnicomSessionRenewalDeviceContextProvider
 import com.clxmhcs.chinaunicom.core.network.UnicomSessionRenewalEnvironment
@@ -21,7 +20,7 @@ class ChinaUnicomApplication : Application() {
                     uniqueIdentifier = identity.uniqueIdentifier,
                     deviceModel = identity.deviceModel,
                     deviceOS = identity.deviceOS,
-                    userAgentSystemVersion = Build.VERSION.RELEASE.orEmpty().ifBlank { identity.deviceOS },
+                    userAgentSystemVersion = identity.deviceOS,
                     localIPv4Address = currentUnicomLocalIPv4Address().orEmpty(),
                 )
             },
