@@ -90,14 +90,15 @@ class SettingsRepositoryTest {
 
         assertTrue(result.persisted)
         assertTrue(result.changed)
-        assertEquals(policy, repository.quotaRefreshPolicy.value)
+        val normalized = policy.copy(minimumIntervalMinutes = 60)
+        assertEquals(normalized, repository.quotaRefreshPolicy.value)
         val saved = root(storage.value!!)
         assertEquals(JsonObject(mapOf("intervalMinutes" to JsonPrimitive(60))), saved["balance"])
         val quota = saved["quota"] as JsonObject
         assertEquals(JsonPrimitive(false), quota["automaticRefreshEnabled"])
         assertEquals(JsonPrimitive(false), quota["refreshOnColdLaunch"])
         assertEquals(JsonPrimitive(true), quota["refreshOnForeground"])
-        assertEquals(JsonPrimitive(15), quota["minimumIntervalMinutes"])
+        assertEquals(JsonPrimitive(60), quota["minimumIntervalMinutes"])
         assertEquals(JsonPrimitive(5), quota["accountGapSeconds"])
     }
 

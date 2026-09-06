@@ -41,9 +41,13 @@ data class QuotaRefreshPolicy(
     val automaticRefreshEnabled: Boolean = true,
     val refreshOnColdLaunch: Boolean = true,
     val refreshOnForeground: Boolean = true,
-    val minimumIntervalMinutes: Int = 10,
+    val minimumIntervalMinutes: Int = 60,
     val accountGapSeconds: Int = 2,
-)
+) {
+    companion object {
+        val ALLOWED_MINIMUM_INTERVAL_MINUTES = listOf(30, 60, 90, 120, 150, 180)
+    }
+}
 
 fun interface QuotaRefreshPolicyProvider {
     fun load(): QuotaRefreshPolicy
@@ -279,16 +283,17 @@ class QuotaRefreshCoordinator(
             (previousUpdatedAt == null || refreshedAt.isAfter(previousUpdatedAt))
 
         if (succeeded) {
+            val successAt = requireNotNull(refreshedAt)
             when (invocation) {
                 DashboardRefreshInvocation.SINGLE_MANUAL -> {
-                    runtimeStore.recordSingleManualSuccess(accountID, refreshedAt!!)
-                    runtimeStore.recordGlobalManualSuccess(accountID, refreshedAt)
-                    runtimeStore.recordAutomaticSuccess(accountID, refreshedAt)
+                    runtimeStore.recordSingleManualSuccess(accountID, successAt)
+                    runtimeStore.recordGlobalManualSuccess(accountID, successAt)
+                    runtimeStore.recordAutomaticSuccess(accountID, successAt)
                 }
                 DashboardRefreshInvocation.GLOBAL_MANUAL,
                 DashboardRefreshInvocation.AUTOMATIC -> {
-                    runtimeStore.recordGlobalManualSuccess(accountID, refreshedAt!!)
-                    runtimeStore.recordAutomaticSuccess(accountID, refreshedAt)
+                    runtimeStore.recordGlobalManualSuccess(accountID, successAt)
+                    runtimeStore.recordAutomaticSuccess(accountID, successAt)
                 }
                 DashboardRefreshInvocation.RAW -> Unit
             }

@@ -140,9 +140,14 @@ class DefaultSettingsRepository(
     override fun loadMyPackageRefreshPolicy() = reload().myPackage
 
     override fun saveQuotaRefreshPolicy(policy: QuotaRefreshPolicy): QuotaRefreshPolicySaveResult {
+        val normalized = policy.copy(
+            minimumIntervalMinutes = policy.minimumIntervalMinutes.takeIf(
+                QuotaRefreshPolicy.ALLOWED_MINIMUM_INTERVAL_MINUTES::contains,
+            ) ?: QuotaRefreshPolicy().minimumIntervalMinutes,
+        )
         val previousRaw = storage.read(); val previous = previousRaw?.let(codec::decode)?.quota
-        val persisted = storage.write(codec.mergeQuotaPolicy(previousRaw, policy)); if (persisted) _quotaRefreshPolicy.value = policy
-        return QuotaRefreshPolicySaveResult(persisted, previous == null || previous != policy, policy)
+        val persisted = storage.write(codec.mergeQuotaPolicy(previousRaw, normalized)); if (persisted) _quotaRefreshPolicy.value = normalized
+        return QuotaRefreshPolicySaveResult(persisted, previous == null || previous != normalized, normalized)
     }
 
     override fun saveBalanceRefreshPolicy(policy: BalanceRefreshPolicy): BalanceRefreshPolicySaveResult {
@@ -239,7 +244,9 @@ class AppRefreshLogicPolicyCodec(private val json: Json = Json { ignoreUnknownKe
                 boolValue(q?.get(AUTOMATIC_REFRESH_ENABLED_KEY)) ?: qd.automaticRefreshEnabled,
                 boolValue(q?.get(REFRESH_ON_COLD_LAUNCH_KEY)) ?: qd.refreshOnColdLaunch,
                 boolValue(q?.get(REFRESH_ON_FOREGROUND_KEY)) ?: qd.refreshOnForeground,
-                intValue(q?.get(MINIMUM_INTERVAL_MINUTES_KEY)) ?: qd.minimumIntervalMinutes,
+                (intValue(q?.get(MINIMUM_INTERVAL_MINUTES_KEY)) ?: qd.minimumIntervalMinutes).takeIf(
+                    QuotaRefreshPolicy.ALLOWED_MINIMUM_INTERVAL_MINUTES::contains,
+                ) ?: qd.minimumIntervalMinutes,
                 intValue(q?.get(ACCOUNT_GAP_SECONDS_KEY)) ?: qd.accountGapSeconds,
             ),
             BalanceRefreshPolicy(

@@ -48,11 +48,14 @@ class QuotaRefreshCoordinatorTest {
         assertEquals(listOf(firstID, secondID), coordinator.state.value.accounts.map { it.id })
         assertTrue(coordinator.shouldAutoRefresh(QuotaAutomaticRefreshTrigger.COLD_LAUNCH, now))
 
-        runtime.last = now.minusSeconds(5 * 60)
+        runtime.automaticSuccess[firstID] = now.minusSeconds(5 * 60)
+        runtime.automaticSuccess[secondID] = now.minusSeconds(5 * 60)
         assertFalse(coordinator.shouldAutoRefresh(QuotaAutomaticRefreshTrigger.COLD_LAUNCH, now))
-        runtime.last = now.minusSeconds(10 * 60)
+        runtime.automaticSuccess[firstID] = now.minusSeconds(60 * 60)
+        runtime.automaticSuccess[secondID] = now.minusSeconds(60 * 60)
         assertTrue(coordinator.shouldAutoRefresh(QuotaAutomaticRefreshTrigger.COLD_LAUNCH, now))
-        runtime.last = now.plusSeconds(30)
+        runtime.automaticSuccess[firstID] = now.plusSeconds(30)
+        runtime.automaticSuccess[secondID] = now.plusSeconds(30)
         assertTrue(coordinator.shouldAutoRefresh(QuotaAutomaticRefreshTrigger.COLD_LAUNCH, now))
 
         val disabledPolicyCoordinator = coordinator(
@@ -273,6 +276,10 @@ class QuotaRefreshCoordinatorTest {
 private class FakeRuntimeStore : QuotaRefreshRuntimeStore {
     var last: Instant? = null
     val recorded = mutableListOf<Instant>()
+    val singleManualSuccess = mutableMapOf<UUID, Instant>()
+    val globalManualSuccess = mutableMapOf<UUID, Instant>()
+    val automaticSuccess = mutableMapOf<UUID, Instant>()
+    val automaticFailures = mutableMapOf<UUID, Instant>()
 
     override fun lastRefreshTriggeredAt(): Instant? = last
 
@@ -280,6 +287,18 @@ private class FakeRuntimeStore : QuotaRefreshRuntimeStore {
         last = at
         recorded += at
     }
+
+    override fun lastSingleManualSuccessAt(accountID: UUID): Instant? = singleManualSuccess[accountID]
+    override fun lastGlobalManualSuccessAt(accountID: UUID): Instant? = globalManualSuccess[accountID]
+    override fun lastAutomaticSuccessAt(accountID: UUID): Instant? = automaticSuccess[accountID]
+    override fun lastAutomaticFailureAttemptAt(accountID: UUID): Instant? = automaticFailures[accountID]
+    override fun recordSingleManualSuccess(accountID: UUID, at: Instant) { singleManualSuccess[accountID] = at }
+    override fun recordGlobalManualSuccess(accountID: UUID, at: Instant) { globalManualSuccess[accountID] = at }
+    override fun recordAutomaticSuccess(accountID: UUID, at: Instant) {
+        automaticSuccess[accountID] = at
+        automaticFailures.remove(accountID)
+    }
+    override fun recordAutomaticFailureAttempt(accountID: UUID, at: Instant) { automaticFailures[accountID] = at }
 }
 
 private class FakeRefreshClient(
