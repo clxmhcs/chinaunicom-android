@@ -17,22 +17,18 @@ jobs:
         with:
           ref: ui-27-quota-refresh-ios-refinement
           fetch-depth: 0
-      - name: Apply quota patch
-        run: python3 tools/tmp_ui27_quota_patch.py
-      - name: Commit patch
+      - name: Apply quota correctness fix
+        run: python3 tools/tmp_ui27_quota_fix.py
+      - name: Commit fix
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinator.kt \
                   data/refresh/src/main/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRepository.kt \
                   app/src/main/java/com/clxmhcs/chinaunicom/data/UnicomRepository.kt \
-                  app/src/main/java/com/clxmhcs/chinaunicom/data/ProductionUnicomRepository.kt \
-                  app/src/debug/java/com/clxmhcs/chinaunicom/data/FakeUnicomRepository.kt \
-                  app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowViewModel.kt \
-                  app/src/main/java/com/clxmhcs/chinaunicom/ui/FlowHomeScreen.kt \
-                  app/src/main/java/com/clxmhcs/chinaunicom/data/AndroidQuotaRefreshRuntimeStore.kt \
-                  app/src/debug/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt \
-                  app/src/release/java/com/clxmhcs/chinaunicom/data/UnicomRepositoryProvider.kt \
-                  app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsAppRefreshLogicIosScreen.kt
-          git commit -m 'UI-27 wire quota refresh timing semantics'
+                  data/settings/src/main/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepository.kt \
+                  data/settings/src/test/kotlin/com/clxmhcs/chinaunicom/data/settings/SettingsRepositoryTest.kt \
+                  data/refresh/src/test/kotlin/com/clxmhcs/chinaunicom/data/refresh/QuotaRefreshCoordinatorTest.kt \
+                  docs/migration/M6_BASELINE.md
+          git commit -m 'UI-27 align quota timing defaults and tests with current iOS'
           git push origin HEAD:ui-27-quota-refresh-ios-refinement
