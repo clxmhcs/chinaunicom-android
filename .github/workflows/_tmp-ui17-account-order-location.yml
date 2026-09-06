@@ -1,0 +1,36 @@
+name: TEMP UI17 account order location
+on:
+  push:
+    branches: [ui-17-account-order-ios-refinement]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui-17-account-order-ios-refinement
+      - name: Patch cached location authority
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt')
+          s = p.read_text()
+          old = '''                settings = settings,\n                onMove = settingsViewModel::moveAccount,'''
+          new = '''                settings = settings,\n                locationFor = m11cViewModel::cachedLocation,\n                onMove = settingsViewModel::moveAccount,'''
+          if s.count(old) != 1:
+              raise SystemExit(f'expected one order-screen settings/onMove anchor, found {s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          grep -q 'locationFor = m11cViewModel::cachedLocation' app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
+          git diff --check
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
+          git commit -m 'UI-17: wire cached location into custom account order'
+          git push origin HEAD:ui-17-account-order-ios-refinement
