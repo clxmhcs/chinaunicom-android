@@ -34,3 +34,4 @@ jobs:
           git add app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
           git commit -m 'UI-17: wire cached location into custom account order'
           git push origin HEAD:ui-17-account-order-ios-refinement
+# temporary workflow; removed after the one-line patch commits
