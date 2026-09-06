@@ -1,11 +1,16 @@
 package com.clxmhcs.chinaunicom.ui
 
 import android.app.Application
+import android.content.ContentValues
+import android.content.pm.ApplicationInfo
 import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.clxmhcs.chinaunicom.core.model.AccountCredentials
 import com.clxmhcs.chinaunicom.core.network.UnicomLoginCaptchaChallenge
+import com.clxmhcs.chinaunicom.core.network.UnicomSMSLoginResult
 import com.clxmhcs.chinaunicom.core.network.UnicomSMSLoginSession
 import com.clxmhcs.chinaunicom.core.network.UnicomSMSSendOutcome
 import com.clxmhcs.chinaunicom.core.storage.AndroidAccountMetadataStores
@@ -15,6 +20,8 @@ import com.clxmhcs.chinaunicom.data.SMSLoginSessionProvider
 import com.clxmhcs.chinaunicom.data.UnicomRepositoryProvider
 import com.clxmhcs.chinaunicom.data.account.DefaultAccountRepository
 import com.clxmhcs.chinaunicom.data.refresh.QuotaAutomaticRefreshTrigger
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -253,6 +260,7 @@ class FlowViewModel(
         }
         if (_accountOnboardingState.value.isLoggingIn || _accountOnboardingState.value.isSendingCode) return
 
+        val reusedSendCodeSession = smsLoginMobile == normalizedMobile && smsLoginSession != null
         val session = if (smsLoginMobile == normalizedMobile) {
             smsLoginSession ?: SMSLoginSessionProvider.create(getApplication())
         } else {
@@ -271,12 +279,30 @@ class FlowViewModel(
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                val result = session.login(
+            val preferredAppID = reusableAppID(normalizedMobile)
+            val result = try {
+                session.login(
                     mobile = normalizedMobile,
                     code = normalizedCode,
-                    preferredAppID = reusableAppID(normalizedMobile),
+                    preferredAppID = preferredAppID,
                 )
+            } catch (error: Throwable) {
+                val reportPath = saveSMSLoginDiagnostic(
+                    session = session,
+                    terminalStage = "radomLogin",
+                    error = error,
+                    reusedSendCodeSession = reusedSendCodeSession,
+                    preferredAppIDPresent = preferredAppID != null,
+                    loginResult = null,
+                )
+                publishOnboardingFailure(
+                    "登录失败",
+                    appendDiagnosticLocation(safeMessage(error), reportPath),
+                )
+                return@launch
+            }
+
+            try {
                 loginLifecycle.createValidatedSMSAccount(
                     mobile = normalizedMobile,
                     loginResult = result,
@@ -284,22 +310,33 @@ class FlowViewModel(
                     accountMetadataRepository.createValidatedAccount(displayName = "", seed = seed)
                 }
                 repository.reloadAccountsFromPersistence()
-                result.invalidAt
-            }.onSuccess { invalidAt ->
-                smsLoginSession = null
-                smsLoginMobile = null
-                val validity = invalidAt?.trim()?.takeIf { it.isNotEmpty() } ?: "联通未返回 invalidat"
-                _accountOnboardingState.update {
-                    it.copy(
-                        isLoggingIn = false,
-                        statusTitle = "登录成功",
-                        statusMessage = "手机号已验证并写入正式账号库。登录态有效期：$validity。短信验证码未保存。",
-                        captchaChallenge = null,
-                        loginSucceeded = true,
-                    )
-                }
-            }.onFailure { error ->
-                publishOnboardingFailure("登录失败", safeMessage(error))
+            } catch (error: Throwable) {
+                val reportPath = saveSMSLoginDiagnostic(
+                    session = session,
+                    terminalStage = "postLoginValidation",
+                    error = error,
+                    reusedSendCodeSession = reusedSendCodeSession,
+                    preferredAppIDPresent = preferredAppID != null,
+                    loginResult = result,
+                )
+                publishOnboardingFailure(
+                    "登录失败",
+                    appendDiagnosticLocation(safeMessage(error), reportPath),
+                )
+                return@launch
+            }
+
+            smsLoginSession = null
+            smsLoginMobile = null
+            val validity = result.invalidAt?.trim()?.takeIf { it.isNotEmpty() } ?: "联通未返回 invalidat"
+            _accountOnboardingState.update {
+                it.copy(
+                    isLoggingIn = false,
+                    statusTitle = "登录成功",
+                    statusMessage = "手机号已验证并写入正式账号库。登录态有效期：$validity。短信验证码未保存。",
+                    captchaChallenge = null,
+                    loginSucceeded = true,
+                )
             }
         }
     }
@@ -444,6 +481,96 @@ class FlowViewModel(
         return null
     }
 
+    private fun saveSMSLoginDiagnostic(
+        session: UnicomSMSLoginSession,
+        terminalStage: String,
+        error: Throwable,
+        reusedSendCodeSession: Boolean,
+        preferredAppIDPresent: Boolean,
+        loginResult: UnicomSMSLoginResult?,
+    ): String? {
+        if (!isDebuggableBuild()) return null
+
+        val systemInfo = session.captchaSystemInfo()
+        val currentCookieNames = diagnosticCookieNames(session.currentCookieHeader())
+        val returnedCookieNames = diagnosticCookieNames(loginResult?.credentials?.cookie.orEmpty())
+        val report = buildString {
+            appendLine("ChinaUnicom Android SMS Login Diagnostic v1")
+            appendLine("generatedAt=${LocalDateTime.now().format(LOGIN_DIAGNOSTIC_TIME_FORMATTER)}")
+            appendLine("terminalStage=$terminalStage")
+            appendLine("terminalErrorType=${error::class.java.simpleName}")
+            appendLine("terminalMessage=${sanitizeDiagnosticText(safeMessage(error))}")
+            appendLine("reusedSendCodeSession=$reusedSendCodeSession")
+            appendLine("preferredAppIDPresent=$preferredAppIDPresent")
+            appendLine("protocolVersion=${UnicomSMSLoginSession.VERSION}")
+            appendLine("deviceBrand=${sanitizeDiagnosticText(systemInfo["deviceBrand"].orEmpty())}")
+            appendLine("deviceModel=${sanitizeDiagnosticText(systemInfo["deviceModel"].orEmpty())}")
+            appendLine("deviceOS=${sanitizeDiagnosticText(systemInfo["deviceOS"].orEmpty())}")
+            appendLine("currentCookieNames=${currentCookieNames.ifEmpty { "<none>" }}")
+            appendLine("radomLoginSucceeded=${loginResult != null}")
+            if (loginResult != null) {
+                appendLine("returnedCookiePresent=${loginResult.credentials.cookie.isNotBlank()}")
+                appendLine("returnedCookieNames=${returnedCookieNames.ifEmpty { "<none>" }}")
+                appendLine("returnedAppIDPresent=${!loginResult.credentials.appID.isNullOrBlank()}")
+                appendLine("returnedTokenOnlinePresent=${!loginResult.credentials.tokenOnline.isNullOrBlank()}")
+                appendLine("invalidAtPresent=${!loginResult.invalidAt.isNullOrBlank()}")
+            }
+            appendLine("privacy=mobile/code/password/Cookie values/appId values/token_online values are not recorded")
+        }
+
+        val application = getApplication<Application>()
+        val resolver = application.contentResolver
+        val filename = "ChinaUnicom_SMSLogin_Diagnostic_${LocalDateTime.now().format(LOGIN_DIAGNOSTIC_FILENAME_FORMATTER)}.txt"
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+            put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/ChinaUnicom")
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return null
+        return try {
+            val wrote = resolver.openOutputStream(uri, "w")?.bufferedWriter(Charsets.UTF_8)?.use { writer ->
+                writer.write(report)
+                true
+            } ?: false
+            if (!wrote) error("Unable to open diagnostic output stream")
+            val publishValues = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+            resolver.update(uri, publishValues, null, null)
+            "Download/ChinaUnicom/$filename"
+        } catch (_: Throwable) {
+            runCatching { resolver.delete(uri, null, null) }
+            null
+        }
+    }
+
+    private fun diagnosticCookieNames(cookie: String): String = cookie
+        .split(';')
+        .map(String::trim)
+        .filter { it.contains('=') }
+        .map { it.substringBefore('=').trim() }
+        .filter(String::isNotEmpty)
+        .distinct()
+        .joinToString(",")
+
+    private fun appendDiagnosticLocation(message: String, reportPath: String?): String =
+        if (reportPath == null) message
+        else "$message\n\n已生成脱敏登录诊断：$reportPath"
+
+    private fun isDebuggableBuild(): Boolean {
+        val flags = getApplication<Application>().applicationInfo.flags
+        return (flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
+
+    private fun sanitizeDiagnosticText(value: String): String = value
+        .replace(MOBILE_DIAGNOSTIC_PATTERN, "[mobile-redacted]")
+        .replace(SECRET_DIAGNOSTIC_PATTERN) { match ->
+            match.groupValues[1] + "=[redacted]"
+        }
+        .replace('\n', ' ')
+        .replace('\r', ' ')
+        .trim()
+        .take(500)
+
     private fun publishOnboardingFailure(title: String, message: String) {
         _accountOnboardingState.update {
             it.copy(
@@ -475,5 +602,11 @@ class FlowViewModel(
 
     private companion object {
         const val MAX_CREDENTIAL_ARCHIVE_BYTES = 2 * 1024 * 1024
+        val LOGIN_DIAGNOSTIC_TIME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        val LOGIN_DIAGNOSTIC_FILENAME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
+        val MOBILE_DIAGNOSTIC_PATTERN = Regex("(?<!\\d)1\\d{10}(?!\\d)")
+        val SECRET_DIAGNOSTIC_PATTERN = Regex(
+            "(?i)(cookie|token_online|tokenOnline|appId|appID|password)\\s*[:=]\\s*[^\\s,;]+",
+        )
     }
 }
