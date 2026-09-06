@@ -1,0 +1,64 @@
+name: TEMP UI17 account order entry patch
+
+on:
+  push:
+    branches:
+      - ui-17-account-order-ios-refinement
+
+permissions:
+  contents: write
+
+jobs:
+  patch-entry:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui-17-account-order-ios-refinement
+          fetch-depth: 0
+      - name: Patch only the account-order entry
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt')
+          text = p.read_text()
+          old = '''        SettingsIosPage.ACCOUNT_ORDER -> {
+              IosAccountOrderScreen(
+                  accounts = accounts,
+                  settings = settings,
+                  onMove = settingsViewModel::moveAccount,
+                  onBack = closePage,
+              )
+              return
+          }'''
+          # Keep whitespace tolerant while still requiring exactly one semantic target.
+          exact = '''        SettingsIosPage.ACCOUNT_ORDER -> {
+            IosAccountOrderScreen(
+                accounts = accounts,
+                settings = settings,
+                onMove = settingsViewModel::moveAccount,
+                onBack = closePage,
+            )
+            return
+        }'''
+          replacement = exact.replace('IosAccountOrderScreen(', 'IosAccountOrderRefinedScreen(', 1)
+          count = text.count(exact)
+          if count != 1:
+              raise SystemExit(f'expected exactly one account-order entry, found {count}')
+          p.write_text(text.replace(exact, replacement, 1))
+          PY
+          git diff --check
+          git diff -- app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
+      - name: Commit isolated patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No patch required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootIosScreen.kt
+          git commit -m 'UI-17: route custom order to refined iOS screen'
+          git push origin HEAD:ui-17-account-order-ios-refinement
