@@ -57,9 +57,8 @@ private val AccountOrderUnicomRed = Color(0xFFFF3B30)
  *
  * iOS uses `Image("ReceiptSIMCardIcon")` from
  * `Assets.xcassets/ReceiptSIMCardIcon.imageset/ReceiptSIMCardIcon.png`, rendered
- * with `scaledToFit()` in a 24 x 24 pt frame. Android packages a downsampled copy
- * of that exact source artwork as `R.drawable.receipt_sim_card_icon`; the
- * downsampling only removes pixels that cannot be displayed at this UI size.
+ * with `scaledToFit()` in a 24 x 24 pt frame. Android packages a downsampled,
+ * lossless derivative of that exact artwork as `R.drawable.receipt_sim_card_icon`.
  *
  * The existing SettingsRootViewModel::moveAccount authority remains unchanged:
  * dragging computes a relative destination and commits once when the gesture ends.
@@ -68,6 +67,7 @@ private val AccountOrderUnicomRed = Color(0xFFFF3B30)
 internal fun IosAccountOrderRefinedScreen(
     accounts: List<UnicomAccount>,
     settings: AppSettings,
+    locationFor: (String) -> String?,
     onMove: (UUID, Int) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -115,11 +115,16 @@ internal fun IosAccountOrderRefinedScreen(
                 ) {
                     Column {
                         accounts.forEachIndexed { index, account ->
+                            val cachedLocation = locationFor(account.mobile)?.trim()?.takeIf { it.isNotEmpty() }
+                            val displayNameLocation = account.displayName.trim().takeIf {
+                                it.isNotEmpty() && it != "联通号码"
+                            }
                             AccountOrderRow(
                                 account = account,
                                 index = index,
                                 lastIndex = accounts.lastIndex,
                                 settings = settings,
+                                location = cachedLocation ?: displayNameLocation ?: "归属地未知",
                                 onMove = onMove,
                             )
                             if (index < accounts.lastIndex) {
@@ -199,6 +204,7 @@ private fun AccountOrderRow(
     index: Int,
     lastIndex: Int,
     settings: AppSettings,
+    location: String,
     onMove: (UUID, Int) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -241,7 +247,7 @@ private fun AccountOrderRow(
                 )
             }
             Text(
-                text = account.displayName.ifBlank { "归属地未知" },
+                text = location,
                 color = AccountOrderSecondary,
                 fontSize = 12.sp,
                 lineHeight = 16.sp,
