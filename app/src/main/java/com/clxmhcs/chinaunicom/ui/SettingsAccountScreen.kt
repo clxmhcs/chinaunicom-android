@@ -200,7 +200,7 @@ internal fun SettingsAccountScreen(
             onBack = { page = CredentialPage.ROOT },
         )
 
-        CredentialPage.LOGIN -> SMSCredentialLoginPage(
+        CredentialPage.LOGIN -> SMSCredentialLoginIosPage(
             onboarding = onboarding,
             mobile = mobile,
             onMobileChange = { mobile = it.filter(Char::isDigit).take(13) },
