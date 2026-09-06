@@ -2,11 +2,17 @@ package com.clxmhcs.chinaunicom.ui
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.net.http.SslError
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
+import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -37,8 +43,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.clxmhcs.chinaunicom.core.network.UnicomLoginCaptchaChallenge
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import org.json.JSONObject
 
 @Composable
@@ -171,23 +180,16 @@ private fun CaptchaWebView(
                 settings.javaScriptCanOpenWindowsAutomatically = false
                 settings.setSupportMultipleWindows(false)
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                settings.cacheMode = WebSettings.LOAD_NO_CACHE
                 settings.userAgentString = userAgent
 
-                val cookieManager = android.webkit.CookieManager.getInstance()
+                val cookieManager = CookieManager.getInstance()
                 cookieManager.setAcceptCookie(true)
                 cookieManager.setAcceptThirdPartyCookies(this, true)
-                cookieHeader.split(';')
-                    .map(String::trim)
-                    .filter { it.contains('=') }
-                    .forEach { cookie ->
-                        cookieManager.setCookie(
-                            UNICOM_COOKIE_SEED_URL,
-                            "$cookie; Domain=.10010.com; Path=/; Secure",
-                        )
-                    }
-                cookieManager.flush()
 
                 addJavascriptInterface(bridge, JS_BRIDGE_NAME)
+                installDocumentStartBridgeIfSupported(this)
+
                 webChromeClient = object : WebChromeClient() {
                     override fun onJsPrompt(
                         view: WebView?,
@@ -206,12 +208,17 @@ private fun CaptchaWebView(
                 webViewClient = object : WebViewClient() {
                     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                         super.onPageStarted(view, url, favicon)
-                        view.evaluateJavascript(INTERCEPTOR_SCRIPT, null)
+                        if (!supportsDocumentStartScript()) {
+                            view.evaluateJavascript(INTERCEPTOR_SCRIPT, null)
+                        }
                     }
 
                     override fun onPageFinished(view: WebView, url: String?) {
                         super.onPageFinished(view, url)
-                        view.evaluateJavascript(INTERCEPTOR_SCRIPT, null)
+                        if (!supportsDocumentStartScript()) {
+                            view.evaluateJavascript(INTERCEPTOR_SCRIPT, null)
+                        }
+                        scheduleBlankPageProbe(view, onError)
                     }
 
                     override fun onReceivedError(
@@ -221,19 +228,111 @@ private fun CaptchaWebView(
                     ) {
                         super.onReceivedError(view, request, error)
                         if (request?.isForMainFrame == true) {
-                            onError(error?.description?.toString().orEmpty().ifBlank { "网络错误" })
+                            val code = error?.errorCode
+                            val detail = error?.description?.toString().orEmpty().ifBlank { "网络错误" }
+                            onError("网络错误${code?.let { "($it)" }.orEmpty()}：$detail")
                         }
                     }
+
+                    override fun onReceivedHttpError(
+                        view: WebView?,
+                        request: WebResourceRequest?,
+                        errorResponse: WebResourceResponse?,
+                    ) {
+                        super.onReceivedHttpError(view, request, errorResponse)
+                        if (request?.isForMainFrame == true) {
+                            onError("HTTP ${errorResponse?.statusCode ?: "未知"}")
+                        }
+                    }
+
+                    override fun onReceivedSslError(
+                        view: WebView?,
+                        handler: SslErrorHandler?,
+                        error: SslError?,
+                    ) {
+                        handler?.cancel()
+                        onError("SSL 证书校验失败(${error?.primaryError ?: "未知"})")
+                    }
                 }
-                loadUrl(challenge.url)
+
+                installCookiesThenLoad(
+                    webView = this,
+                    cookieManager = cookieManager,
+                    cookieHeader = cookieHeader,
+                    targetUrl = challenge.url,
+                    onError = onError,
+                )
             }
             onWebViewReady(createdWebView)
             createdWebView
         },
-        update = { view ->
-            if (view.url.isNullOrBlank()) view.loadUrl(challenge.url)
-        },
+        update = { /* Initial load is intentionally owned by the cookie-install completion path. */ },
     )
+}
+
+private fun installDocumentStartBridgeIfSupported(webView: WebView) {
+    if (!supportsDocumentStartScript()) return
+    runCatching {
+        WebViewCompat.addDocumentStartJavaScript(
+            webView,
+            INTERCEPTOR_SCRIPT,
+            setOf("*"),
+        )
+    }
+}
+
+private fun supportsDocumentStartScript(): Boolean =
+    WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
+
+private fun installCookiesThenLoad(
+    webView: WebView,
+    cookieManager: CookieManager,
+    cookieHeader: String,
+    targetUrl: String,
+    onError: (String) -> Unit,
+) {
+    val cookies = cookieHeader.split(';')
+        .map(String::trim)
+        .filter { it.contains('=') }
+
+    if (cookies.isEmpty()) {
+        webView.loadUrl(targetUrl)
+        return
+    }
+
+    val remaining = AtomicInteger(cookies.size)
+    val failed = AtomicBoolean(false)
+    cookies.forEach { cookie ->
+        cookieManager.setCookie(
+            UNICOM_COOKIE_SEED_URL,
+            "$cookie; Domain=.10010.com; Path=/; Secure",
+        ) { success ->
+            if (!success) failed.set(true)
+            if (remaining.decrementAndGet() == 0) {
+                cookieManager.flush()
+                webView.post {
+                    if (failed.get()) {
+                        onError("登录 Cookie 未全部写入 WebView")
+                    }
+                    webView.loadUrl(targetUrl)
+                }
+            }
+        }
+    }
+}
+
+private fun scheduleBlankPageProbe(webView: WebView, onError: (String) -> Unit) {
+    Handler(Looper.getMainLooper()).postDelayed({
+        if (!webView.isAttachedToWindow) return@postDelayed
+        webView.evaluateJavascript(
+            "(function(){var b=document.body;return b ? ((b.innerText||'').trim().length + ':' + b.childElementCount) : '-1:-1';})()",
+        ) { raw ->
+            val value = raw?.trim('"').orEmpty()
+            if (value == "0:0") {
+                onError("主页面已完成加载，但 DOM 内容为空")
+            }
+        }
+    }, BLANK_PAGE_PROBE_DELAY_MILLIS)
 }
 
 private class CaptchaBridge(
@@ -314,6 +413,7 @@ private fun encodedBridgeEnvelope(objectValue: JSONObject): String {
 
 private const val JS_BRIDGE_NAME = "UnicomCaptchaNative"
 private const val UNICOM_COOKIE_SEED_URL = "https://m.client.10010.com/"
+private const val BLANK_PAGE_PROBE_DELAY_MILLIS = 1_500L
 
 private const val INTERCEPTOR_SCRIPT = """
 (function() {
