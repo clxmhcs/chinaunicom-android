@@ -26,12 +26,10 @@ import androidx.compose.ui.unit.dp
 import com.clxmhcs.chinaunicom.core.model.ShortcutNotificationProfile
 import com.clxmhcs.chinaunicom.core.model.ShortcutNotificationSlot
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
-import com.clxmhcs.chinaunicom.core.model.WidgetDisplayConfiguration
 import com.clxmhcs.chinaunicom.core.model.WidgetDualDisplayConfiguration
 import com.clxmhcs.chinaunicom.core.model.WidgetDualSide
 import com.clxmhcs.chinaunicom.core.model.WidgetDualSlotConfiguration
 import com.clxmhcs.chinaunicom.core.model.WidgetDualSlotKind
-import com.clxmhcs.chinaunicom.core.model.WidgetQuotaResourceKind
 import java.util.UUID
 
 @Composable
@@ -40,76 +38,7 @@ fun SingleWidgetSettingsScreen(
     viewModel: SettingsM11CViewModel,
     onBack: () -> Unit,
 ) {
-    val state by viewModel.widgetState.collectAsState()
-    val message by viewModel.operationMessage.collectAsState()
-    val configuration = state.single
-    val selected = configuration.selectedAccountID?.let { id -> accounts.firstOrNull { it.id == id } }
-    val settings = LocalAppSettings.current
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item { M11CPageHeader("单号码组件信息编辑", onBack) }
-        item {
-            M11CCard {
-                Text("这里只配置 M12 将读取的数据；桌面 Widget 主体仍在 Android-M12。", style = MaterialTheme.typography.bodySmall)
-                message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                OutlinedButton(onClick = {
-                    val next = nextAccount(configuration.selectedAccountID, accounts, allowAutomatic = true)
-                    viewModel.saveSingleWidget(configuration.copy(selectedAccountID = next))
-                }) {
-                    Text("组件号码：${selected?.let { displayMobileNumber(it.mobile, settings) } ?: "自动使用首个卡片号码"}")
-                }
-                SettingSwitch("显示今日用量", configuration.showsTodayUsage) {
-                    viewModel.saveSingleWidget(configuration.copy(showsTodayUsage = it))
-                }
-                SettingSwitch("显示余额", configuration.showsBalance) {
-                    viewModel.saveSingleWidget(configuration.copy(showsBalance = it))
-                }
-            }
-        }
-        configuration.slots.forEachIndexed { index, slot ->
-            item(key = "single-${slot.id}-$index") {
-                M11CCard {
-                    Text("位置 ${index + 1} · ${slot.displayTitle}", fontWeight = FontWeight.SemiBold)
-                    SettingSwitch("显示", slot.isVisible) { visible ->
-                        viewModel.saveSingleWidget(configuration.copy(slots = configuration.slots.replaceAt(index, slot.copy(isVisible = visible))))
-                    }
-                    OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(),
-                        value = slot.title,
-                        onValueChange = { title ->
-                            viewModel.saveSingleWidget(configuration.copy(slots = configuration.slots.replaceAt(index, slot.copy(title = title))))
-                        },
-                        label = { Text("标题") },
-                        singleLine = true,
-                    )
-                    OutlinedButton(onClick = {
-                        val nextKind = if (slot.kind == WidgetQuotaResourceKind.FLOW) WidgetQuotaResourceKind.VOICE else WidgetQuotaResourceKind.FLOW
-                        viewModel.saveSingleWidget(
-                            configuration.copy(
-                                slots = configuration.slots.replaceAt(index, slot.copy(kind = nextKind, packageIDs = emptyList())),
-                            ),
-                        )
-                    }) { Text("类型：${slot.kind.title}") }
-                    OutlinedButton(
-                        enabled = selected != null,
-                        onClick = {
-                            val ids = when (slot.kind) {
-                                WidgetQuotaResourceKind.FLOW -> selected?.visibleDetailPackages.orEmpty().map { it.id }
-                                WidgetQuotaResourceKind.VOICE -> selected?.visibleVoicePackages.orEmpty().map { it.id }
-                            }
-                            viewModel.saveSingleWidget(
-                                configuration.copy(slots = configuration.slots.replaceAt(index, slot.copy(packageIDs = ids))),
-                            )
-                        },
-                    ) { Text(if (slot.packageIDs.isEmpty()) "绑定当前号码可见资源" else "已绑定 ${slot.packageIDs.size} 个资源") }
-                }
-            }
-        }
-    }
+    IosSingleWidgetSettingsScreen(accounts, viewModel, onBack)
 }
 
 @Composable
