@@ -81,9 +81,21 @@ jobs:
           test -f app/src/main/java/com/clxmhcs/chinaunicom/data/PasswordLoginSessionProvider.kt
           test -f app/src/main/java/com/clxmhcs/chinaunicom/data/LoginAccountLifecycleProvider.kt
 
+          IDENTITY=app/src/main/java/com/clxmhcs/chinaunicom/data/AndroidLoginDeviceIdentityStore.kt
+          APP_ROOT=app/src/main/java/com/clxmhcs/chinaunicom/ChinaUnicomApplication.kt
+
           grep -q 'AndroidKeyStore' core/security/src/main/kotlin/com/clxmhcs/chinaunicom/core/security/AndroidCredentialStore.kt
           grep -q 'AES/GCM/NoPadding' core/security/src/main/kotlin/com/clxmhcs/chinaunicom/core/security/AndroidCredentialStore.kt
-          grep -q 'AndroidKeystoreCredentialCipher' app/src/main/java/com/clxmhcs/chinaunicom/data/AndroidLoginDeviceIdentityStore.kt
+          grep -q 'AndroidKeystoreCredentialCipher' "$IDENTITY"
+          grep -q 'IOS_COMPAT_DEVICE_MODEL = "iPhone15,4"' "$IDENTITY"
+          grep -q 'IOS_COMPAT_DEVICE_OS = "17.0"' "$IDENTITY"
+          grep -q 'deviceModel = IOS_COMPAT_DEVICE_MODEL' "$IDENTITY"
+          grep -q 'deviceOS = IOS_COMPAT_DEVICE_OS' "$IDENTITY"
+          ! grep -q 'Build.MODEL' "$IDENTITY"
+          ! grep -q 'Build.DEVICE' "$IDENTITY"
+          ! grep -q 'Build.VERSION.RELEASE' "$IDENTITY"
+          grep -q 'userAgentSystemVersion = identity.deviceOS' "$APP_ROOT"
+          ! grep -q 'Build.VERSION.RELEASE' "$APP_ROOT"
           grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
 
           grep -q 'https://loginxx.10010.com/mobileService/sendRadomNum.htm' core/network/src/main/kotlin/com/clxmhcs/chinaunicom/core/network/UnicomSMSLoginSession.kt
