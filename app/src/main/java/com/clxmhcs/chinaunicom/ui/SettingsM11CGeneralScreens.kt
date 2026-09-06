@@ -22,7 +22,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +35,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.clxmhcs.chinaunicom.core.model.PhoneCarrierCorrection
 import com.clxmhcs.chinaunicom.core.model.UnicomAccount
 import com.clxmhcs.chinaunicom.data.broadbandaccount.BroadbandAccountInfo
 import com.clxmhcs.chinaunicom.data.refresh.AndroidDailyUsageBaselineStore
@@ -64,58 +62,12 @@ fun CarrierCorrectionSettingsScreen(
     viewModel: SettingsM11CViewModel,
     onBack: () -> Unit,
 ) {
-    val attribution by viewModel.attributionState.collectAsState()
-    val message by viewModel.operationMessage.collectAsState()
-    val settings = LocalAppSettings.current
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item { M11CPageHeader("号码归属纠正", onBack) }
-        item {
-            M11CCard {
-                Text("仅修正 App / Widget 的运营商显示，不改变登录、查询、刷新和套餐数据。", style = MaterialTheme.typography.bodySmall)
-                if (message != null) Text(message.orEmpty(), style = MaterialTheme.typography.bodySmall)
-                OutlinedButton(onClick = viewModel::resetCorrections) { Text("全部恢复自动识别") }
-            }
-        }
-        mobileAccounts.sortedBy { it.sortOrder }.forEach { account ->
-            item(key = "mobile-${account.id}") {
-                val correction = attribution.corrections[account.mobile.filter(Char::isDigit)] ?: PhoneCarrierCorrection.AUTOMATIC
-                M11CCard {
-                    Text(account.displayName.ifBlank { displayMobileNumber(account.mobile, settings) }, fontWeight = FontWeight.SemiBold)
-                    Text(displayMobileNumber(account.mobile, settings), style = MaterialTheme.typography.bodySmall)
-                    Text("自动识别：${viewModel.automaticCarrierTitle(account.mobile)}")
-                    Text("当前显示：${viewModel.resolvedCarrierTitle(account.mobile)}")
-                    viewModel.cachedLocation(account.mobile)?.let { Text("缓存归属地：$it") }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { viewModel.cycleCorrection(account.mobile) }) {
-                            Text("修正：${correction.displayName}")
-                        }
-                        OutlinedButton(onClick = { viewModel.refreshLocation(account.mobile) }) { Text("更新归属地") }
-                    }
-                }
-            }
-        }
-        broadbandAccounts.forEach { account ->
-            item(key = "broadband-${account.id}") {
-                val number = account.serviceNumber
-                val correction = attribution.corrections[number.filter(Char::isDigit)] ?: PhoneCarrierCorrection.AUTOMATIC
-                M11CCard {
-                    Text(account.displayName.ifBlank { "宽带号码" }, fontWeight = FontWeight.SemiBold)
-                    Text(displayBroadbandNumber(number, settings), style = MaterialTheme.typography.bodySmall)
-                    Text("当前显示：${viewModel.resolvedCarrierTitle(number)}")
-                    if (account.areaCode.isNotBlank()) Text("区号：${account.areaCode}", style = MaterialTheme.typography.bodySmall)
-                    OutlinedButton(onClick = { viewModel.cycleCorrection(number) }) { Text("修正：${correction.displayName}") }
-                }
-            }
-        }
-        if (mobileAccounts.isEmpty() && broadbandAccounts.isEmpty()) {
-            item { Text("暂无已保存号码。") }
-        }
-    }
+    IosCarrierCorrectionRefinedScreen(
+        mobileAccounts = mobileAccounts,
+        broadbandAccounts = broadbandAccounts,
+        viewModel = viewModel,
+        onBack = onBack,
+    )
 }
 
 @Composable
