@@ -132,6 +132,7 @@ internal fun IosSingleWidgetSettingsScreen(
                                 selectedAccountID = configuration.selectedAccountID,
                                 hideMobile = settings.hideMobileMiddleDigits,
                                 locationFor = viewModel::cachedLocation,
+                                isUnicomFor = { number -> viewModel.resolvedCarrierTitle(number) == "联通" },
                                 onSelect = { id ->
                                     showAccountPicker = false
                                     viewModel.saveSingleWidget(configuration.copy(selectedAccountID = id))
@@ -293,6 +294,7 @@ private fun SingleWidgetAccountPopup(
     selectedAccountID: UUID?,
     hideMobile: Boolean,
     locationFor: (String) -> String?,
+    isUnicomFor: (String) -> Boolean,
     onSelect: (UUID?) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -335,13 +337,15 @@ private fun SingleWidgetAccountPopup(
                             selected = selectedAccountID == account.id,
                             onClick = { onSelect(account.id) },
                         ) {
-                            Image(
-                                painter = painterResource(R.drawable.china_unicom_knot_watermark),
-                                contentDescription = null,
-                                colorFilter = ColorFilter.tint(SingleWidgetUnicomRed),
-                                modifier = Modifier.size(16.dp),
-                            )
-                            Spacer(Modifier.width(5.dp))
+                            if (isUnicomFor(account.mobile)) {
+                                Image(
+                                    painter = painterResource(R.drawable.china_unicom_knot_watermark),
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(SingleWidgetUnicomRed),
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(5.dp))
+                            }
                             Text(
                                 text = buildString {
                                     append(if (hideMobile) maskMobileNumberForWidgetPicker(account.mobile) else account.mobile)
