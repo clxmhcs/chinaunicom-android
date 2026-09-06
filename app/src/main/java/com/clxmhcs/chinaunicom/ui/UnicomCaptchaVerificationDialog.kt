@@ -8,6 +8,7 @@ import android.os.Looper
 import android.util.Base64
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -61,6 +62,7 @@ internal fun UnicomCaptchaVerificationDialog(
 ) {
     var webView by remember(challenge.url) { mutableStateOf<WebView?>(null) }
     var errorMessage by remember(challenge.url) { mutableStateOf<String?>(null) }
+    var loadStatus by remember(challenge.url) { mutableStateOf("准备加载验证页面") }
 
     BackHandler(onBack = onDismiss)
     Dialog(
@@ -114,6 +116,13 @@ internal fun UnicomCaptchaVerificationDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
+                    Text(
+                        text = "验证页面状态：$loadStatus",
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
 
                 CaptchaWebView(
@@ -124,6 +133,7 @@ internal fun UnicomCaptchaVerificationDialog(
                     modifier = Modifier.weight(1f),
                     onWebViewReady = { webView = it },
                     onResultToken = onResultToken,
+                    onStatus = { loadStatus = it },
                     onError = { errorMessage = it },
                 )
 
@@ -160,6 +170,7 @@ private fun CaptchaWebView(
     modifier: Modifier,
     onWebViewReady: (WebView) -> Unit,
     onResultToken: (String) -> Unit,
+    onStatus: (String) -> Unit,
     onError: (String) -> Unit,
 ) {
     AndroidView(
@@ -172,6 +183,7 @@ private fun CaptchaWebView(
                 webView = { createdWebView },
                 onResultToken = onResultToken,
             )
+            val mainFrameFinished = AtomicBoolean(false)
             createdWebView = WebView(context).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
@@ -188,9 +200,16 @@ private fun CaptchaWebView(
                 cookieManager.setAcceptThirdPartyCookies(this, true)
 
                 addJavascriptInterface(bridge, JS_BRIDGE_NAME)
-                installDocumentStartBridgeIfSupported(this)
+                val documentStartBridgeInstalled = installDocumentStartBridgeIfSupported(this)
 
                 webChromeClient = object : WebChromeClient() {
+                    override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                        super.onProgressChanged(view, newProgress)
+                        if (!mainFrameFinished.get()) {
+                            onStatus("正在加载验证页：$newProgress%")
+                        }
+                    }
+
                     override fun onJsPrompt(
                         view: WebView?,
                         url: String?,
@@ -208,17 +227,33 @@ private fun CaptchaWebView(
                 webViewClient = object : WebViewClient() {
                     override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                         super.onPageStarted(view, url, favicon)
-                        if (!supportsDocumentStartScript()) {
+                        mainFrameFinished.set(false)
+                        val bridgeMode = if (documentStartBridgeInstalled) "document-start" else "fallback"
+                        onStatus("主页面开始加载（bridge=$bridgeMode）")
+                        schedulePageLoadWatchdog(
+                            webView = view,
+                            mainFrameFinished = mainFrameFinished,
+                            onStatus = onStatus,
+                            onError = onError,
+                        )
+                        if (!documentStartBridgeInstalled) {
                             view.evaluateJavascript(INTERCEPTOR_SCRIPT, null)
                         }
                     }
 
+                    override fun onPageCommitVisible(view: WebView?, url: String?) {
+                        super.onPageCommitVisible(view, url)
+                        onStatus("主页面已提交显示，等待验证组件")
+                    }
+
                     override fun onPageFinished(view: WebView, url: String?) {
                         super.onPageFinished(view, url)
-                        if (!supportsDocumentStartScript()) {
+                        mainFrameFinished.set(true)
+                        if (!documentStartBridgeInstalled) {
                             view.evaluateJavascript(INTERCEPTOR_SCRIPT, null)
                         }
-                        scheduleBlankPageProbe(view, onError)
+                        onStatus("主页面加载完成，检查验证组件")
+                        scheduleBlankPageProbe(view, onStatus, onError)
                     }
 
                     override fun onReceivedError(
@@ -228,8 +263,10 @@ private fun CaptchaWebView(
                     ) {
                         super.onReceivedError(view, request, error)
                         if (request?.isForMainFrame == true) {
+                            mainFrameFinished.set(true)
                             val code = error?.errorCode
                             val detail = error?.description?.toString().orEmpty().ifBlank { "网络错误" }
+                            onStatus("主页面网络失败")
                             onError("网络错误${code?.let { "($it)" }.orEmpty()}：$detail")
                         }
                     }
@@ -241,6 +278,8 @@ private fun CaptchaWebView(
                     ) {
                         super.onReceivedHttpError(view, request, errorResponse)
                         if (request?.isForMainFrame == true) {
+                            mainFrameFinished.set(true)
+                            onStatus("主页面 HTTP 失败")
                             onError("HTTP ${errorResponse?.statusCode ?: "未知"}")
                         }
                     }
@@ -250,8 +289,26 @@ private fun CaptchaWebView(
                         handler: SslErrorHandler?,
                         error: SslError?,
                     ) {
+                        mainFrameFinished.set(true)
                         handler?.cancel()
+                        onStatus("SSL 证书校验失败")
                         onError("SSL 证书校验失败(${error?.primaryError ?: "未知"})")
+                    }
+
+                    override fun onRenderProcessGone(
+                        view: WebView?,
+                        detail: RenderProcessGoneDetail?,
+                    ): Boolean {
+                        mainFrameFinished.set(true)
+                        onStatus("WebView 渲染进程已退出")
+                        onError(
+                            if (detail?.didCrash() == true) {
+                                "WebView 渲染进程崩溃"
+                            } else {
+                                "WebView 渲染进程被系统终止"
+                            },
+                        )
+                        return true
                     }
                 }
 
@@ -260,6 +317,7 @@ private fun CaptchaWebView(
                     cookieManager = cookieManager,
                     cookieHeader = cookieHeader,
                     targetUrl = challenge.url,
+                    onStatus = onStatus,
                     onError = onError,
                 )
             }
@@ -270,15 +328,16 @@ private fun CaptchaWebView(
     )
 }
 
-private fun installDocumentStartBridgeIfSupported(webView: WebView) {
-    if (!supportsDocumentStartScript()) return
-    runCatching {
+private fun installDocumentStartBridgeIfSupported(webView: WebView): Boolean {
+    if (!supportsDocumentStartScript()) return false
+    return runCatching {
         WebViewCompat.addDocumentStartJavaScript(
             webView,
             INTERCEPTOR_SCRIPT,
             setOf("*"),
         )
-    }
+        true
+    }.getOrDefault(false)
 }
 
 private fun supportsDocumentStartScript(): Boolean =
@@ -289,6 +348,7 @@ private fun installCookiesThenLoad(
     cookieManager: CookieManager,
     cookieHeader: String,
     targetUrl: String,
+    onStatus: (String) -> Unit,
     onError: (String) -> Unit,
 ) {
     val cookies = cookieHeader.split(';')
@@ -296,10 +356,12 @@ private fun installCookiesThenLoad(
         .filter { it.contains('=') }
 
     if (cookies.isEmpty()) {
+        onStatus("没有会话 Cookie，直接加载验证页")
         webView.loadUrl(targetUrl)
         return
     }
 
+    onStatus("正在写入 ${cookies.size} 个会话 Cookie")
     val remaining = AtomicInteger(cookies.size)
     val failed = AtomicBoolean(false)
     cookies.forEach { cookie ->
@@ -312,7 +374,10 @@ private fun installCookiesThenLoad(
                 cookieManager.flush()
                 webView.post {
                     if (failed.get()) {
+                        onStatus("Cookie 写入不完整，仍尝试加载验证页")
                         onError("登录 Cookie 未全部写入 WebView")
+                    } else {
+                        onStatus("Cookie 写入完成，开始加载验证页")
                     }
                     webView.loadUrl(targetUrl)
                 }
@@ -321,18 +386,107 @@ private fun installCookiesThenLoad(
     }
 }
 
-private fun scheduleBlankPageProbe(webView: WebView, onError: (String) -> Unit) {
+private fun schedulePageLoadWatchdog(
+    webView: WebView,
+    mainFrameFinished: AtomicBoolean,
+    onStatus: (String) -> Unit,
+    onError: (String) -> Unit,
+) {
     Handler(Looper.getMainLooper()).postDelayed({
-        if (!webView.isAttachedToWindow) return@postDelayed
-        webView.evaluateJavascript(
-            "(function(){var b=document.body;return b ? ((b.innerText||'').trim().length + ':' + b.childElementCount) : '-1:-1';})()",
-        ) { raw ->
-            val value = raw?.trim('"').orEmpty()
-            if (value == "0:0") {
-                onError("主页面已完成加载，但 DOM 内容为空")
-            }
+        if (!webView.isAttachedToWindow || mainFrameFinished.get()) return@postDelayed
+        onStatus("主页面加载超时")
+        onError("主页面 ${PAGE_LOAD_TIMEOUT_MILLIS / 1_000} 秒内未完成加载")
+    }, PAGE_LOAD_TIMEOUT_MILLIS)
+}
+
+private fun scheduleBlankPageProbe(
+    webView: WebView,
+    onStatus: (String) -> Unit,
+    onError: (String) -> Unit,
+) {
+    Handler(Looper.getMainLooper()).postDelayed({
+        probeRenderedPage(
+            webView = webView,
+            onResult = { result ->
+                if (!result.isVisuallyEmpty) {
+                    onStatus("验证组件已渲染")
+                    return@probeRenderedPage
+                }
+                onStatus(
+                    "DOM 已加载但尚未渲染组件（ready=${result.readyState}, child=${result.childCount}）",
+                )
+                Handler(Looper.getMainLooper()).postDelayed({
+                    probeRenderedPage(
+                        webView = webView,
+                        onResult = { finalResult ->
+                            if (finalResult.isVisuallyEmpty) {
+                                onStatus("DOM 存在但验证组件仍未渲染")
+                                onError(
+                                    "页面已加载但验证组件未渲染" +
+                                        "（ready=${finalResult.readyState}, child=${finalResult.childCount}, " +
+                                        "html=${finalResult.htmlLength}, visible=${finalResult.visibleControlCount}）",
+                                )
+                            } else {
+                                onStatus("验证组件已延迟渲染")
+                            }
+                        },
+                        onProbeFailure = {
+                            onStatus("无法读取验证页 DOM 状态")
+                            onError("无法读取验证页 DOM 状态")
+                        },
+                    )
+                }, SECOND_BLANK_PAGE_PROBE_DELAY_MILLIS)
+            },
+            onProbeFailure = {
+                onStatus("无法读取验证页 DOM 状态")
+                onError("无法读取验证页 DOM 状态")
+            },
+        )
+    }, FIRST_BLANK_PAGE_PROBE_DELAY_MILLIS)
+}
+
+private data class CaptchaPageProbe(
+    val readyState: String,
+    val textLength: Int,
+    val childCount: Int,
+    val htmlLength: Int,
+    val visibleControlCount: Int,
+) {
+    val isVisuallyEmpty: Boolean
+        get() = textLength == 0 && visibleControlCount == 0
+}
+
+private fun probeRenderedPage(
+    webView: WebView,
+    onResult: (CaptchaPageProbe) -> Unit,
+    onProbeFailure: () -> Unit,
+) {
+    if (!webView.isAttachedToWindow) return
+    webView.evaluateJavascript(PAGE_PROBE_SCRIPT) { raw ->
+        val value = raw?.trim('"').orEmpty()
+        val parts = value.split('|')
+        if (parts.size != 5) {
+            onProbeFailure()
+            return@evaluateJavascript
         }
-    }, BLANK_PAGE_PROBE_DELAY_MILLIS)
+        val result = CaptchaPageProbe(
+            readyState = parts[0],
+            textLength = parts[1].toIntOrNull() ?: -1,
+            childCount = parts[2].toIntOrNull() ?: -1,
+            htmlLength = parts[3].toIntOrNull() ?: -1,
+            visibleControlCount = parts[4].toIntOrNull() ?: -1,
+        )
+        if (
+            result.textLength < 0 ||
+            result.childCount < 0 ||
+            result.htmlLength < 0 ||
+            result.visibleControlCount < 0
+        ) {
+            onProbeFailure()
+        } else {
+            onResult(result)
+        }
+    }
 }
 
 private class CaptchaBridge(
@@ -413,7 +567,33 @@ private fun encodedBridgeEnvelope(objectValue: JSONObject): String {
 
 private const val JS_BRIDGE_NAME = "UnicomCaptchaNative"
 private const val UNICOM_COOKIE_SEED_URL = "https://m.client.10010.com/"
-private const val BLANK_PAGE_PROBE_DELAY_MILLIS = 1_500L
+private const val PAGE_LOAD_TIMEOUT_MILLIS = 12_000L
+private const val FIRST_BLANK_PAGE_PROBE_DELAY_MILLIS = 1_500L
+private const val SECOND_BLANK_PAGE_PROBE_DELAY_MILLIS = 3_500L
+
+private const val PAGE_PROBE_SCRIPT = """
+(function() {
+  var b = document.body;
+  if (!b) return [document.readyState || 'none', 0, 0, 0, 0].join('|');
+  var candidates = b.querySelectorAll('iframe,canvas,img,button,input,textarea,select,video,[role="button"],[role="dialog"]');
+  var visible = 0;
+  for (var i = 0; i < candidates.length; i++) {
+    var e = candidates[i];
+    var r = e.getBoundingClientRect();
+    var s = window.getComputedStyle(e);
+    if (r.width > 1 && r.height > 1 && s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0') {
+      visible++;
+    }
+  }
+  return [
+    document.readyState || 'unknown',
+    (b.innerText || '').trim().length,
+    b.childElementCount,
+    (b.innerHTML || '').length,
+    visible
+  ].join('|');
+})()
+"""
 
 private const val INTERCEPTOR_SCRIPT = """
 (function() {
