@@ -1,7 +1,6 @@
 package com.clxmhcs.chinaunicom.data
 
 import android.content.Context
-import android.os.Build
 import com.clxmhcs.chinaunicom.core.network.UnicomLoginDeviceIdentity
 import com.clxmhcs.chinaunicom.core.network.UnicomLoginDeviceIdentityStore
 import com.clxmhcs.chinaunicom.core.network.UnicomSMSLoginSession
@@ -20,11 +19,14 @@ import java.util.UUID
 /**
  * Persistent installation-level identity for China Unicom login requests.
  *
- * The frozen iOS app keeps deviceCode / uniqueIdentifier / deviceID / appID in
- * Keychain. Android therefore protects the same stable identifiers with a
- * dedicated Android Keystore AES-GCM key. They are intentionally isolated from
- * account credentials, so deleting an account does not rotate the login device.
- * The non-secret city seed remains in app-private Preferences.
+ * The iOS source sends one internally consistent Apple client identity: deviceBrand=iPhone,
+ * an Apple hardware machine identifier, a short iOS system version, and iphone_c@ protocol
+ * metadata. Android must not mix that profile with Build.MODEL / Build.VERSION.RELEASE because
+ * doing so produces an impossible identity such as iPhone + M2011K2C + Android 13.
+ *
+ * Stable identifiers remain protected with the dedicated Android Keystore AES-GCM key and are
+ * intentionally isolated from account credentials, so deleting an account does not rotate the
+ * login device. The non-secret city seed remains in app-private Preferences.
  */
 class AndroidLoginDeviceIdentityStore(context: Context) : UnicomLoginDeviceIdentityStore {
     private data class StableIdentity(
@@ -53,15 +55,8 @@ class AndroidLoginDeviceIdentityStore(context: Context) : UnicomLoginDeviceIdent
             uniqueIdentifier = stable.uniqueIdentifier,
             deviceID = stable.deviceID,
             appID = stable.appID,
-            deviceModel = Build.MODEL?.trim().orEmpty()
-                .ifEmpty { Build.DEVICE?.trim().orEmpty() }
-                .ifEmpty { "Android" },
-            deviceOS = Build.VERSION.RELEASE.orEmpty()
-                .split('.')
-                .filter(String::isNotBlank)
-                .take(2)
-                .joinToString(".")
-                .ifEmpty { Build.VERSION.SDK_INT.toString() },
+            deviceModel = IOS_COMPAT_DEVICE_MODEL,
+            deviceOS = IOS_COMPAT_DEVICE_OS,
         )
     }
 
@@ -181,6 +176,13 @@ class AndroidLoginDeviceIdentityStore(context: Context) : UnicomLoginDeviceIdent
     }
 
     companion object {
+        /**
+         * Android's iOS-compatible transport profile. iPhone15,4 shipped with iOS 17, and 17.0
+         * also matches the iOS project's current deployment floor. Keep model + OS as one pair.
+         */
+        internal const val IOS_COMPAT_DEVICE_MODEL = "iPhone15,4"
+        internal const val IOS_COMPAT_DEVICE_OS = "17.0"
+
         private const val IDENTITY_KEY_ALIAS = "chinaunicom.login.device.identity.aes.v1"
         private const val IDENTITY_ENCRYPTED_PREFERENCES = "chinaunicom.secure.login.identity.v1"
         private const val CITY_PREFERENCES = "chinaunicom.login.city.v1"
