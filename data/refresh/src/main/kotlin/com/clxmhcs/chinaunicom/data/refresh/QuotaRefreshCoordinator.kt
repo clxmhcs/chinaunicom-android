@@ -41,9 +41,13 @@ data class QuotaRefreshPolicy(
     val automaticRefreshEnabled: Boolean = true,
     val refreshOnColdLaunch: Boolean = true,
     val refreshOnForeground: Boolean = true,
-    val minimumIntervalMinutes: Int = 10,
+    val minimumIntervalMinutes: Int = 60,
     val accountGapSeconds: Int = 2,
-)
+) {
+    companion object {
+        val ALLOWED_MINIMUM_INTERVAL_MINUTES = listOf(30, 60, 90, 120, 150, 180)
+    }
+}
 
 fun interface QuotaRefreshPolicyProvider {
     fun load(): QuotaRefreshPolicy
@@ -53,9 +57,39 @@ object SourceDefaultQuotaRefreshPolicyProvider : QuotaRefreshPolicyProvider {
     override fun load(): QuotaRefreshPolicy = QuotaRefreshPolicy()
 }
 
+data class QuotaDashboardTimingPolicy(
+    val singleManualIntervalMinutes: Int = 10,
+    val globalManualIntervalMinutes: Int = 30,
+    val automaticFailureRetryMinutes: Int = 5,
+)
+
+fun interface QuotaDashboardTimingPolicyProvider {
+    fun load(): QuotaDashboardTimingPolicy
+}
+
+object SourceDefaultQuotaDashboardTimingPolicyProvider : QuotaDashboardTimingPolicyProvider {
+    override fun load(): QuotaDashboardTimingPolicy = QuotaDashboardTimingPolicy()
+}
+
 interface QuotaRefreshRuntimeStore {
     fun lastRefreshTriggeredAt(): Instant?
     fun recordRefreshTriggeredAt(at: Instant)
+
+    fun lastSingleManualSuccessAt(accountID: UUID): Instant? = null
+    fun lastGlobalManualSuccessAt(accountID: UUID): Instant? = null
+    fun lastAutomaticSuccessAt(accountID: UUID): Instant? = null
+    fun lastAutomaticFailureAttemptAt(accountID: UUID): Instant? = null
+    fun recordSingleManualSuccess(accountID: UUID, at: Instant) = Unit
+    fun recordGlobalManualSuccess(accountID: UUID, at: Instant) = Unit
+    fun recordAutomaticSuccess(accountID: UUID, at: Instant) = Unit
+    fun recordAutomaticFailureAttempt(accountID: UUID, at: Instant) = Unit
+}
+
+private enum class DashboardRefreshInvocation {
+    RAW,
+    SINGLE_MANUAL,
+    GLOBAL_MANUAL,
+    AUTOMATIC,
 }
 
 interface QuotaRefreshClient {
@@ -92,6 +126,7 @@ class QuotaRefreshCoordinator(
     private val refreshClient: QuotaRefreshClient,
     private val runtimeStore: QuotaRefreshRuntimeStore,
     private val policyProvider: QuotaRefreshPolicyProvider = SourceDefaultQuotaRefreshPolicyProvider,
+    private val dashboardTimingPolicyProvider: QuotaDashboardTimingPolicyProvider = SourceDefaultQuotaDashboardTimingPolicyProvider,
     private val clock: Clock = Clock.systemUTC(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val sleeper: suspend (Long) -> Unit = { milliseconds -> delay(milliseconds) },
@@ -110,44 +145,121 @@ class QuotaRefreshCoordinator(
         now: Instant = Instant.now(clock),
     ): Boolean {
         val policy = policyProvider.load()
-        if (!policy.automaticRefreshEnabled || _state.value.accounts.isEmpty()) return false
-
-        when (trigger) {
-            QuotaAutomaticRefreshTrigger.COLD_LAUNCH -> if (!policy.refreshOnColdLaunch) return false
-            QuotaAutomaticRefreshTrigger.FOREGROUND -> if (!policy.refreshOnForeground) return false
-            QuotaAutomaticRefreshTrigger.POLICY_CHANGE -> {
-                if (!policy.refreshOnColdLaunch && !policy.refreshOnForeground) return false
-            }
-        }
-
-        val lastRefresh = runtimeStore.lastRefreshTriggeredAt() ?: return true
-        val elapsed = Duration.between(lastRefresh, now)
-        if (elapsed.isNegative) return true
-        val cooldownMinutes = policy.minimumIntervalMinutes.coerceAtLeast(1).toLong()
-        return elapsed >= Duration.ofMinutes(cooldownMinutes)
+        if (!automaticTriggerEnabled(policy, trigger) || _state.value.accounts.isEmpty()) return false
+        return automaticRefreshCandidateIDs(
+            policy = policy,
+            timing = dashboardTimingPolicyProvider.load(),
+            now = now,
+        ).isNotEmpty()
     }
 
     suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger) {
-        if (shouldAutoRefresh(trigger)) refreshAll()
+        val policy = policyProvider.load()
+        if (!automaticTriggerEnabled(policy, trigger)) return
+        val ids = automaticRefreshCandidateIDs(
+            policy = policy,
+            timing = dashboardTimingPolicyProvider.load(),
+            now = Instant.now(clock),
+        )
+        refreshBatch(ids, DashboardRefreshInvocation.AUTOMATIC)
     }
 
+    /** Raw single-account refresh used by non-dashboard business flows and Widget/App services. */
     suspend fun refreshAccount(accountID: UUID) {
         refreshAccountInternal(accountID = accountID, recordRefreshTriggeredAt = true)
     }
 
-    suspend fun refreshAll() {
-        if (!refreshAllLock.tryLock()) return
-        try {
-            val ids = _state.value.accounts.filter { it.isEnabled }.map { it.id }
-            if (ids.isEmpty()) return
+    /** Dashboard logo refresh: only this account's own successful manual timestamp gates the request. */
+    suspend fun refreshAccountManually(accountID: UUID) {
+        val account = _state.value.accounts.firstOrNull { it.id == accountID } ?: return
+        val timing = dashboardTimingPolicyProvider.load()
+        val now = Instant.now(clock)
+        val last = runtimeStore.lastSingleManualSuccessAt(accountID)
+        if (last != null && isWithinCooldown(last, now, timing.singleManualIntervalMinutes)) return
 
-            runtimeStore.recordRefreshTriggeredAt(Instant.now(clock))
+        val before = account.lastUpdatedAt
+        refreshAccountInternal(accountID = accountID, recordRefreshTriggeredAt = false)
+        recordTrackedOutcome(
+            accountID = accountID,
+            previousUpdatedAt = before,
+            invocation = DashboardRefreshInvocation.SINGLE_MANUAL,
+            failureAttemptAt = Instant.now(clock),
+        )
+    }
+
+    /** Raw batch refresh remains available for automation; dashboard manual refresh uses the gated entry below. */
+    suspend fun refreshAll() {
+        val ids = _state.value.accounts.filter { it.isEnabled }.map { it.id }
+        refreshBatch(ids, DashboardRefreshInvocation.RAW)
+    }
+
+    /** Dashboard refresh-all/pull-to-refresh: each enabled account has its own global-manual success clock. */
+    suspend fun refreshAllManually() {
+        val timing = dashboardTimingPolicyProvider.load()
+        val now = Instant.now(clock)
+        val ids = _state.value.accounts
+            .filter { it.isEnabled }
+            .filter { account ->
+                val last = latestQuotaSuccessAt(account)
+                last == null || !isWithinCooldown(last, now, timing.globalManualIntervalMinutes)
+            }
+            .map { it.id }
+        refreshBatch(ids, DashboardRefreshInvocation.GLOBAL_MANUAL)
+    }
+
+    private fun automaticTriggerEnabled(
+        policy: QuotaRefreshPolicy,
+        trigger: QuotaAutomaticRefreshTrigger,
+    ): Boolean {
+        if (!policy.automaticRefreshEnabled) return false
+        return when (trigger) {
+            QuotaAutomaticRefreshTrigger.COLD_LAUNCH -> policy.refreshOnColdLaunch
+            QuotaAutomaticRefreshTrigger.FOREGROUND -> policy.refreshOnForeground
+            QuotaAutomaticRefreshTrigger.POLICY_CHANGE -> policy.refreshOnColdLaunch || policy.refreshOnForeground
+        }
+    }
+
+    private fun automaticRefreshCandidateIDs(
+        policy: QuotaRefreshPolicy,
+        timing: QuotaDashboardTimingPolicy,
+        now: Instant,
+    ): List<UUID> = _state.value.accounts
+        .filter { it.isEnabled }
+        .filter { account ->
+            val lastSuccess = latestQuotaSuccessAt(account)
+            if (lastSuccess != null && isWithinCooldown(lastSuccess, now, policy.minimumIntervalMinutes)) {
+                return@filter false
+            }
+            val lastFailure = runtimeStore.lastAutomaticFailureAttemptAt(account.id)
+            if (lastFailure != null && isWithinCooldown(lastFailure, now, timing.automaticFailureRetryMinutes)) {
+                return@filter false
+            }
+            true
+        }
+        .map { it.id }
+
+    private suspend fun refreshBatch(
+        accountIDs: List<UUID>,
+        invocation: DashboardRefreshInvocation,
+    ) {
+        if (accountIDs.isEmpty() || !refreshAllLock.tryLock()) return
+        try {
+            if (invocation == DashboardRefreshInvocation.RAW) {
+                runtimeStore.recordRefreshTriggeredAt(Instant.now(clock))
+            }
             _state.update { it.copy(isRefreshingAll = true) }
             val gapMilliseconds = policyProvider.load().accountGapSeconds.coerceAtLeast(0) * 1_000L
 
-            for ((index, accountID) in ids.withIndex()) {
+            for ((index, accountID) in accountIDs.withIndex()) {
+                val before = _state.value.accounts.firstOrNull { it.id == accountID }?.lastUpdatedAt
                 refreshAccountInternal(accountID = accountID, recordRefreshTriggeredAt = false)
-                if (index < ids.lastIndex && gapMilliseconds > 0) {
+                recordTrackedOutcome(
+                    accountID = accountID,
+                    previousUpdatedAt = before,
+                    invocation = invocation,
+                    failureAttemptAt = Instant.now(clock),
+                )
+                if (index < accountIDs.lastIndex && gapMilliseconds > 0) {
                     sleeper(gapMilliseconds)
                 }
             }
@@ -155,6 +267,58 @@ class QuotaRefreshCoordinator(
             _state.update { it.copy(isRefreshingAll = false) }
             refreshAllLock.unlock()
         }
+    }
+
+    private fun recordTrackedOutcome(
+        accountID: UUID,
+        previousUpdatedAt: Instant?,
+        invocation: DashboardRefreshInvocation,
+        failureAttemptAt: Instant,
+    ) {
+        if (invocation == DashboardRefreshInvocation.RAW) return
+        val current = _state.value
+        val refreshedAt = current.accounts.firstOrNull { it.id == accountID }?.lastUpdatedAt
+        val succeeded = current.refreshState(accountID) == RefreshState.Succeeded &&
+            refreshedAt != null &&
+            (previousUpdatedAt == null || refreshedAt.isAfter(previousUpdatedAt))
+
+        if (succeeded) {
+            val successAt = requireNotNull(refreshedAt)
+            when (invocation) {
+                DashboardRefreshInvocation.SINGLE_MANUAL -> {
+                    runtimeStore.recordSingleManualSuccess(accountID, successAt)
+                    runtimeStore.recordGlobalManualSuccess(accountID, successAt)
+                    runtimeStore.recordAutomaticSuccess(accountID, successAt)
+                }
+                DashboardRefreshInvocation.GLOBAL_MANUAL,
+                DashboardRefreshInvocation.AUTOMATIC -> {
+                    runtimeStore.recordGlobalManualSuccess(accountID, successAt)
+                    runtimeStore.recordAutomaticSuccess(accountID, successAt)
+                }
+                DashboardRefreshInvocation.RAW -> Unit
+            }
+        } else if (
+            invocation == DashboardRefreshInvocation.AUTOMATIC &&
+            current.refreshState(accountID) is RefreshState.Failed
+        ) {
+            runtimeStore.recordAutomaticFailureAttempt(accountID, failureAttemptAt)
+        }
+    }
+
+    private fun latestQuotaSuccessAt(account: UnicomAccount): Instant? {
+        val successes = listOfNotNull(
+            account.lastUpdatedAt,
+            runtimeStore.lastSingleManualSuccessAt(account.id),
+            runtimeStore.lastGlobalManualSuccessAt(account.id),
+            runtimeStore.lastAutomaticSuccessAt(account.id),
+        )
+        return successes.maxOrNull() ?: runtimeStore.lastRefreshTriggeredAt()
+    }
+
+    private fun isWithinCooldown(last: Instant, now: Instant, minutes: Int): Boolean {
+        val elapsed = Duration.between(last, now)
+        if (elapsed.isNegative) return false
+        return elapsed < Duration.ofMinutes(minutes.coerceAtLeast(1).toLong())
     }
 
     /**

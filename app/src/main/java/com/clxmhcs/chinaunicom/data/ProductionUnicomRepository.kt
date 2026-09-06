@@ -24,8 +24,18 @@ class ProductionUnicomRepository(
         publishCommittedAccounts()
     }
 
+    override suspend fun refreshAllManually() {
+        quotaRepository.refreshAllManually()
+        publishCommittedAccounts()
+    }
+
     override suspend fun refreshAccount(accountID: UUID) {
         quotaRepository.refreshAccount(accountID)
+        publishCommittedAccounts()
+    }
+
+    override suspend fun refreshAccountManually(accountID: UUID) {
+        quotaRepository.refreshAccountManually(accountID)
         publishCommittedAccounts()
     }
 

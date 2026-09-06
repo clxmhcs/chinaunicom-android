@@ -163,7 +163,7 @@ M6-B gates cover restored ordering, 10-minute/clock-rollback eligibility, per-ac
 
 - storage key is `chinaunicom.appRefreshLogic.policy.v1`;
 - current `AppRefreshLogicPolicy.currentSchemaVersion` is `3`;
-- source quota defaults are automatic=true, cold-launch=true, foreground=true, minimum interval 10 minutes, account gap 2 seconds;
+- current iOS source quota defaults are automatic=true, cold-launch=true, foreground=true, minimum interval 60 minutes, account gap 2 seconds; invalid stored minimum intervals normalize to 60 minutes;
 - tolerant decode applies defaults per missing or wrongly typed quota field;
 - missing/malformed whole policy data falls back to source defaults;
 - valid documents older than the current schema are rewritten to the current schema during load;

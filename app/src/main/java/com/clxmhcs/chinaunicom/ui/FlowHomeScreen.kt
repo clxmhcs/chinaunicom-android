@@ -115,7 +115,7 @@ fun FlowHomeScreen(
                         accounts = state.accounts,
                         onBack = { detailAccountID = null },
                         onSelectAccount = { detailAccountID = it.id.toString() },
-                        onRefreshAccount = { flowViewModel.refreshAccount(detailAccount.id) },
+                        onRefreshAccount = { flowViewModel.refreshAccountManually(detailAccount.id) },
                     )
                 }
                 else -> {

@@ -10,6 +10,8 @@ import com.clxmhcs.chinaunicom.data.balance.DefaultBalanceRepository
 import com.clxmhcs.chinaunicom.data.balance.LoginBalanceRefreshClient
 import com.clxmhcs.chinaunicom.data.refresh.DefaultQuotaRepository
 import com.clxmhcs.chinaunicom.data.refresh.LoginQuotaRefreshClient
+import com.clxmhcs.chinaunicom.data.refresh.QuotaDashboardTimingPolicy
+import com.clxmhcs.chinaunicom.data.refresh.QuotaDashboardTimingPolicyProvider
 import com.clxmhcs.chinaunicom.data.refresh.QuotaRefreshCoordinator
 import com.clxmhcs.chinaunicom.data.refresh.QuotaRefreshPolicyProvider
 import com.clxmhcs.chinaunicom.data.settings.AndroidSettingsRepositories
@@ -50,6 +52,14 @@ object UnicomRepositoryProvider {
             runtimeStore = AndroidQuotaRefreshRuntimeStore(appContext),
             policyProvider = QuotaRefreshPolicyProvider {
                 settingsRepository.loadQuotaRefreshPolicy()
+            },
+            dashboardTimingPolicyProvider = QuotaDashboardTimingPolicyProvider {
+                val timing = AndroidDashboardRefreshSettings(appContext).load()
+                QuotaDashboardTimingPolicy(
+                    singleManualIntervalMinutes = timing.singleManualIntervalMinutes,
+                    globalManualIntervalMinutes = timing.globalManualIntervalMinutes,
+                    automaticFailureRetryMinutes = timing.automaticFailureRetryMinutes,
+                )
             },
         )
         val quotaRepository = DefaultQuotaRepository(refreshCoordinator)

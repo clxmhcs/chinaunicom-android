@@ -79,7 +79,7 @@ class FlowViewModel(
 
     fun refresh() {
         viewModelScope.launch {
-            runCatching { repository.refreshAll() }
+            runCatching { repository.refreshAllManually() }
                 .onFailure { throwable ->
                     if (repository.appState.value.accounts.isEmpty()) {
                         _uiState.value = FlowUiState.Error(throwable.message ?: "刷新失败")
@@ -90,6 +90,10 @@ class FlowViewModel(
 
     fun refreshAccount(accountID: UUID) {
         viewModelScope.launch { repository.refreshAccount(accountID) }
+    }
+
+    fun refreshAccountManually(accountID: UUID) {
+        viewModelScope.launch { repository.refreshAccountManually(accountID) }
     }
 
     fun refreshHomeBalanceManually() {

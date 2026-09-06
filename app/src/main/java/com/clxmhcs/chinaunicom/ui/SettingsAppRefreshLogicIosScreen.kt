@@ -297,7 +297,8 @@ fun AppRefreshLogicSettingsScreen(
                 TextButton(onClick = {
                     showRestoreConfirmation = false
                     val defaults = AppRefreshDraft.defaults()
-                    if (saveCurrent(defaults)) {
+                    val timingRestored = com.clxmhcs.chinaunicom.data.AndroidDashboardRefreshSettings(context).restoreDefaults()
+                    if (timingRestored && saveCurrent(defaults)) {
                         draft = defaults
                         saved = defaults
                     }
@@ -642,7 +643,7 @@ private fun DraftChoiceRow(label: String, value: String, onClick: () -> Unit) {
 @Composable private fun CardDivider() = Divider(modifier = Modifier.padding(horizontal = 18.dp), color = RefreshSeparator, thickness = .7.dp)
 
 @Composable
-private fun QuotaRefreshDraftEditor(policy: QuotaRefreshPolicy, onChange: (QuotaRefreshPolicy) -> Unit, onBack: () -> Unit, onSave: () -> Unit, hasUnsavedChanges: Boolean) =
+private fun LegacyQuotaRefreshDraftEditor(policy: QuotaRefreshPolicy, onChange: (QuotaRefreshPolicy) -> Unit, onBack: () -> Unit, onSave: () -> Unit, hasUnsavedChanges: Boolean) =
     RefreshDetailScaffold("首页余量", onBack, onSave, hasUnsavedChanges) {
         DraftCard {
             DraftSwitchRow("启用自动刷新", policy.automaticRefreshEnabled) { onChange(policy.copy(automaticRefreshEnabled = it)) }; CardDivider()
