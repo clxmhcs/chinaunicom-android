@@ -266,7 +266,6 @@ class FlowViewModel(
         } else {
             SMSLoginSessionProvider.create(getApplication())
         }
-        val preferredAppID = reusableAppID(normalizedMobile)
         smsLoginSession = session
         smsLoginMobile = normalizedMobile
         _accountOnboardingState.update {
@@ -280,6 +279,7 @@ class FlowViewModel(
         }
 
         viewModelScope.launch(Dispatchers.IO) {
+            val preferredAppID = reusableAppID(normalizedMobile)
             val result = try {
                 session.login(
                     mobile = normalizedMobile,
@@ -558,7 +558,7 @@ class FlowViewModel(
 
     private fun isDebuggableBuild(): Boolean {
         val flags = getApplication<Application>().applicationInfo.flags
-        return flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        return (flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
 
     private fun sanitizeDiagnosticText(value: String): String = value
