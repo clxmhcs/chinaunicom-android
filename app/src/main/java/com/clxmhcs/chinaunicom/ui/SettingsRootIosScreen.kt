@@ -121,6 +121,7 @@ fun SettingsRootIosScreen(
     val settings by settingsViewModel.appSettings.collectAsState()
     val appState by settingsViewModel.appState.collectAsState()
     val balanceState by settingsViewModel.balanceState.collectAsState()
+    val balanceRefreshPolicy by settingsViewModel.balanceRefreshPolicy.collectAsState()
     val accounts = appState.accounts.sortedBy { it.sortOrder }
 
     var maintenanceGeneration by remember { mutableStateOf(0) }
@@ -172,10 +173,13 @@ fun SettingsRootIosScreen(
             return
         }
         SettingsIosPage.BALANCE_GROUPING -> {
-            IosBalanceGroupingScreen(
+            IosBalanceGroupingRefinedScreen(
                 accounts = accounts,
                 groups = balanceState.balanceAccountGroups,
                 settings = settings,
+                locationFor = m11cViewModel::cachedLocation,
+                isUnicomFor = { number -> m11cViewModel.resolvedCarrierTitle(number) == "联通" },
+                balanceRefreshIntervalMinutes = balanceRefreshPolicy.intervalMinutes,
                 onAddGroup = settingsViewModel::addBalanceGroup,
                 onDeleteGroup = settingsViewModel::deleteBalanceGroup,
                 onToggleMember = settingsViewModel::toggleBalanceGroupMember,
