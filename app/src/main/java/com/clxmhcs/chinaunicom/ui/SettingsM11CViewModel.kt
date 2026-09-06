@@ -55,6 +55,11 @@ class SettingsM11CViewModel(application: Application) : AndroidViewModel(applica
 
     fun correction(number: String): PhoneCarrierCorrection = attributionRepository.correction(number)
 
+    fun setCorrection(number: String, correction: PhoneCarrierCorrection) {
+        val saved = attributionRepository.setCorrection(number, correction)
+        _operationMessage.value = if (saved) "号码归属修正已保存" else "号码归属修正保存失败"
+    }
+
     fun cycleCorrection(number: String) {
         val current = attributionRepository.correction(number)
         val values = PhoneCarrierCorrection.entries
