@@ -145,6 +145,7 @@ fun SettingsRootIosScreen(
             IosAccountOrderRefinedScreen(
                 accounts = accounts,
                 settings = settings,
+                locationFor = m11cViewModel::cachedLocation,
                 onMove = settingsViewModel::moveAccount,
                 onBack = closePage,
             )
