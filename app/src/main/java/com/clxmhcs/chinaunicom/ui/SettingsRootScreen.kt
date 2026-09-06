@@ -371,7 +371,7 @@ private fun FinancialRefreshEditor(accounts: List<UnicomAccount>, groups: List<B
 }
 
 @Composable
-fun AppRefreshLogicSettingsScreen(settingsViewModel: SettingsRootViewModel, onBack: () -> Unit) {
+fun LegacyAppRefreshLogicSettingsScreen(settingsViewModel: SettingsRootViewModel, onBack: () -> Unit) {
     val quota by settingsViewModel.quotaRefreshPolicy.collectAsState()
     val balance by settingsViewModel.balanceRefreshPolicy.collectAsState()
     val ordered by settingsViewModel.orderedBusinessRefreshPolicy.collectAsState()
