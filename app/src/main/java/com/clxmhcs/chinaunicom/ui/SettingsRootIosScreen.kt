@@ -142,9 +142,10 @@ fun SettingsRootIosScreen(
     val closePage = { page = null }
     when (page) {
         SettingsIosPage.ACCOUNT_ORDER -> {
-            IosAccountOrderScreen(
+            IosAccountOrderRefinedScreen(
                 accounts = accounts,
                 settings = settings,
+                locationFor = m11cViewModel::cachedLocation,
                 onMove = settingsViewModel::moveAccount,
                 onBack = closePage,
             )
