@@ -498,48 +498,118 @@ private fun CredentialActionIcon(glyph: CredentialActionGlyph) {
                 )
             }
             CredentialActionGlyph.LOGIN -> {
-                drawCircle(CredentialBlue, radius = w * .14f, center = Offset(w * .38f, h * .33f))
-                drawArc(
+                // Match iOS SF Symbol `person.badge.key.fill`: filled person silhouette
+                // with a separated key badge on the lower-right.
+                drawCircle(
                     color = CredentialBlue,
-                    startAngle = 198f,
-                    sweepAngle = 144f,
-                    useCenter = false,
-                    topLeft = Offset(w * .17f, h * .38f),
-                    size = Size(w * .42f, h * .34f),
-                    style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round),
+                    radius = w * .125f,
+                    center = Offset(w * .38f, h * .29f),
                 )
-                drawCircle(CredentialBlue, radius = w * .08f, center = Offset(w * .68f, h * .47f), style = stroke)
-                drawLine(CredentialBlue, Offset(w * .68f, h * .55f), Offset(w * .68f, h * .76f), strokeWidth, StrokeCap.Round)
-                drawLine(CredentialBlue, Offset(w * .68f, h * .68f), Offset(w * .76f, h * .68f), strokeWidth, StrokeCap.Round)
+                val personBody = Path().apply {
+                    moveTo(w * .16f, h * .69f)
+                    cubicTo(w * .17f, h * .51f, w * .27f, h * .43f, w * .38f, h * .43f)
+                    cubicTo(w * .49f, h * .43f, w * .58f, h * .51f, w * .60f, h * .69f)
+                    cubicTo(w * .54f, h * .74f, w * .22f, h * .74f, w * .16f, h * .69f)
+                    close()
+                }
+                drawPath(personBody, CredentialBlue)
+
+                val badgeCenter = Offset(w * .70f, h * .52f)
+                drawCircle(
+                    color = Color.White,
+                    radius = w * .145f,
+                    center = badgeCenter,
+                )
+                drawCircle(
+                    color = CredentialBlue,
+                    radius = w * .085f,
+                    center = badgeCenter,
+                )
+                drawCircle(
+                    color = Color.White,
+                    radius = w * .025f,
+                    center = badgeCenter,
+                )
+                drawLine(
+                    color = CredentialBlue,
+                    start = Offset(w * .70f, h * .60f),
+                    end = Offset(w * .70f, h * .78f),
+                    strokeWidth = 2.6.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color = CredentialBlue,
+                    start = Offset(w * .70f, h * .70f),
+                    end = Offset(w * .78f, h * .70f),
+                    strokeWidth = 2.6.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
             }
             CredentialActionGlyph.KEY -> {
-                drawCircle(CredentialBlue, radius = w * .12f, center = Offset(w * .42f, h * .30f), style = Stroke(width = 4.dp.toPx()))
-                drawLine(CredentialBlue, Offset(w * .42f, h * .42f), Offset(w * .42f, h * .78f), 5.dp.toPx(), StrokeCap.Round)
-                drawLine(CredentialBlue, Offset(w * .42f, h * .61f), Offset(w * .56f, h * .70f), 5.dp.toPx(), StrokeCap.Round)
-                drawLine(CredentialBlue, Offset(w * .42f, h * .72f), Offset(w * .53f, h * .81f), 5.dp.toPx(), StrokeCap.Round)
+                // Match iOS SF Symbol `key.fill`: solid round bow, white bore,
+                // vertical shaft and two compact teeth.
+                drawCircle(
+                    color = CredentialBlue,
+                    radius = w * .17f,
+                    center = Offset(w * .42f, h * .28f),
+                )
+                drawCircle(
+                    color = Color.White,
+                    radius = w * .050f,
+                    center = Offset(w * .42f, h * .28f),
+                )
+                drawLine(
+                    color = CredentialBlue,
+                    start = Offset(w * .42f, h * .42f),
+                    end = Offset(w * .42f, h * .78f),
+                    strokeWidth = 5.0.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color = CredentialBlue,
+                    start = Offset(w * .42f, h * .59f),
+                    end = Offset(w * .55f, h * .67f),
+                    strokeWidth = 5.0.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color = CredentialBlue,
+                    start = Offset(w * .42f, h * .72f),
+                    end = Offset(w * .52f, h * .79f),
+                    strokeWidth = 5.0.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
             }
             CredentialActionGlyph.TRANSFER -> {
+                // Match iOS SF Symbol `square.and.arrow.up.on.square`.
+                val symbolStroke = Stroke(width = 2.15.dp.toPx(), cap = StrokeCap.Round)
                 drawRoundRect(
                     color = CredentialBlue,
-                    topLeft = Offset(w * .18f, h * .37f),
-                    size = Size(w * .56f, h * .45f),
-                    cornerRadius = CornerRadius(3.dp.toPx()),
-                    style = stroke,
+                    topLeft = Offset(w * .33f, h * .40f),
+                    size = Size(w * .49f, h * .48f),
+                    cornerRadius = CornerRadius(3.5.dp.toPx()),
+                    style = symbolStroke,
                 )
                 drawRoundRect(
                     color = CredentialBlue,
-                    topLeft = Offset(w * .30f, h * .47f),
-                    size = Size(w * .52f, h * .40f),
-                    cornerRadius = CornerRadius(3.dp.toPx()),
-                    style = stroke,
+                    topLeft = Offset(w * .18f, h * .30f),
+                    size = Size(w * .50f, h * .48f),
+                    cornerRadius = CornerRadius(3.5.dp.toPx()),
+                    style = symbolStroke,
                 )
-                drawLine(CredentialBlue, Offset(w * .50f, h * .12f), Offset(w * .50f, h * .57f), strokeWidth, StrokeCap.Round)
+                drawLine(
+                    color = CredentialBlue,
+                    start = Offset(w * .43f, h * .58f),
+                    end = Offset(w * .43f, h * .11f),
+                    strokeWidth = 2.15.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
                 val arrow = Path().apply {
-                    moveTo(w * .36f, h * .27f)
-                    lineTo(w * .50f, h * .12f)
-                    lineTo(w * .64f, h * .27f)
+                    moveTo(w * .30f, h * .25f)
+                    lineTo(w * .43f, h * .11f)
+                    lineTo(w * .56f, h * .25f)
                 }
-                drawPath(arrow, CredentialBlue, style = stroke)
+                drawPath(arrow, CredentialBlue, style = symbolStroke)
             }
         }
     }
