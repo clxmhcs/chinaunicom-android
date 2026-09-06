@@ -1,0 +1,36 @@
+name: Temporary UI-27 patch
+
+on:
+  push:
+    branches:
+      - ui-27-app-refresh-ios-refinement
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui-27-app-refresh-ios-refinement
+          fetch-depth: 0
+      - name: Rename legacy refresh screen
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootScreen.kt')
+          s = p.read_text()
+          old = 'fun AppRefreshLogicSettingsScreen(settingsViewModel: SettingsRootViewModel, onBack: () -> Unit) {'
+          new = 'fun LegacyAppRefreshLogicSettingsScreen(settingsViewModel: SettingsRootViewModel, onBack: () -> Unit) {'
+          if s.count(old) != 1:
+              raise SystemExit(f'expected one legacy screen declaration, found {s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/java/com/clxmhcs/chinaunicom/ui/SettingsRootScreen.kt
+          git commit -m 'UI-27 route App refresh logic to refined screen'
+          git push origin HEAD:ui-27-app-refresh-ios-refinement
