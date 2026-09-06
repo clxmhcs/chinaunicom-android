@@ -52,7 +52,9 @@ internal class FakeUnicomRepository : UnicomRepository {
     override val balanceState: StateFlow<BalanceRepositoryState> = balanceStateFlow.asStateFlow()
 
     override suspend fun refreshAll() = Unit
+    override suspend fun refreshAllManually() = Unit
     override suspend fun refreshAccount(accountID: UUID) = Unit
+    override suspend fun refreshAccountManually(accountID: UUID) = Unit
     override suspend fun refreshWidgetAccount(accountID: UUID, includeBalance: Boolean) = Unit
     override suspend fun refreshAutomation(includeBalance: Boolean) = Unit
     override suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger) = Unit

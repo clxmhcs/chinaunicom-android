@@ -16,7 +16,9 @@ interface QuotaRepository {
 
     suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger)
     suspend fun refreshAccount(accountID: UUID)
+    suspend fun refreshAccountManually(accountID: UUID)
     suspend fun refreshAll()
+    suspend fun refreshAllManually()
 }
 
 class DefaultQuotaRepository(
@@ -29,5 +31,9 @@ class DefaultQuotaRepository(
 
     override suspend fun refreshAccount(accountID: UUID) = coordinator.refreshAccount(accountID)
 
+    override suspend fun refreshAccountManually(accountID: UUID) = coordinator.refreshAccountManually(accountID)
+
     override suspend fun refreshAll() = coordinator.refreshAll()
+
+    override suspend fun refreshAllManually() = coordinator.refreshAllManually()
 }

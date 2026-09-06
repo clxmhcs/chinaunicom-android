@@ -12,7 +12,9 @@ interface UnicomRepository {
     val balanceState: StateFlow<BalanceRepositoryState>
 
     suspend fun refreshAll()
+    suspend fun refreshAllManually()
     suspend fun refreshAccount(accountID: UUID)
+    suspend fun refreshAccountManually(accountID: UUID)
     suspend fun autoRefreshIfNeeded(trigger: QuotaAutomaticRefreshTrigger)
 
     /**
